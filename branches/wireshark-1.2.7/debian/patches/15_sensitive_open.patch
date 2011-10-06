@@ -1,0 +1,24 @@
+Description: Don't make the open button unsensitive with the new
+ GtkFileChooser dialog since filename can also be changed from the location
+ bar fixes.
+Forwarded: not-needed
+Bug-Debian: http://bugs.debian.org/439198
+Author: Frederic Peters <fpeters@debian.org>
+
+Index: b/gtk/capture_file_dlg.c
+===================================================================
+--- a/gtk/capture_file_dlg.c	2010-02-15 17:23:17.000000000 +0100
++++ b/gtk/capture_file_dlg.c	2010-02-15 17:24:59.000000000 +0100
+@@ -338,8 +338,12 @@
+     gtk_widget_set_sensitive(prev, have_preview);
+ 
+     /* make the open/save/... dialog button sensitive */
++    /* don't make the open button unsensitive with the new GtkFileChooser
++     * dialog since filename can also be changed from the location bar */
++    /*
+ 
+     gtk_dialog_set_response_sensitive(file_sel, GTK_RESPONSE_ACCEPT, have_preview);
++    */
+ 
+     /* do the actual preview */
+     if(have_preview)

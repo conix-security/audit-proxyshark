@@ -1,0 +1,17 @@
+Description: Change location of license file in about dialog
+Forwarded: not-needed
+Author: Frederic Peters <fpeters@debian.org>
+
+Index: b/gtk/about_dlg.c
+===================================================================
+--- a/gtk/about_dlg.c	2010-02-15 17:23:17.000000000 +0100
++++ b/gtk/about_dlg.c	2010-02-15 17:24:59.000000000 +0100
+@@ -476,7 +476,7 @@
+   GtkWidget   *page;
+   char *absolute_path;
+ 
+-  absolute_path = get_datafile_path("COPYING");
++  absolute_path = get_datafile_path("ABOUT.GPL");
+   page = text_page_new(absolute_path);
+ 
+   return page;

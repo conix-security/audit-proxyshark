@@ -1,0 +1,1 @@
+/etc/wireshark/init.lua

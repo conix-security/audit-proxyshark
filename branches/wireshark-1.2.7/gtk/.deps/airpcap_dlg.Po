@@ -1,0 +1,3 @@
+airpcap_dlg.o: airpcap_dlg.c ../config.h
+
+../config.h:

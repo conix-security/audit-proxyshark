@@ -1,0 +1,3 @@
+mpeg-audio.lo: mpeg-audio.c mpeg-audio.h
+
+mpeg-audio.h:

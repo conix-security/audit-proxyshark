@@ -1,0 +1,20 @@
+#!/bin/sh -e
+
+GROUP=wireshark
+
+if [ "$1" = "purge" ] ; then
+      if getent group $GROUP >/dev/null; then
+                if [ -x /usr/sbin/delgroup ]; then
+                        echo "Removing wireshark group..."
+                        delgroup --system $GROUP || echo "Could not remove wireshark group."
+                fi
+        fi
+fi
+
+# Automatically added by dh_installdebconf
+if [ "$1" = purge ] && [ -e /usr/share/debconf/confmodule ]; then
+	. /usr/share/debconf/confmodule
+	db_purge
+fi
+# End automatically added section
+

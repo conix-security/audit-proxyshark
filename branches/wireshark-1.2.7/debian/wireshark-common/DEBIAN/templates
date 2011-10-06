@@ -1,0 +1,61 @@
+
+Template: wireshark-common/install-setuid
+Type: boolean
+Default: false
+Description: Should dumpcap be installed "setuid root"?
+ Dumpcap can be installed with the set-user-id bit set, so members of
+ the "wireshark" system group will have the privileges required to use it.
+ This way of capturing packets using Wireshark/Tshark is recommended
+ over the alternative of running them directly as superuser, because
+ less of the code will run with elevated privileges.
+ .
+ Enabling this feature may be a security risk, so it is disabled by
+ default. If in doubt, it is suggested to leave it disabled.
+Description-cs.UTF-8: M?? se dumpcap nainstalovat s ???setuid root????
+ Dumpcap je mo??no nainstalovat s nastaven??m bitu set-user-id, tak??e ho budou moci pou????vat u??ivatel?? skupiny ???wireshark???. Tento zp??sob z??sk??v??n?? paket?? pomoc?? Wireshark/Tshark je doporu??ovan?? oproti mo??nosti spu??t??n?? programu s pr??vy u??ivatele root, proto??e bude s t??mito pr??vy superu??ivatele spu??t??na pouze men???? ????st programu.
+ .
+ Povolen?? t??to mo??nosti m????e b??t sou??asn?? bezpe??nostn?? rizikem, tak??e je ve v??choz??m nastaven?? zak??z??no. Jste-li na pochyb??ch, doporu??uje se nechat ho vypnut??.
+Description-de.UTF-8: Soll Dumpcap setuid-root installiert werden?
+ Dumpcap kann mit gesetztem Set-user-id-Bit installiert werden, so dass Mitglieder der System-Gruppe Â»wiresharkÂ« Ã¼ber die Privilegien verfÃ¼gen, es zu benutzen. Diese Methode der Erfassung von Paketen mittels Wireshark/Tshark wird gegenÃ¼ber der direkten AusfÃ¼hrung der Programme mit Superuser-Rechten empfohlen, da auf diese Weise weniger Code mit gesteigerten Privilegien lÃ¤uft.
+ .
+ Die Aktivierung dieser FunktionalitÃ¤t kann ein Sicherheitsrisiko darstellen, daher ist sie standardmÃ¤Ãig deaktiviert. Im Zweifelsfall wird empfohlen, sie deaktiviert zu lassen.
+Description-es.UTF-8: ¿Se debe instalar dumpcap con el bit «setuid root» activo?
+ Dumpcap se puede instalar con el bit del identificador de usuario («setuid») activo, de modo que los miembros del grupo «wireshark» tengan los privilegios necesarios para utilizarlo. Esta es la forma recomendada de capturar paquetes utilizando Wireshark/Tshark en lugar de ejecutarlos como administrador, ya que se ejecutará menos código con privilegios elevados.
+ .
+ Activar esta funcionalidad puede ser un riesgo de seguridad, por lo que, de forma predeterminada, está desactivada. Se recomienda dejarla desactivada.
+Description-eu.UTF-8: Dumpcap "setuid root" gisa instalatu?
+ Dumpcap set-user-bit ezarria duela instalatu daiteke, horrela "wireshark" taldeko partaideek erabiltzeko baimena izan dezaten. Wireshark/Tshark erabiliaz paketeak kapturatzeko modu hau gomendaturik dago supererabiltzaile moduan erabiltzailearen parean, pribilegio handiekin kode gutxiago exekutatzen da eta.
+ .
+ Ezaugarri hau gaitzea segurtasun arrisku bat izan daiteke, hau dela eta ezgaiturik dago lehenespenez. Zalantza kasuan desgaiturik uztea gomendantzen da.
+Description-fi.UTF-8: Tulisiko dumpcap asentaa asetuksella ”setuid root”?
+ Dumpcap voidaan asentaa ajettavaksi pääkäyttäjäoikeuksilla siten, että ryhmän "wireshark" jäsenillä on tarvittavat oikeudet sen käyttämiseen. On suositeltavaa käyttää tätä tapaa pakettien kaappaamiseen Wiresharkilla tai Tsharkilla, sen sijaan että niitä ajettaisiin suoraan pääkäyttäjänä, koska pienempi osa koodista ajetaan tällöin pääkäyttäjäoikeuksilla.
+ .
+ Tämän ominaisuuden käyttöönotto saattaa olla tietoturvariski ja tästä syystä se on oletuksena poissa käytöstä. Jos olet epävarma, on suositeltavaa jättää se pois käytöstä.
+Description-fr.UTF-8: Installer dumpcap avec le bit « setuid root » ?
+ En installant Dumpcap avec le bit « setuid root », les membres du groupe « wireshark » disposent des droits suffisants pour l'utiliser. Cette méthode de capture est préférable à l'exécution de Wireshark ou Tshark avec les droits du superutilisateur, car elle permet d'exécuter moins de code avec des droits importants.
+ .
+ Cette fonctionnalité constitue un risque pour la sécurité, c'est pourquoi elle est désactivée par défaut. En cas de doute, il est suggéré de la laisser désactivée.
+Description-it.UTF-8: Installare dumpcap con "setuid root"?
+ Dumpcap può essere installato con il bit set-user-id attivo, quindi i membri del gruppo di sistema "wireshark" avranno i privilegi necessari per poterlo usare. Questa modalità di cattura dei pacchetti tramite Wireshark/Tshark è raccomandata rispetto all'esecuzione diretta da superutente perché in questa modalità viene eseguito con privilegi elevati meno codice.
+ .
+ L'abilitazione di questa funzionalità potrebbe essere rischiosa per la sicurezza, quindi normalmente è disabilitata. Nel dubbio, si suggerisce di lasciarla disabilitata.
+Description-ja.UTF-8: dumpcap を「setuid root」してインストールしますか?
+ dumpcap は set-user-id ビットを設定した上でインストール可能なので「wireshark」システムグループのメンバーは利用するのに必要な権限を得られます。この Wireshark/Tshark を使ったパケットキャプチャの方が、直接スーパーユーザとして動作させるもう一つの方法と比較して、高くなった権限上で動作するコードが少なくなるのでお勧めです。
+ .
+ この機能を有効にするとセキュリティ上のリスクになる可能性があるので、デフォルトでは無効にされています。分からない場合は無効のままにしておくことをお勧めします。
+Description-pt.UTF-8: O dumpcap deve ser instalado com "setuid root"?
+ O dumpcap pode ser instalado com o bit set-user-id activado, para que os membros do grupo de sistema "wireshark" tenham os privil??gios necess??rios para o usar. Este modo de usar o Wireshark/Tshark para capturar pacotes ?? o recomendado em vez da alternativa de o correr como superutilizador, porque menos quantidade de c??digo correr?? com privil??gios elevados.
+ .
+ Activar esta caracter??stica pode ser um risco de seguran??a, por isso vem desactivada por predefini????o. Em caso de d??vida, sugere-se deix??-la desactivada.
+Description-ru.UTF-8: Установить dumpcap с битом setuid и владельцем root?
+ Dumpcap можно установить с включённым битом set-user-id, что позволит членам группы wireshark запускать программу с правами пользователя root. Это более предпочтительный рекомендуемый способ захвата пакетов с помощью Wireshark/Tshark, чем запуск самого Wireshark/Tshark с правами root, так как позволяет выполнять почти весь код с меньшими правами.
+ .
+ Использование данной возможности влияет на безопасность, поэтому по умолчанию не используется. Если сомневаетесь, то оставьте выключенной.
+Description-sv.UTF-8: Ska dumpcap installeras med "setuid root"?
+ Dumpcap kan installeras med set-user-id-biten satt, så att medlemmar i systemgruppen "wireshark" har rättigheterna som krävs för att köra dumpcap. Detta sätt att fånga paket med hjälp av Wireshark/Tshark rekommenderas framför alternativet att köra dem direkt som superanvändare, eftersom en mindre del av koden kommer köras med förhöjda rättigheter.
+ .
+ Att aktivera denna funktion kan vara en säkerhetsriskk, så den är avaktiverad som standard. Vid tvivel rekommenderas att den lämnas avaktiverad.
+Description-vi.UTF-8: Có nên cài đặt dumpcap một cách « setuid root » không?
+ Dumpcap có thể được cài đặt với bit set-user-id (đặt mã số người dùng, UID) được đặt, để cấp cho các thành viên của nhóm hệ thống « wireshark » quyền sử dụng nó. Phương pháp này bắt gói tin dùng Wireshark/Tshark được khuyên khích so với chạy chúng một cách trực tiếp như siêu người dùng, vì ít mã hơn sẽ chạy với truy cập đặc biệt.
+ .
+ Bật tính năng này có thể rủi ro bảo mật thì nó bị tắt theo mặc định. Chưa chắc nên để lại bị tắt.

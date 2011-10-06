@@ -1,0 +1,5 @@
+libwireshark_la-timestamp.lo: timestamp.c ../config.h timestamp.h
+
+../config.h:
+
+timestamp.h:

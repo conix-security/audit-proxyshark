@@ -1,0 +1,23 @@
+Description: Fix crash when opening About box with disabled OID resolution.
+ Thanks to Hilko Bengen for the detailed bug report at
+ http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=574086
+
+Forwarded: http://anonsvn.wireshark.org/viewvc?view=rev&revision=32217
+Author: Balint Reczey <balint@balintreczey.hu>
+
+Index: b/epan/oids.c
+===================================================================
+--- a/epan/oids.c	(revision 32216)
++++ b/epan/oids.c	(working copy)
+@@ -1123,6 +1123,11 @@
+ 	guint i;
+ 
+ 	path_str = g_string_new("");
++	
++	if (!prefs.load_smi_modules) {
++		D(1,("OID resolution not enabled"));
++		return path_str->str;
++	}
+ #ifdef _WIN32
+ #define PATH_SEPARATOR ";"
+ 	path = get_datafile_path("snmp\\mibs");

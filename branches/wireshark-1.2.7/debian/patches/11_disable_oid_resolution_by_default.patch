@@ -1,0 +1,355 @@
+Description: Disable OID resolution and loading SMI modules by default.
+ Add an option to enable OID resolution.
+ Add an option to suppress errors reported by libsmi.
+
+Forwarded: http://anonsvn.wireshark.org/viewvc?view=rev&revision=32096
+Author: Balint Reczey <balint@balintreczey.hu>
+
+Index: b/gtk/prefs_nameres.c
+===================================================================
+--- a/gtk/prefs_nameres.c	2010-01-27 17:10:52.000000000 +0100
++++ b/gtk/prefs_nameres.c	2010-03-03 22:57:19.000000000 +0100
+@@ -31,6 +31,7 @@
+ #include <epan/addr_resolv.h>
+ #include <epan/prefs.h>
+ #include <epan/uat.h>
++#include <epan/oids.h>
+ 
+ #include "../globals.h"
+ 
+@@ -69,6 +70,8 @@
+ #endif
+ 
+ #ifdef HAVE_LIBSMI
++# define SUPPRESS_SMI_ERRORS_KEY	"suppress_smi_errors"
++# define LOAD_SMI_MODULES_KEY	"load_smi_modules"
+ # define SMI_TABLE_ROWS 2
+ #else
+ # define SMI_TABLE_ROWS 0
+@@ -102,6 +102,7 @@
+ 	GtkWidget	*sm_resolv_bt;
+ #ifdef HAVE_LIBSMI
+ 	GtkWidget	*sp_resolv_bt;
++	GtkWidget       *load_smi_modules_cb, *suppress_smi_errors_cb;
+ 	uat_t *smi_paths_uat;
+ 	uat_t *smi_modules_uat;
+ #endif
+@@ -174,6 +177,20 @@
+ 	    "Support for this feature was not compiled into this version of Wireshark");
+ #endif /* HAVE_C_ARES || HAVE_GNU_ADNS */
+ #ifdef HAVE_LIBSMI
++	/* Suppress smi errors */
++	table_row++;
++	load_smi_modules_cb = create_preference_check_button(main_tb, table_row,
++		"Enable OID resolution:", "You must restart Wireshark for this change to"
++		" take effect.", prefs.load_smi_modules);
++	g_object_set_data(G_OBJECT(main_vb), LOAD_SMI_MODULES_KEY, load_smi_modules_cb);
++
++	/* Suppress smi errors */
++	table_row++;
++	suppress_smi_errors_cb = create_preference_check_button(main_tb, table_row,
++	    "Suppress SMI errors:", "Some errors can be ignored. If unsure, set to false.",
++	    prefs.suppress_smi_errors);
++	g_object_set_data(G_OBJECT(main_vb), SUPPRESS_SMI_ERRORS_KEY, suppress_smi_errors_cb);
++
+ 	/* SMI paths UAT */
+ 	smi_paths_uat = uat_get_table_by_name("SMI Paths");
+ 	if (smi_paths_uat) {
+@@ -202,6 +219,14 @@
+ 	sm_resolv_bt = create_preference_static_text(main_tb, table_row,
+ 	    "SMI (MIB and PIB) modules and paths: N/A",
+ 	    "Support for this feature was not compiled into this version of Wireshark");
++	table_row++;
++	create_preference_static_text(main_tb, table_row,
++	    "Enable OID resolution: N/A",
++	    "Support for this feature was not compiled into this version of Wireshark");
++	table_row++;
++	create_preference_static_text(main_tb, table_row,
++	    "Suppress SMI errors: N/A",
++	    "Support for this feature was not compiled into this version of Wireshark");
+ #endif /* HAVE_LIBSMI */
+ 
+ #ifdef HAVE_GEOIP
+@@ -242,6 +267,8 @@
+ #endif /* HAVE_C_ARES || HAVE_GNU_ADNS */
+ #ifdef HAVE_LIBSMI
+ 	GtkWidget *sp_resolv_bt, *sm_resolv_bt;
++	GtkWidget	*load_smi_modules_cb, *suppress_smi_errors_cb;
++	gboolean	load_smi_modules_orig;
+ #endif
+ #ifdef HAVE_GEOIP
+ 	GtkWidget *geoip_resolv_bt;
+@@ -273,6 +300,22 @@
+ 	prefs.name_resolve_concurrency = strtol (gtk_entry_get_text(
+ 		GTK_ENTRY(resolv_concurrency_te)), NULL, 10);
+ #endif /* HAVE_C_ARES || HAVE_GNU_ADNS */
++#ifdef HAVE_LIBSMI
++	load_smi_modules_orig = prefs.load_smi_modules;
++	load_smi_modules_cb = (GtkWidget *)g_object_get_data(G_OBJECT(w), LOAD_SMI_MODULES_KEY);
++	prefs.load_smi_modules = GTK_TOGGLE_BUTTON (load_smi_modules_cb)->active;
++	suppress_smi_errors_cb = (GtkWidget *)g_object_get_data(G_OBJECT(w), SUPPRESS_SMI_ERRORS_KEY);
++	prefs.suppress_smi_errors = GTK_TOGGLE_BUTTON (suppress_smi_errors_cb)->active;
++
++	/* Perform actions needed when enabling/disabling OID resolution */
++	if (load_smi_modules_orig && !prefs.load_smi_modules) {
++		prefs.load_smi_modules = TRUE; /* hack to make oids_cleanup() actually do something */
++		oids_cleanup();
++		prefs.load_smi_modules = FALSE; /* end hack */
++	} else if (!load_smi_modules_orig && prefs.load_smi_modules) {
++		oids_init();
++	}
++#endif
+ }
+ 
+ void
+Index: b/epan/oids.c
+===================================================================
+--- a/epan/oids.c	2010-03-03 22:57:19.000000000 +0100
++++ b/epan/oids.c	2010-03-03 22:57:19.000000000 +0100
+@@ -44,6 +44,8 @@
+ 
+ #ifdef HAVE_LIBSMI
+ #include <smi.h>
++
++static gboolean oids_init_done = FALSE;
+ #endif
+ 
+ #define D(level,args) do if (debuglevel >= level) { printf args; printf("\n"); fflush(stdout); } while(0)
+@@ -486,7 +488,14 @@
+ 						   || (ft == FT_INT8) || (ft == FT_INT16) || (ft == FT_INT24) || (ft == FT_INT32) \
+ 						   || (ft == FT_UINT64) || (ft == FT_INT64) )
+ 
+-void register_mibs(void) {
++static void unregister_mibs(void) {
++	/* TODO: Unregister "MIBs" proto and clean up field array and subtree array.
++	 * Wireshark does not support that yet. :-( */
++
++	/* smiExit(); */
++}
++
++static void register_mibs() {
+ 	SmiModule *smiModule;
+ 	SmiNode *smiNode;
+ 	guint i;
+@@ -531,8 +540,6 @@
+ 							  smi_paths_fields);
+ 
+ 
+-	smiInit(NULL);
+-
+ 	uat_load(smi_modules_uat, &smi_load_error);
+ 
+ 	if (smi_load_error) {
+@@ -547,6 +554,22 @@
+ 		return;
+ 	}
+ 
++	if (!prefs.load_smi_modules) {
++		D(1,("OID resolution not enabled"));
++		return;
++	}
++
++	/* TODO: Remove this workaround when unregistration of "MIBs" proto is solved.
++	 * Wireshark does not support that yet. :-( */
++	if (oids_init_done) {
++		D(1,("Exiting register_mibs() to avoid double registration of MIBs proto."));
++		return;
++	} else {
++		oids_init_done = TRUE;
++	}
++
++	smiInit(NULL);
++
+ 	smi_errors = g_string_new("");
+ 	smiSetErrorHandler(smi_error_handler);
+ 
+@@ -570,11 +593,13 @@
+ 	}
+ 
+ 	if (smi_errors->len) {
+-		report_failure("The following errors were found while loading the MIBS:\n%s\n\n"
+-					   "The Current Path is: %s\n\nYou can avoid this error message "
+-					   "by removing the missing MIB modules at Edit -> Preferences"
+-					   " -> Name Resolution -> SMI (MIB and PIB) modules or by "
++               if (!prefs.suppress_smi_errors) {
++                       report_failure("The following errors were found while loading the MIBS:\n%s\n\n"
++                                          "The Current Path is: %s\n\nYou can avoid this error message "
++                                          "by removing the missing MIB modules at Edit -> Preferences"
++                                          " -> Name Resolution -> SMI (MIB and PIB) modules or by "
+ 					   "installing them using the snmp-mibs-downloader package.\n" , smi_errors->str , path_str);
++		}
+ 		D(1,("Errors while loading:\n%s\n",smi_errors->str));
+ 	}
+ 
+@@ -592,11 +617,13 @@
+ 		 * Currently there is no such version. :-(
+ 		 */
+ 		if (smiModule->conformance == 1)
+-			report_failure("Stopped processing module %s due to "
+-				"error(s) to prevent potential crash in libsmi.\n"
+-				"Module's conformance level: %d.\n"
+-				"See details at: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560325\n",
+-				 smiModule->name, smiModule->conformance);
++			if (!prefs.suppress_smi_errors) {
++				report_failure("Stopped processing module %s due to "
++					"error(s) to prevent potential crash in libsmi.\n"
++					"Module's conformance level: %d.\n"
++					"See details at: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560325\n",
++					 smiModule->name, smiModule->conformance);
++			}
+ 			continue;
+ 
+ 		for (smiNode = smiGetFirstNode(smiModule, SMI_NODEKIND_ANY);
+@@ -734,6 +761,14 @@
+ #endif
+ }
+ 
++void oids_cleanup(void) {
++#ifdef HAVE_LIBSMI
++	unregister_mibs();
++#else
++	D(1,("libsmi disabled oid resolution not enabled"));
++#endif
++}
++
+ const char* oid_subid2string(guint32* subids, guint len) {
+ 	char* s = ep_alloc0(((len)*11)+1);
+ 	char* w = s;
+Index: b/epan/oids.h
+===================================================================
+--- a/epan/oids.h	2010-01-27 17:12:40.000000000 +0100
++++ b/epan/oids.h	2010-03-03 22:57:19.000000000 +0100
+@@ -27,6 +27,8 @@
+ #ifndef __OIDS_H__
+ #define __OIDS_H__
+ 
++#include <epan/ftypes/ftypes.h>
++
+ #define BER_TAG_ANY -1
+ 
+ struct _oid_bit_t {
+@@ -103,6 +105,9 @@
+ /* init funcion called from epan.h */
+ extern void oids_init(void);
+ 
++/* init funcion called from epan.h */
++extern void oids_cleanup(void);
++
+ /*
+  * The objects returned by all these functions are all allocated with a
+  * packet lifetime and does not have have to be freed.
+Index: b/epan/prefs.c
+===================================================================
+--- a/epan/prefs.c	2010-03-03 22:57:18.000000000 +0100
++++ b/epan/prefs.c	2010-03-03 22:57:19.000000000 +0100
+@@ -40,6 +40,7 @@
+ #include <epan/filesystem.h>
+ #include <epan/address.h>
+ #include <epan/addr_resolv.h>
++#include <epan/oids.h>
+ #include <epan/packet.h>
+ #include <epan/prefs.h>
+ #include <epan/proto.h>
+@@ -1192,6 +1193,8 @@
+ /* set the default values for the name resolution dialog box */
+   prefs.name_resolve             = RESOLV_ALL ^ RESOLV_NETWORK;
+   prefs.name_resolve_concurrency = 500;
++  prefs.load_smi_modules         = FALSE;
++  prefs.suppress_smi_errors	     = FALSE;
+ 
+ /* set the default values for the tap/statistics dialog box */
+   prefs.tap_update_interval = TAP_UPDATE_DEFAULT_INTERVAL;
+@@ -1224,6 +1227,7 @@
+   g_free(prefs.capture_devices_hide);
+ 
+   uat_unload_all();
++  oids_cleanup();
+   init_prefs();
+ }
+ 
+@@ -1247,6 +1251,11 @@
+   char        *pf_path;
+   FILE        *pf;
+ 
++  /* clean up libsmi structures before reading prefs */
++  if (prefs.load_smi_modules) {
++    oids_cleanup();
++  }
++
+   init_prefs();
+ 
+   /*
+@@ -1345,6 +1354,11 @@
+       g_free(pf_path);
+   }
+ 
++  /* load SMI modules if needed */
++  if (prefs.load_smi_modules) {
++    oids_init();
++  }
++
+   return &prefs;
+ }
+ 
+@@ -1656,6 +1670,8 @@
+  */
+ #define PRS_NAME_RESOLVE "name_resolve"
+ #define PRS_NAME_RESOLVE_CONCURRENCY "name_resolve_concurrency"
++#define PRS_NAME_RESOLVE_LOAD_SMI_MODULES "name_resolve_load_smi_modules"
++#define PRS_NAME_RESOLVE_SUPPRESS_SMI_ERRORS "name_resolve_suppress_smi_errors"
+ #define PRS_CAP_NAME_RESOLVE "capture.name_resolve"
+ 
+ /*  values for the capture dialog box */
+@@ -2095,6 +2111,10 @@
+     }
+   } else if (strcmp(pref_name, PRS_NAME_RESOLVE_CONCURRENCY) == 0) {
+     prefs.name_resolve_concurrency = strtol(value, NULL, 10);
++  } else if (strcmp(pref_name, PRS_NAME_RESOLVE_LOAD_SMI_MODULES) == 0) {
++    prefs.load_smi_modules = ((g_ascii_strcasecmp(value, "true") == 0)?TRUE:FALSE);
++  } else if (strcmp(pref_name, PRS_NAME_RESOLVE_SUPPRESS_SMI_ERRORS) == 0) {
++    prefs.suppress_smi_errors = ((g_ascii_strcasecmp(value, "true") == 0)?TRUE:FALSE);
+   } else if ((strcmp(pref_name, PRS_RTP_PLAYER_MAX_VISIBLE) == 0) ||
+              (strcmp(pref_name, "rtp_player.max_visible") == 0)) {
+     /* ... also accepting old name for this preference */
+@@ -2953,6 +2973,16 @@
+   fprintf(pf, PRS_NAME_RESOLVE_CONCURRENCY ": %d\n",
+ 		  prefs.name_resolve_concurrency);
+ 
++  fprintf(pf, "\n# Load SMI modules?\n");
++  fprintf(pf, "# TRUE or FALSE (case-insensitive).\n");
++  fprintf(pf, PRS_NAME_RESOLVE_LOAD_SMI_MODULES ": %s\n",
++		  prefs.load_smi_modules == TRUE ? "TRUE" : "FALSE");
++
++  fprintf(pf, "\n# Suppress SMI errors?\n");
++  fprintf(pf, "# TRUE or FALSE (case-insensitive).\n");
++  fprintf(pf, PRS_NAME_RESOLVE_SUPPRESS_SMI_ERRORS ": %s\n",
++		  prefs.suppress_smi_errors == TRUE ? "TRUE" : "FALSE");
++
+   fprintf(pf, "\n####### Taps/Statistics ########\n");
+ 
+   fprintf(pf, "\n# Tap update interval in ms.\n");
+Index: b/epan/prefs.h
+===================================================================
+--- a/epan/prefs.h	2010-01-27 17:12:41.000000000 +0100
++++ b/epan/prefs.h	2010-03-03 22:57:19.000000000 +0100
+@@ -144,6 +144,8 @@
+   gint     console_log_level;
+   guint32  name_resolve;
+   gint     name_resolve_concurrency;
++  gboolean load_smi_modules;
++  gboolean suppress_smi_errors;
+   gchar   *capture_device;
+   gchar   *capture_devices_linktypes;
+   gchar   *capture_devices_descr;
+Index: b/epan/epan.c
+===================================================================
+--- a/epan/epan.c	2010-01-27 17:12:42.000000000 +0100
++++ b/epan/epan.c	2010-03-03 22:57:19.000000000 +0100
+@@ -100,7 +100,6 @@
+ 	final_registration_all_protocols();
+ 	host_name_lookup_init();
+ 	expert_init();
+-	oids_init();
+ #ifdef HAVE_LUA_5_1
+ 	wslua_init(NULL);
+ #endif

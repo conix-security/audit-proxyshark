@@ -1,0 +1,3 @@
+main_airpcap_toolbar.o: main_airpcap_toolbar.c ../config.h
+
+../config.h:

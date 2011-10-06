@@ -1,0 +1,5 @@
+libwireshark_la-tfs.lo: tfs.c ../config.h tfs.h
+
+../config.h:
+
+tfs.h:

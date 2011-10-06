@@ -1,0 +1,194 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>capinfos - The Wireshark Network Analyzer 1.2.7</title>
+<link rel="stylesheet" href="ws.css" type="text/css" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body>
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+<!--
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#notes">NOTES</a></li>
+	<li><a href="#authors">AUTHORS</a></li>
+</ul>
+
+-->
+
+
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>capinfos - Prints information about capture files</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p><strong>capinfos</strong>
+[&nbsp;<strong>-t</strong>&nbsp;]
+[&nbsp;<strong>-E</strong>&nbsp;]
+[&nbsp;<strong>-c</strong>&nbsp;]
+[&nbsp;<strong>-s</strong>&nbsp;]
+[&nbsp;<strong>-d</strong>&nbsp;]
+[&nbsp;<strong>-u</strong>&nbsp;]
+[&nbsp;<strong>-a</strong>&nbsp;]
+[&nbsp;<strong>-e</strong>&nbsp;]
+[&nbsp;<strong>-y</strong>&nbsp;]
+[&nbsp;<strong>-i</strong>&nbsp;]
+[&nbsp;<strong>-z</strong>&nbsp;]
+[&nbsp;<strong>-x</strong>&nbsp;]
+[&nbsp;<strong>-h</strong>&nbsp;]
+&lt;<em>infile</em>&gt;
+<em>...</em></p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p><strong>Capinfos</strong> is a program that reads one or more capture files and
+returns some or all available statistics of each &lt;<em>infile</em>&gt;.</p>
+<p>The user specifies which statistics to report by specifying flags
+corresponding to the statistic.  If no flags are specified, <strong>Capinfos</strong>
+will report all statistics available.</p>
+<p><strong>Capinfos</strong> is able to detect and read the same capture files that are
+supported by <strong>Wireshark</strong>.
+The input files don't need a specific filename extension; the file
+format and an optional gzip compression will be automatically detected.
+Near the beginning of the DESCRIPTION section of <code>wireshark(1)</code> or
+<a href="http://www.wireshark.org/docs/man-pages/wireshark.html">http://www.wireshark.org/docs/man-pages/wireshark.html</a>
+is a detailed description of the way <strong>Wireshark</strong> handles this, which is
+the same way <strong>Capinfos</strong> handles this.</p>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<dl>
+<dt><strong><a name="t" class="item">-t</a></strong></dt>
+
+<dd>
+<p>Displays the capture type of the capture file.</p>
+</dd>
+<dt><strong><a name="e" class="item">-E</a></strong></dt>
+
+<dd>
+<p>Displays the per-file encapsulation of the capture file.</p>
+</dd>
+<dt><strong><a name="c" class="item">-c</a></strong></dt>
+
+<dd>
+<p>Counts the number of packets in the capture file.</p>
+</dd>
+<dt><strong><a name="s" class="item">-s</a></strong></dt>
+
+<dd>
+<p>Displays the size of the file, in bytes.  This reports
+the size of the capture file itself.</p>
+</dd>
+<dt><strong><a name="d" class="item">-d</a></strong></dt>
+
+<dd>
+<p>Displays the total length of all packets in the file, in
+bytes.  This counts the size of the packets as they appeared
+in their original form, not as they appear in this file.
+For example, if a packet was originally 1514 bytes and only
+256 of those bytes were saved to the capture file (if packets
+were captured with a snaplen or other slicing option),
+<strong>Capinfos</strong> will consider the packet to have been 1514 bytes.</p>
+</dd>
+<dt><strong><a name="u" class="item">-u</a></strong></dt>
+
+<dd>
+<p>Displays the capture duration, in seconds.  This is the
+difference in time between the earliest packet seen and
+latest packet seen.</p>
+</dd>
+<dt><strong><a name="a" class="item">-a</a></strong></dt>
+
+<dd>
+<p>Displays the start time of the capture.  <strong>Capinfos</strong> considers
+the earliest timestamp seen to be the start time, so the
+first packet in the capture is not necessarily the earliest -
+if packets exist &quot;out-of-order&quot;, time-wise, in the capture,
+<strong>Capinfos</strong> detects this.</p>
+</dd>
+<dt><strong><a name="e" class="item">-e</a></strong></dt>
+
+<dd>
+<p>Displays the end time of the capture.  <strong>Capinfos</strong> considers
+the latest timestamp seen to be the end time, so the
+last packet in the capture is not necessarily the latest -
+if packets exist &quot;out-of-order&quot;, time-wise, in the capture,
+<strong>Capinfos</strong> detects this.</p>
+</dd>
+<dt><strong><a name="y" class="item">-y</a></strong></dt>
+
+<dd>
+<p>Displays the average data rate, in bytes/sec</p>
+</dd>
+<dt><strong><a name="i" class="item">-i</a></strong></dt>
+
+<dd>
+<p>Displays the average data rate, in bits/sec</p>
+</dd>
+<dt><strong><a name="z" class="item">-z</a></strong></dt>
+
+<dd>
+<p>displays the average packet size, in bytes</p>
+</dd>
+<dt><strong><a name="x" class="item">-x</a></strong></dt>
+
+<dd>
+<p>displays the average packet rate, in packets/sec</p>
+</dd>
+<dt><strong><a name="h" class="item">-h</a></strong></dt>
+
+<dd>
+<p>Prints the help listing and exits.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><code>tcpdump(8)</code>, <code>pcap(3)</code>, <code>wireshark(1)</code>, <code>mergecap(1)</code>, <code>editcap(1)</code>, <code>tshark(1)</code>,
+<code>dumpcap(1)</code></p>
+<p>
+</p>
+<hr />
+<h1><a name="notes">NOTES</a></h1>
+<p><strong>Capinfos</strong> is part of the <strong>Wireshark</strong> distribution.  The latest version
+of <strong>Wireshark</strong> can be found at <a href="http://www.wireshark.org">http://www.wireshark.org</a>.</p>
+<p>HTML versions of the Wireshark project man pages are available at:
+<a href="http://www.wireshark.org/docs/man-pages">http://www.wireshark.org/docs/man-pages</a>.</p>
+<p>
+</p>
+<hr />
+<h1><a name="authors">AUTHORS</a></h1>
+<pre>
+  Original Author
+  -------- ------
+  Ian Schorr           &lt;ian[AT]ianschorr.com&gt;</pre>
+<pre>
+  Contributors
+  ------------
+  Gerald Combs         &lt;gerald[AT]wireshark.org&gt;</pre>
+
+</body>
+
+</html>

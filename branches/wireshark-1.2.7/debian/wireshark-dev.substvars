@@ -1,0 +1,2 @@
+python:Depends=python (>= 2.3)
+misc:Depends=

@@ -1,0 +1,2 @@
+shlibs:Depends=libc-ares2 (>= 1.7.0), libc6 (>= 2.7), libcomerr2 (>= 1.01), libgcrypt11 (>= 1.4.2), libglib2.0-0 (>= 2.16.0), libgnutls26 (>= 2.7.14-0), libk5crypto3 (>= 1.6.dfsg.2), libkrb5-3 (>= 1.6.dfsg.2), libpcap0.8 (>= 1.0.0), libpcre3 (>= 7.7), libsmi2ldbl, wireshark-common, zlib1g (>= 1:1.1.4)
+misc:Depends=

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- $Id: dictionary.dtd 23184 2007-10-15 12:32:19Z martinm $ -->
+
+<!ELEMENT dictionary (tlv+)>
+
+<!ELEMENT tlv (enum*)>
+<!ATTLIST tlv
+    name    CDATA #REQUIRED
+    type    CDATA #REQUIRED
+    decoder CDATA #IMPLIED
+>
+
+<!ELEMENT enum EMPTY>
+<!ATTLIST enum
+    name CDATA #REQUIRED
+    code CDATA #REQUIRED
+>

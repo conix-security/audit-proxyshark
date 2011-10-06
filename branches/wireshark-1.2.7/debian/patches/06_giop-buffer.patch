@@ -1,0 +1,17 @@
+Description: Fixed segfault with some GIOP packets
+Forwarded: http://anonsvn.wireshark.org/viewvc?view=rev&revision=29509
+Author: Frederic Peters <fpeters@debian.org>
+
+Index: b/epan/dissectors/packet-giop.c
+===================================================================
+--- a/epan/dissectors/packet-giop.c	2010-02-15 17:23:16.000000000 +0100
++++ b/epan/dissectors/packet-giop.c	2010-02-15 17:24:58.000000000 +0100
+@@ -1727,6 +1727,8 @@
+ 
+   if (len == 0)
+     return FALSE;
++  if (*offset > header->message_size)
++    return FALSE;
+ 
+   saved_proto = pinfo->current_proto;
+   for (i=0; i<len; i++) {

@@ -1,0 +1,21 @@
+# These templates have been reviewed by the debian-l10n-english
+# team
+#
+# If modifications/additions/rewording are needed, please ask
+# debian-l10n-english@lists.debian.org for advice.
+#
+# Even minor modifications require translation updates and such
+# changes should be coordinated with translators and reviewers.
+
+Template: wireshark-common/install-setuid
+Type: boolean
+Default: false
+_Description: Should dumpcap be installed "setuid root"?
+ Dumpcap can be installed with the set-user-id bit set, so members of
+ the "wireshark" system group will have the privileges required to use it.
+ This way of capturing packets using Wireshark/Tshark is recommended
+ over the alternative of running them directly as superuser, because
+ less of the code will run with elevated privileges.
+ .
+ Enabling this feature may be a security risk, so it is disabled by
+ default. If in doubt, it is suggested to leave it disabled.

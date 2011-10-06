@@ -1,0 +1,18 @@
+# goose.cnf
+# goose conformation file
+
+# $Id: goose.cnf 26440 2008-10-13 19:31:12Z etxrab $
+
+#.MODULE_IMPORT
+
+#.EXPORTS
+
+#.PDU
+
+#.NO_EMIT
+
+#.TYPE_RENAME
+
+#.FIELD_RENAME
+
+#.END

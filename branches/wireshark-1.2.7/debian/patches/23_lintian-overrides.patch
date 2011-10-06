@@ -1,0 +1,18 @@
+Description: Lintian override files
+Forwarded: not-needed
+Author: Balint Reczey <balint@balintreczey.hu>
+
+Index: b/tshark.lintian-overrides
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/tshark.lintian-overrides	2010-02-15 17:29:01.000000000 +0100
+@@ -0,0 +1,2 @@
++tshark binary: binary-or-shlib-defines-rpath
++
+Index: b/wireshark-common.lintian-overrides
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/wireshark-common.lintian-overrides	2010-02-15 17:29:01.000000000 +0100
+@@ -0,0 +1,2 @@
++wireshark-common binary: binary-or-shlib-defines-rpath
++
