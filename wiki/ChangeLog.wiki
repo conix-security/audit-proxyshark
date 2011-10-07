@@ -8,7 +8,7 @@
    * `iptables -I INPUT 1 -s 1.2.3.4 -p tcp --sport 80 -j NFQUEUE --queue-num 0`
   * Packets can be accepted or dropped
   * Packets are read-only
-  * Packets are printed to stdout by default
+  * Packets are printed to stdout
  * Packet dissection using TShark:
   * You must iterate over all the protocols and fields to find a given item...
  * No GUI
