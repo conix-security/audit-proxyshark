@@ -1,0 +1,16 @@
+= changelog =
+
+*`==` v0.1 (2010-10-07) `==`*
+
+ * Usage:
+  * `python proxyshark.py -h`
+ * Packet capture using Nfqueue:
+  * Netfilter rules must be written manually
+   * `iptables -I OUTPUT 1 -d 1.2.3.4 -p tcp --dport 80 -j NFQUEUE --queue-num 0`
+   * `iptables -I INPUT 1 -s 1.2.3.4 -p tcp --sport 80 -j NFQUEUE --queue-num 0`
+  * Packets can be accepted or dropped
+  * Packets are read-only
+  * Packets are printed to stdout by default
+ * Packet dissection using TShark:
+  * You must iterate over all the protocols and fields to find a given item...
+ * No GUI
