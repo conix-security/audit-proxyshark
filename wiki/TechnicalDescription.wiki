@@ -1,1 +1,35 @@
-TODO
+This documentation was written for the current development version. Some behaviours could be absent from the last stable release. See the [ChangeLog changelog] for details.
+
+= Introduction =
+
+Todo
+
+= Source code structure =
+
+Todo: update this schema
+
+http://proxyshark.googlecode.com/svn/wiki/attachments/proxyshark_schema.png
+
+= Packet capture =
+
+Todo
+
+ == Nfqueue binding ==
+
+ Todo
+
+ == BPF filter to Netfilter rules ==
+
+ Todo
+
+= Packet dissection =
+
+Todo
+
+= Command-line interface =
+
+Todo
+
+= Web-based interface =
+
+Todo
