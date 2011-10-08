@@ -10,7 +10,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  ==== `-q | --queue-num <queue-num>` ====
 
- Set the Netfilter queue to listen. Default is _0_.
+ Set the Netfilter queue. Default is _0_.
 
  ==== `-t | --tshark-binary <tshark-binary>` ====
 
