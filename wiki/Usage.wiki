@@ -20,6 +20,10 @@ Todo
 
  Todo
 
+ == `-i | --interactive` ==
+
+ Todo
+
  == `-a | --bind-address <bind-address>` ==
 
  Todo
