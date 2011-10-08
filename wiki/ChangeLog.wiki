@@ -1,7 +1,5 @@
 *`==` v0.1 (2010-10-07) `==`*
 
- * Usage:
-  * `python proxyshark.py -h`
  * Packet capture using Nfqueue:
   * Netfilter rules must be written manually
    * `iptables -I OUTPUT 1 -d 1.2.3.4 -p tcp --dport 80 -j NFQUEUE --queue-num 0`
