@@ -2,39 +2,39 @@ This documentation was written for the current development version. Some behavio
 
 == Arguments ==
 
-Todo
+To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [#command-line_interface command-line interface] but you can run the script with several command-line arguments:
 
  ==== `-h | --help` ====
 
- Todo
+ Print a help message describing the available command-line arguments.
 
  ==== `-v | --verbose` ====
 
- Todo
+ Print debugging information to the standard error output.
 
  ==== `-q | --queue-num <queue-num>` ====
 
- Todo
+ Set the queue number to listen.
 
  ==== `-t | --tshark-binary <tshark-binary>` ====
 
- Todo
+ Set the path to the _tshark_ binary.
 
- ==== `-i | --interactive` ====
+ ==== `-w | --web-ui` ====
 
- Todo
+ Enable the web-based user interface. The default choice enables the command-line interface.
 
  ==== `-a | --bind-address <bind-address>` ====
 
- Todo
+ Set the bind address of the web server.
 
  ==== `-p | --port <port>` ====
 
- Todo
+ Set the listening port of the web server.
 
 == Command-line interface ==
 
-Todo
+The command-line interface allows the user to interactively interact with the captured packets. Several commands are available:
 
  ==== `h | help` ====
 
