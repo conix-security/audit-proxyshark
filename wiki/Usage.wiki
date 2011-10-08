@@ -2,43 +2,39 @@ This documentation was written for the current development version. Some behavio
 
 == Arguments ==
 
-To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [Usage#Command-line_interface command-line interface] but you can run the script with several command-line arguments:
+To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [Usage#Command-line_interface command-line interface], but you can run the script with several command-line arguments:
 
  ==== `-h | --help` ====
 
  Print a help message describing the available command-line arguments.
 
- ==== `-v | --verbose` ====
-
- Print debugging information to the standard error output.
-
  ==== `-q | --queue-num <queue-num>` ====
 
- Set the queue number to listen.
+ Set the Netfilter queue to listen. Default is _0_.
 
  ==== `-t | --tshark-binary <tshark-binary>` ====
 
- Set the path to the _tshark_ binary.
+ Set the path to the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc).
 
  ==== `-w | --web-ui` ====
 
- Enable the web-based user interface. The default choice enables the command-line interface.
+ Enable the web-based interface. Default is command-line interface.
 
  ==== `-a | --bind-address <bind-address>` ====
 
- Set the bind address of the web server.
+ Set the bind address of the web server. Default is _127.0.0.1_.
 
  ==== `-p | --port <port>` ====
 
- Set the listening port of the web server.
+ Set the listening port of the web server. Default is _80_.
 
 == Command-line interface ==
 
-The command-line interface allows the user to interactively interact with the captured packets. Several commands are available:
+The command-line interface allows the user to setup capture filters and to interactively manipulate the captured packets. Several commands are available:
 
  ==== `h | help` ====
 
- Todo
+ Print a help message describing the available commands.
 
  ==== `info` ====
 
