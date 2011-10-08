@@ -2,7 +2,7 @@ This documentation was written for the current development version. Some behavio
 
 == Arguments ==
 
-To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [#command-line_interface command-line interface] but you can run the script with several command-line arguments:
+To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [Usage#Command-line_interface command-line interface] but you can run the script with several command-line arguments:
 
  ==== `-h | --help` ====
 
