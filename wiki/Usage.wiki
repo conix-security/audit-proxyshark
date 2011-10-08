@@ -2,9 +2,7 @@ This documentation was written for the current development version. Some behavio
 
 == Arguments ==
 
-To run proxyshark, simply run the Python script _proxyshark.py_. The default configuration will start the interactive [Usage#Command-line_interface command-line interface].
-
-You can run the script with several command-line arguments:
+To run proxyshark, simply run the Python script _proxyshark.py_. You can use the following command-line arguments:
 
  ==== `-h | --help` ====
 
@@ -32,9 +30,7 @@ You can run the script with several command-line arguments:
 
 == Command-line interface ==
 
-The command-line interface allows the user to setup capture filters and to interactively manipulate the captured packets.
-
-Several commands are available:
+The command-line interface allows the user to setup capture filters and to interactively manipulate the captured packets. Several commands are available:
 
  ==== `h | help` ====
 
