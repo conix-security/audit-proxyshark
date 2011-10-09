@@ -40,7 +40,6 @@ import socket
 import string
 import time
 
-from nfqueue import *
 from StringIO import *
 from subprocess import *
 from threading import *
@@ -680,14 +679,13 @@ if __name__ == "__main__":
 				sys.exit(1)
 		# -t <tshark_binary>
 		elif opt == "-t":
-			if os.path.exists(arg):
-				arg_tshark_binary = arg
-			else:
-				logging.error("file '%s' does not exist" % arg)
-				sys.exit(1)
+			arg_tshark_binary = arg
 		else:
 			print_usage()
 			sys.exit(1)
+	if not os.path.exists(arg_tshark_binary):
+		logging.error("file '%s' does not exist" % arg_tshark_binary)
+		sys.exit(1)
 	logging.info("queue number = %s" % arg_queue_num)
 	logging.info("tshark binary = '%s'" % arg_tshark_binary)
 	# run nfqueue and web server
