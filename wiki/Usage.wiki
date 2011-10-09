@@ -52,28 +52,16 @@ Several commands are available:
 
  Print a help message describing the available commands. You can pass an optional command name as an argument to get some help about a specific command.
 
- ==== `info` ====
+ ==== `i | info` ====
 
- Print a brief status about what proxyshark is doing:
-  * General BPF filter
-  * List of enabled TShark filters
-  * List of enabled breakpoints
-
- ==== `info r | info run` ====
-
- Print the BPF filter and !NetFilter rules that are currently used to capture packets.
-
- ==== `info f | info filter[s] <pattern>` ====
-
- Todo
-
- ==== `info b | info breakpoint[s] <pattern>` ====
-
- Todo
+ Print information about the current status:
+  * BPF filter and !NetFilter rules
+  * TShark filter
+  * Breakpoints
 
  ==== `r | run <bpf-filter>` ====
 
- Todo
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of !NetFilter rules, redirecting the matching packets to the selected !NetFilter queue.
 
  ==== `s | stop` ====
 
