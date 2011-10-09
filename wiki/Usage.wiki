@@ -28,23 +28,40 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Set the listening port of the web server. Default is _80_.
 
+ ==== Examples ====
+
+ To run proxyshark in command-line mode:
+
+ {{{
+ python proxyshark.py
+ }}}
+
+ To run proxyshark on queue 123 in web-based mode and port 8080:
+
+ {{{
+ python proxyshark.py -q 123 -w -p 8080
+ }}}
+
 == Command-line interface ==
 
 The command-line interface allows the user to setup capture filters and to interactively manipulate the captured packets.
 
 Several commands are available:
 
- ==== `h | help` ====
+ ==== `h | help [command]` ====
 
- Print a help message describing the available commands.
+ Print a help message describing the available commands. You can pass an optional command name as an argument to get some help about a specific command.
 
  ==== `info` ====
 
- Todo
+ Print a brief status about what proxyshark is doing:
+  * General BPF filter
+  * List of enabled TShark filters
+  * List of enabled breakpoints
 
  ==== `info r | info run` ====
 
- Todo
+ Print the BPF filter and !NetFilter rules that are currently used to capture packets.
 
  ==== `info f | info filter[s] <pattern>` ====
 
