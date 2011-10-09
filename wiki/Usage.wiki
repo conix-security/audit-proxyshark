@@ -10,11 +10,11 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  ==== `-q | --queue-num <queue-num>` ====
 
- Set the Netfilter queue. Default is _0_.
+ Select a netfilter queue. Default is _0_.
 
  ==== `-t | --tshark-binary <tshark-binary>` ====
 
- Set the path to the TShark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
+ Set the path of the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
 
  ==== `-w | --web-ui` ====
 
@@ -44,34 +44,42 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
 == Command-line interface ==
 
-The command-line interface allows the user to setup capture filters and to interactively manipulate the captured packets.
+The command-line interface allows the user to setup filters and to interactively manipulate the captured packets.
 
 Several commands are available:
 
  ==== `h | help [command]` ====
 
- Print a help message describing the available commands. You can pass an optional command name as an argument to get some help about a specific command.
+ Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
 
- ==== `i | info` ====
+ ==== `i | info [type]` ====
 
- Print information about the current status:
-  * BPF filter and !NetFilter rules
-  * TShark filter
-  * Breakpoints
+ Print information about the current program state. You can pass one of the following arguments to get information about a specific element:
+  * _c_ or _capture_ for BPF filter and netfilter rules
+  * _f_ or _filter_ for tshark filters
+  * _b_ or _breakpoints_ for breakpoints
 
- ==== `r | run <bpf-filter>` ====
+ All information will be printed if no argument is given.
 
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of !NetFilter rules, redirecting the matching packets to the selected !NetFilter queue.
+ ==== `c | capture <bpf-filter>` ====
+
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue.
+
+ ==== `p | pause [bpf-filter]`====
+
+ Pause the current capture on the next captured packet.
+
+ If no capture is currently running, start a new one using the BPF filter past in argument and break on the first captured packet.
 
  ==== `s | stop` ====
 
- Todo
+ Stop the current running capture.
 
- ==== `f | filter <tshark-filter>` ====
+ ==== `f | filter [tshark-filter]` ====
 
- Todo
+ 
 
- ==== `b | breakpoint <tshark-filter>` ====
+ ==== `b | breakpoint [tshark-filter]` ====
 
  Todo
 
