@@ -62,7 +62,7 @@ Several commands are available:
 
 ==== `i | info [type]` ====
 
- Print information about the current program state. You can pass one of the following arguments to get information about a specific element:
+ Print information about the current program state. You can use one of the following arguments to get information about a specific element:
   * _c_ or _capture_ for BPF filter and netfilter rules
   * _f_ or _filter_ for tshark filters
   * _b_ or _breakpoints_ for breakpoints
