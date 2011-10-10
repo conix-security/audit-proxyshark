@@ -14,7 +14,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Turn on verbose output. Can be specified twice for debugging mode.
 
- _Deprecated_: verbose output is now enabled by default, a clean _proxyshark.log_ will be automatically created at startup.
+ _Deprecated_: verbose output is now enabled by default, a clean _proxyshark.log_ will be automatically created at startup `[FORTHCOMING]`.
 
 ==== `-q | --queue-num <queue-num>` ====
 
