@@ -6,7 +6,7 @@ This document is based on the development version and should be considered as a 
 
 Todo
 
-== Source code structure ==
+== Project architecture ==
 
 Todo: update this schema
 
@@ -20,7 +20,7 @@ Todo
 
  Todo
 
- === BPF filter to Netfilter rules ===
+ === BPF filter and netfilter rules ===
 
  Todo
 
@@ -28,10 +28,8 @@ Todo
 
 Todo
 
-== Command-line interface ==
+== Packet filtering ==
 
-Todo
-
-== Web-based interface ==
-
-Todo
+There are 2 levels of filtering in proxyshark:
+ * The first one is implemented in netfilter. It is based on the BPF filter past to the _capture_ or _pause_ commands.
+ * The second one acts at an applicative level. It allows you to define filtering rules based on the protocols and fields detected by the dissection engine.
