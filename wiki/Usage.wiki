@@ -67,17 +67,17 @@ Several commands are available:
   * _f_ or _filter_ for tshark filters
   * _b_ or _breakpoints_ for breakpoints
 
- All information will be printed if no argument is given.
-
 ==== `c | capture <bpf-filter>` ====
 
  Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue.
 
+ See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
+
 ==== `p | pause [bpf-filter]`====
 
- Pause the current capture on the next captured packet.
+ Pause the current capture on the next captured packet. If no capture is currently running, start a new one using the BPF filter past in argument and break on the first captured packet.
 
- If no capture is currently running, start a new one using the BPF filter past in argument and break on the first captured packet.
+ See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
 ==== `s | stop` ====
 
@@ -85,7 +85,9 @@ Several commands are available:
 
 ==== `f | filter [tshark-filter]` ====
 
- Todo
+ Create a new applicative filter based on the given tshark expression. If no argument is given, create a new filter based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info filter_.
+
+ See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
 
 ==== `b | breakpoint [tshark-filter]` ====
 
