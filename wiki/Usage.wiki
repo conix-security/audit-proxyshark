@@ -4,37 +4,39 @@ This document is based on the development version and should be considered as a 
 
 == Arguments ==
 
-To run proxyshark, simply run the Python script _proxyshark.py_. You can use the following command-line arguments:
+To run proxyshark, simply run the Python script _proxyshark.py_ with the following arguments:
 
- ==== `-h | --help` ====
+==== `-h | --help` ====
 
  Print a help message describing the available command-line arguments.
 
- ==== `[DEPRECATED] -v | --verbose` ====
+==== `-v | --verbose [DEPRECATED]` ====
 
  Turn on verbose output. Can be specified twice for debugging mode.
 
- ==== `-q | --queue-num <queue-num>` ====
+ _Deprecated_: verbose output is now enabled by default, a clean _proxyshark.log_ will be automatically created at startup.
+
+==== `-q | --queue-num <queue-num>` ====
 
  Select a netfilter queue. Default is _0_.
 
- ==== `-t | --tshark-binary <tshark-binary>` ====
+==== `-t | --tshark-binary <tshark-binary>` ====
 
  Set the path of the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
 
- ==== `[FORTHCOMING] -w | --web-ui` ====
+==== `-w | --web-ui [FORTHCOMING]` ====
 
  Enable the web-based interface. Default is command-line interface.
 
- ==== `[FORTHCOMING] -a | --bind-address <bind-address>` ====
+==== `-a | --bind-address <bind-address> [FORTHCOMING]` ====
 
  Set the bind address of the web server. Default is _127.0.0.1_.
 
- ==== `[FORTHCOMING] -p | --port <port>` ====
+==== `-p | --port <port> [FORTHCOMING]` ====
 
  Set the listening port of the web server. Default is _80_.
 
- ==== Examples ====
+==== Examples ====
 
  To run proxyshark in command-line mode:
 
@@ -48,17 +50,17 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
  python proxyshark.py -q 123 -w -p 8080
  }}}
 
-== `[FORTHCOMING]` Command-line interface ==
+== Command-line interface `[FORTHCOMING]` ==
 
 The command-line interface allows the user to setup filters and to interactively manipulate the captured packets.
 
 Several commands are available:
 
- ==== `h | help [command]` ====
+==== `h | help [command]` ====
 
  Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
 
- ==== `i | info [type]` ====
+==== `i | info [type]` ====
 
  Print information about the current program state. You can pass one of the following arguments to get information about a specific element:
   * _c_ or _capture_ for BPF filter and netfilter rules
@@ -67,64 +69,64 @@ Several commands are available:
 
  All information will be printed if no argument is given.
 
- ==== `c | capture <bpf-filter>` ====
+==== `c | capture <bpf-filter>` ====
 
  Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue.
 
- ==== `p | pause [bpf-filter]`====
+==== `p | pause [bpf-filter]`====
 
  Pause the current capture on the next captured packet.
 
  If no capture is currently running, start a new one using the BPF filter past in argument and break on the first captured packet.
 
- ==== `s | stop` ====
+==== `s | stop` ====
 
  Stop the current running capture.
 
- ==== `f | filter [tshark-filter]` ====
+==== `f | filter [tshark-filter]` ====
 
  Todo
 
- ==== `b | breakpoint [tshark-filter]` ====
+==== `b | breakpoint [tshark-filter]` ====
 
  Todo
 
- ==== `d | delete <type> <id>` ====
+==== `d | delete <type> <id>` ====
 
  Todo
 
- ==== `pkt | packet` ====
+==== `pkt | packet` ====
 
  Todo
 
- ==== `proto | protocol[s]` ====
+==== `proto | protocol[s]` ====
 
  Todo
 
- ==== `field[s]` ====
+==== `field[s]` ====
 
  Todo
 
- ==== `accept` ====
+==== `accept` ====
 
  Todo
 
- ==== `drop` ====
+==== `drop` ====
 
  Todo
 
-== `[FORTHCOMING]` Web-based interface ==
+== Web-based interface `[FORTHCOMING]` ==
 
 Todo
 
- ==== Main menu ====
+==== Main menu ====
 
  Todo
 
- ==== List view ====
+==== List view ====
 
  Todo
 
- ==== Packet view ====
+==== Packet view ====
 
  Todo
