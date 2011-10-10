@@ -4,7 +4,7 @@ This document is based on the development version and should be considered as a 
 
 == Arguments ==
 
-To run proxyshark, simply run the Python script _proxyshark.py_ with the following arguments:
+To run proxyshark, simply run the Python script _proxyshark.py_. You can use the following arguments:
 
 ==== `-h | --help` ====
 
