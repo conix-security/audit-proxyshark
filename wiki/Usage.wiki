@@ -1,6 +1,6 @@
 *THIS PAGE IS UNDER CONSTRUCTION*
 
-This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _forthcoming_ in the following documentation. See the [ChangeLog changelog] for details.
+This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _todo_ in the following documentation. See the [ChangeLog changelog] for details.
 
 == Arguments ==
 
@@ -14,7 +14,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Turn on verbose output. Can be specified twice for debugging mode.
 
- _Deprecated_: verbose output is now enabled by default, a clean _proxyshark.log_ will be automatically created at startup `[FORTHCOMING]`.
+ _Deprecated_: verbose output is now enabled by default and a clean _proxyshark.log_ automatically created at startup. `[TODO]`
 
 ==== `-q | --queue-num <queue-num>` ====
 
@@ -22,17 +22,17 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
 ==== `-t | --tshark-binary <tshark-binary>` ====
 
- Set the path of the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
+ Set the path to the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
 
-==== `-w | --web-ui [FORTHCOMING]` ====
+==== `-w | --web-ui [TODO]` ====
 
  Enable the web-based interface. Default is command-line interface.
 
-==== `-a | --bind-address <bind-address> [FORTHCOMING]` ====
+==== `-a | --bind-address <bind-address> [TODO]` ====
 
  Set the bind address of the web server. Default is _127.0.0.1_.
 
-==== `-p | --port <port> [FORTHCOMING]` ====
+==== `-p | --port <port> [TODO]` ====
 
  Set the listening port of the web server. Default is _80_.
 
@@ -50,7 +50,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
  python proxyshark.py -q 123 -w -p 8080
  }}}
 
-== Command-line interface `[FORTHCOMING]` ==
+== Command-line interface `[TODO]` ==
 
 The command-line interface allows the user to setup filters and to interactively manipulate the captured packets.
 
@@ -117,7 +117,7 @@ Several commands are available:
 
  Todo
 
-== Web-based interface `[FORTHCOMING]` ==
+== Web-based interface `[TODO]` ==
 
 Todo
 
