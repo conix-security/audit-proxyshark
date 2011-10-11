@@ -1,6 +1,6 @@
 *THIS PAGE IS UNDER CONSTRUCTION*
 
-This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _todo_ in the following documentation. See the [ChangeLog changelog] for details.
+This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog changelog] for details.
 
 == Introduction ==
 
