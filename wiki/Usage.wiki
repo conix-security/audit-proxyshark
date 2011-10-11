@@ -41,13 +41,13 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
  Run proxyshark in command-line mode:
 
  {{{
- python proxyshark.py
+python proxyshark.py
  }}}
 
  Run proxyshark on queue 123 in web-based mode and port 8080:
 
  {{{
- python proxyshark.py -q 123 -w -p 8080
+python proxyshark.py -q 123 -w -p 8080
  }}}
 
 == Command-line interface `[UPCOMING]` ==
@@ -63,61 +63,55 @@ Several commands are available:
 ==== `i | info` ====
 
  Print information about the current program state:
-  * capture status
   * BPF filter and netfilter rules
-  * applicative filters
-  * breakpoints
+  * breakpoints and actions
   * statistics
 
- See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters, netfilter rules, applicative filters and breakpoints.
-
-==== `c | capture [bpf-filter]` ====
-
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules redirecting the matching packets to the selected netfilter queue. If no argument is given, continue the current capture. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
-
-==== `p | pause [bpf-filter]`====
-
- Pause the current capture on the next packet. If no capture is currently running, start a new one using the BPF filter given in argument, then break on the first captured packet. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
-
-==== `s | stop` ====
-
- Stop the current running capture.
-
-==== `f | filter [filter-expression]` ====
-
- Create a new applicative filter based on the given expression. If no argument is given, print a list of the existing filters. See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
+ See the [TechnicalDescription technical description] for details about BPF filters, netfilter rules, breakpoints and actions.
 
 ==== `b | breakpoint [filter-expression]` ====
 
- Create a new breakpoint based on the given expression. If no argument is given, print a list of the existing breakpoints. See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
+ Create a new breakpoint based on the given expression. If no argument is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
+
+==== `a | action <breakpoint-id> [python-code]` ====
+
+ Create a new action associated with a breakpoint. The first argument must be a valid breakpoint identifier returned by the commands _b_ or _breakpoint_. The second argument is the Python code to be executed when the action is triggered. If no code is given, print the action associated with the breakpoint. See the [TechnicalDescription technical description] for details about actions and breakpoints.
+
+==== `c | capture [bpf-filter]` ====
+
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules redirecting the matching packets to the selected netfilter queue. See the [TechnicalDescription technical description] for details about BPF filters and netfilter rules.
+
+==== `en | enable <breakpoint-id>` ====
+
+ Enable an existing breakpoint. The _breakpoint-id_ must be a valid breakpoint identifier returned by the commands _b_ or _breakpoint_.
+
+==== `dis | disable <breakpoint-id>` ====
+
+ Disable an existing breakpoint. The _breakpoint-id_ must be a valid breakpoint identifier returned by the commands _b_ or _breakpoint_. 
 
 ==== `d | delete <type> <id>` ====
 
- Delete a filter or a breakpoint. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by the _filter_ or _breakpoint_ commands.
-
-==== `e | exec <filter-id> <python-code>` ====
-
- Define the piece of code to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the _filter_ command.
+ Delete a breakpoint or an action. The _type_ argument can be _b_ or _breakpoint_ for a breakpoint and _a_ or _action_ for an action. The _id_ must be a valid breakpoint or action identifier returned by the commands _b_, _breakpoint_, _a_ or _action_.
 
 ==== `pkts | packets` ====
 
- The dissected packets.
+ A special variable containing all the dissected packets.
 
 ==== `pkt | packet` ====
 
- The last dissected packet.
+ A special variable containing the last dissected packet.
 
 ==== `accept` ====
 
- Accept the current packet (including your modifications).
+ Accept the current packet and resume the capture.
 
 ==== `drop` ====
 
- Drop the current packet and continue the current capture.
+ Drop the current packet and resume the capture.
 
 ==== Examples ====
 
- Capture HTTP traffic from/to www.google.com and break on the index request:
+ Capture HTTP traffic from/to www.google.com and break on index requests:
 
  {{{
 >>> b http.method == "GET" and http.uri == "/"
@@ -126,6 +120,13 @@ new breakpoint with id 1
 capturing...
 on breakpoint 1: http.method == "GET" and http.uri == "/"
 >>> 
+ }}}
+
+ Print the captured packet:
+
+ {{{
+>>> print pkt
+0.000000 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
  }}}
 
  Modify the URI and let the packet go:
@@ -156,5 +157,11 @@ on breakpoint 1: running action
 >>> pkts.tcp
 [4 packets]
 >>> 
+ }}}
+
+ Get the TCP packets where the SYN flag is set:
+
+ {{{
+>>> pkts.tcp(flags.syn == 1)
  }}}
  
