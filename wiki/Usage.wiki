@@ -111,7 +111,7 @@ Several commands are available:
 
 ==== Examples ====
 
- Capture HTTP traffic from/to www.google.com and break on index requests:
+ Capture HTTP traffic from/to _www.google.com_ and break on index requests:
 
  {{{
 >>> b http.method == "GET" and http.uri == "/"
@@ -170,7 +170,7 @@ on breakpoint 1: running action
 >>> pkts tcp.flags.syn == 1
  }}}
  
- Get the HTTP packets where the TTL is 64, the method is POST and the URI is /index.php:
+ Get the HTTP packets where the TTL is _64_, the method is _POST_ and the URI is _/index.php_:
 
  {{{
 >>> pkts tcp.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
