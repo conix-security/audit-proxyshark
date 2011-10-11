@@ -95,9 +95,9 @@ Several commands are available:
 
  Delete a filter or a breakpoint. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by the _filter_ or _breakpoint_ commands.
 
-==== `e | exec <filter-id> <function>` ====
+==== `e | exec <filter-id> <python-code>` ====
 
- Define the function to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the _filter_ command. The function does not have to take any argument.
+ Define the piece of code to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the _filter_ command.
 
 ==== `pkt | packet` ====
 
