@@ -105,11 +105,11 @@ Several commands are available:
 
 ==== `proto | protocol[s]` ====
 
- List of the protocols of the last dissected packet.
+ Protocols of the last dissected packet.
 
 ==== `field[s]` ====
 
- List of the fields of the last dissected packet.
+ Fields of the last dissected packet.
 
 ==== `accept` ====
 
@@ -118,6 +118,10 @@ Several commands are available:
 ==== `drop` ====
 
  Drop the current packet and continue the current capture.
+
+==== Examples ====
+
+ Todo
 
 == Web-based interface `[UPCOMING]` ==
 
