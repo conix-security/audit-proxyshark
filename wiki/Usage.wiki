@@ -83,13 +83,13 @@ Several commands are available:
 
  Stop the current running capture.
 
-==== `f | filter[s] [filter-expression]` ====
+==== `f | filter [filter-expression]` ====
 
- Create a new applicative filter based on the given expression. If no argument is given, print the existing filters. See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
+ Create a new applicative filter based on the given expression. If no argument is given, print a list of the existing filters. See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
 
-==== `b | breakpoint[s] [filter-expression]` ====
+==== `b | breakpoint [filter-expression]` ====
 
- Create a new breakpoint based on the given expression. If no argument is given, print the existing breakpoints. See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
+ Create a new breakpoint based on the given expression. If no argument is given, print a list of the existing breakpoints. See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
 
 ==== `d | delete <type> <id>` ====
 
