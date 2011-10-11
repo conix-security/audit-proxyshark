@@ -73,7 +73,7 @@ Several commands are available:
 
 ==== `c | capture [bpf-filter]` ====
 
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue. If no argument is given, continue the current capture. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules redirecting the matching packets to the selected netfilter queue. If no argument is given, continue the current capture. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
 ==== `p | pause [bpf-filter]`====
 
