@@ -111,7 +111,7 @@ Several commands are available:
 
 ==== Examples ====
 
- Capture HTTP traffic from/to _www.google.com_ and break on index requests:
+ Capture HTTP traffic from or to _www.google.com_ and break on index requests:
 
  {{{
 >>> b http.method == "GET" and http.uri == "/"
