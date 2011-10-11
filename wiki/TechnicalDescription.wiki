@@ -10,7 +10,7 @@ Todo
 
 Todo: update this schema
 
-http://proxyshark.googlecode.com/svn/wiki/attachments/proxyshark_schema.png
+proxyshark.googlecode.com/svn/wiki/attachments/proxyshark_schema.png
 
 == Packet capture ==
 
@@ -30,6 +30,4 @@ Todo
 
 == Packet filtering ==
 
-There are 2 levels of filtering in proxyshark:
- * The first one is implemented in netfilter. It is based on the BPF filter past to the _capture_ or _pause_ commands.
- * The second one acts at an applicative level. It allows you to define filtering rules based on the protocols and fields detected by the dissection engine.
+Todo
