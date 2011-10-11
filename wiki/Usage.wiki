@@ -52,7 +52,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
 == Command-line interface `[UPCOMING]` ==
 
-The command-line interface allows the user to setup filters and to interactively manipulate captured packets.
+The command-line interface allows the user to setup filters and to interactively manipulate the captured packets.
 
 Several commands are available:
 
@@ -60,68 +60,64 @@ Several commands are available:
 
  Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
 
-==== `i | info [type]` ====
+==== `i | info` ====
 
- Print information about the current program state. You can use one of the following arguments to get information about a specific element:
-  * _c_ or _capture_ for BPF filter and netfilter rules
-  * _f_ or _filter_ for tshark filters
-  * _b_ or _breakpoints_ for breakpoints
+ Print information about the current program state:
+  * capture status
+  * BPF filter and netfilter rules
+  * applicative filters
+  * breakpoints
+  * statistics
+
+ See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters, netfilter rules, applicative filters and breakpoints.
 
 ==== `c | capture [bpf-filter]` ====
 
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue. If no argument is given, continue an paused capture.
-
- See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue. If no argument is given, continue the current capture. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
 ==== `p | pause [bpf-filter]`====
 
- Pause the current capture on the next packet. If no capture is currently running, start a new one using the BPF filter past in argument, then break on the first captured packet.
-
- See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
+ Pause the current capture on the next packet. If no capture is currently running, start a new one using the BPF filter given in argument, then break on the first captured packet. See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
 ==== `s | stop` ====
 
  Stop the current running capture.
 
-==== `f | filter [filter-expression]` ====
+==== `f | filter[s] [filter-expression]` ====
 
- Create a new applicative filter based on the given expression. If no argument is given, create a new filter based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info filters_.
+ Create a new applicative filter based on the given expression. If no argument is given, print the existing filters. See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
 
- See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
+==== `b | breakpoint[s] [filter-expression]` ====
 
-==== `b | breakpoint [filter-expression]` ====
-
- Create a new breakpoint based on the given expression. If no argument is given, create a new breakpoint based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info breakpoints_.
-
- See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
+ Create a new breakpoint based on the given expression. If no argument is given, print the existing breakpoints. See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
 
 ==== `d | delete <type> <id>` ====
 
- Delete a filter or a breakpoint depending on the type given in argument. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by _info filters_ or _info breakpoints_.
+ Delete a filter or a breakpoint. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by the _filter_ or _breakpoint_ commands.
 
 ==== `e | exec <filter-id> <function>` ====
 
- Define the function to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the command _info filters_, and the function must take a [TechnicalDescription#DissectedPacket _DissectedPacket_] in argument.
+ Define the function to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the _filter_ command. The function does not have to take any argument.
 
 ==== `pkt | packet` ====
 
- Todo
+ The last dissected packet.
 
 ==== `proto | protocol[s]` ====
 
- Todo
+ List of the protocols of the last dissected packet.
 
 ==== `field[s]` ====
 
- Todo
+ List of the fields of the last dissected packet.
 
 ==== `accept` ====
 
- Todo
+ Accept the current packet (including your modifications).
 
 ==== `drop` ====
 
- Todo
+ Drop the current packet and continue the current capture.
 
 == Web-based interface `[UPCOMING]` ==
 
