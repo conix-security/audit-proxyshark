@@ -93,9 +93,9 @@ Several commands are available:
 
  Delete a breakpoint or an action. The _type_ argument can be _b_ or _breakpoint_ for a breakpoint and _a_ or _action_ for an action. The _id_ must be a valid breakpoint or action identifier returned by the commands _b_, _breakpoint_, _a_ or _action_.
 
-==== `pkts | packets` ====
+==== `pkts | packets <filter-expression>` ====
 
- A special variable containing all the dissected packets.
+ A special function returning previously captured packets. You can specify a filter expression to select specific packets. See the [TechnicalDescription technical description] for details about filter expressions.
 
 ==== `pkt | packet` ====
 
@@ -125,14 +125,16 @@ on breakpoint 1: http.method == "GET" and http.uri == "/"
  Print the captured packet:
 
  {{{
->>> print pkt
-0.000000 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
+>>> pkt
+0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
  }}}
 
  Modify the URI and let the packet go:
 
  {{{
 >>> pkt.uri = "/modified.php"
+>>> pkt
+0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET /modified.php HTTP/1.1
 >>> accept
 capturing...
  }}}
@@ -154,14 +156,23 @@ on breakpoint 1: running action
  Get all the TCP packets:
 
  {{{
->>> pkts.tcp
+>>> pkts tcp
 [4 packets]
+0.000000 192.168.98.102 -> 74.125.39.104 TCP 56511 > http [SYN] Seq=0 Win=5840 Len=0 MSS=1460 TSV=8507835 TSER=0 WS=1
+0.048718 74.125.39.104 -> 192.168.98.102 TCP http > 56511 [SYN, ACK] Seq=0 Ack=1 Win=5672 Len=0 MSS=1430 TSV=2275473486 TSER=8507835 WS=6
+0.048905 192.168.98.102 -> 74.125.39.104 TCP 56511 > http [ACK] Seq=1 Ack=1 Win=5840 Len=0 TSV=8507840 TSER=2275473486
+0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
 >>> 
  }}}
 
  Get the TCP packets where the SYN flag is set:
 
  {{{
->>> pkts.tcp(flags.syn == 1)
+>>> pkts tcp.flags.syn == 1
  }}}
  
+Get the HTTP packets where the TTL is 64, the method is POST and the URI is /index.php:
+
+ {{{
+>>> pkts tcp.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
+ }}}
