@@ -60,6 +60,13 @@ Several commands are available:
 
  Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
 
+==== `i | info [type]` ====
+
+ Print information about the current program state. You can use one of the following arguments to get information about a specific element:
+  * _c_ or _capture_ for BPF filter and netfilter rules
+  * _f_ or _filter_ for tshark filters
+  * _b_ or _breakpoints_ for breakpoints
+
 ==== `c | capture [bpf-filter]` ====
 
  Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue. If no argument is given, continue an paused capture.
@@ -91,13 +98,6 @@ Several commands are available:
 ==== `d | delete <type> <id>` ====
 
  Delete a filter or a breakpoint depending on the type given in argument. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by _info filters_ or _info breakpoints_.
-
-==== `i | info [type]` ====
-
- Print information about the current program state. You can use one of the following arguments to get information about a specific element:
-  * _c_ or _capture_ for BPF filter and netfilter rules
-  * _f_ or _filter_ for tshark filters
-  * _b_ or _breakpoints_ for breakpoints
 
 ==== `e | exec <filter-id> <function>` ====
 
