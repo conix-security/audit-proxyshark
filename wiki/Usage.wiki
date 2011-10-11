@@ -145,9 +145,9 @@ new breakpoint with id 1
 new action on breakpoint 1
 >>> c host www.google.com and port 80
 capturing...
-on breakpoint 1: action 1
-on breakpoint 1: action 1
-on breakpoint 1: action 1
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
  }}}
 
  Get all the TCP packets:
