@@ -1,6 +1,6 @@
 *THIS PAGE IS UNDER CONSTRUCTION*
 
-This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _todo_ in the following documentation. See the [ChangeLog changelog] for details.
+This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog changelog] for details.
 
 == Arguments ==
 
@@ -14,7 +14,7 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Turn on verbose output. Can be specified twice for debugging mode.
 
- _Deprecated_: verbose output is now enabled by default and a clean _proxyshark.log_ automatically created at startup. `[TODO]`
+ _Deprecated_: verbose output is now enabled by default, a log file _proxyshark.log_ is also created at startup. `[UPCOMING]`
 
 ==== `-q | --queue-num <queue-num>` ====
 
@@ -24,15 +24,15 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Set the path to the tshark binary. Default is _bin/arch/tshark_ where _arch_ is the current architecture (_x86_64_, _armv7l_, etc). You can get your current architecture by running _uname -m_.
 
-==== `-w | --web-ui [TODO]` ====
+==== `-w | --web-ui [UPCOMING]` ====
 
  Enable the web-based interface. Default is command-line interface.
 
-==== `-a | --bind-address <bind-address> [TODO]` ====
+==== `-a | --bind-address <bind-address> [UPCOMING]` ====
 
  Set the bind address of the web server. Default is _127.0.0.1_.
 
-==== `-p | --port <port> [TODO]` ====
+==== `-p | --port <port> [UPCOMING]` ====
 
  Set the listening port of the web server. Default is _80_.
 
@@ -50,9 +50,9 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
  python proxyshark.py -q 123 -w -p 8080
  }}}
 
-== Command-line interface `[TODO]` ==
+== Command-line interface `[UPCOMING]` ==
 
-The command-line interface allows the user to setup filters and to interactively manipulate the captured packets.
+The command-line interface allows the user to setup filters and to interactively manipulate captured packets.
 
 Several commands are available:
 
@@ -60,15 +60,15 @@ Several commands are available:
 
  Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
 
-==== `c | capture <bpf-filter>` ====
+==== `c | capture [bpf-filter]` ====
 
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue.
+ Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules, redirecting the matching packets to the selected netfilter queue. If no argument is given, continue an paused capture.
 
  See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
 ==== `p | pause [bpf-filter]`====
 
- Pause the current capture on the next captured packet. If no capture is currently running, start a new one using the BPF filter past in argument and break on the first captured packet.
+ Pause the current capture on the next packet. If no capture is currently running, start a new one using the BPF filter past in argument, then break on the first captured packet.
 
  See the [TechnicalDescription#Packet_filtering technical description] for details about BPF filters and netfilter rules.
 
@@ -76,19 +76,21 @@ Several commands are available:
 
  Stop the current running capture.
 
-==== `f | filter [tshark-filter]` ====
+==== `f | filter [filter-expression]` ====
 
- Create a new applicative filter based on the given tshark expression. If no argument is given, create a new filter based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info filter_.
+ Create a new applicative filter based on the given expression. If no argument is given, create a new filter based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info filters_.
 
  See the [TechnicalDescription#Packet_filtering technical description] for details about applicative filters.
 
-==== `b | breakpoint [tshark-filter]` ====
+==== `b | breakpoint [filter-expression]` ====
 
- Todo
+ Create a new breakpoint based on the given expression. If no argument is given, create a new breakpoint based on the TCP/UDP/ICMP layer of the current packet. Otherwise, this command is equivalent to _info breakpoints_.
+
+ See the [TechnicalDescription#Breakpoints technical description] for details about breakpoints.
 
 ==== `d | delete <type> <id>` ====
 
- Todo
+ Delete a filter or a breakpoint depending on the type given in argument. The type can be _f_ or _filter_ for a filter and _b_ or _breakpoint_ for a breakpoint. The id must be a valid identifier returned by _info filters_ or _info breakpoints_.
 
 ==== `i | info [type]` ====
 
@@ -96,6 +98,10 @@ Several commands are available:
   * _c_ or _capture_ for BPF filter and netfilter rules
   * _f_ or _filter_ for tshark filters
   * _b_ or _breakpoints_ for breakpoints
+
+==== `e | exec <filter-id> <function>` ====
+
+ Define the function to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the command _info filters_, and the function must take a [TechnicalDescription#DissectedPacket _DissectedPacket_] in argument.
 
 ==== `pkt | packet` ====
 
@@ -117,7 +123,7 @@ Several commands are available:
 
  Todo
 
-== Web-based interface `[TODO]` ==
+== Web-based interface `[UPCOMING]` ==
 
 Todo
 
