@@ -38,13 +38,13 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
 ==== Examples ====
 
- To run proxyshark in command-line mode:
+ Run proxyshark in command-line mode:
 
  {{{
  python proxyshark.py
  }}}
 
- To run proxyshark on queue 123 in web-based mode and port 8080:
+ Run proxyshark on queue 123 in web-based mode and port 8080:
 
  {{{
  python proxyshark.py -q 123 -w -p 8080
@@ -99,17 +99,13 @@ Several commands are available:
 
  Define the piece of code to be executed when a given filter is triggered. The filter-id must be a valid identifier returned by the _filter_ command.
 
+==== `pkts | packets` ====
+
+ The dissected packets.
+
 ==== `pkt | packet` ====
 
  The last dissected packet.
-
-==== `proto | protocol[s]` ====
-
- Protocols of the last dissected packet.
-
-==== `field[s]` ====
-
- Fields of the last dissected packet.
 
 ==== `accept` ====
 
@@ -121,20 +117,44 @@ Several commands are available:
 
 ==== Examples ====
 
- Todo
+ Capture HTTP traffic from/to www.google.com and break on the index request:
 
-== Web-based interface `[UPCOMING]` ==
+ {{{
+>>> b http.method == "GET" and http.uri == "/"
+new breakpoint with id 1
+>>> c host www.google.com and port 80
+capturing...
+on breakpoint 1: http.method == "GET" and http.uri == "/"
+>>> 
+ }}}
 
-Todo
+ Modify the URI and let the packet go:
 
-==== Main menu ====
+ {{{
+>>> pkt.uri = "/modified.php"
+>>> accept
+capturing...
+ }}}
 
- Todo
+ Automatically modify the URI when an index request is encountered:
 
-==== List view ====
+ {{{
+>>> b http.method == "GET" and http.uri == "/"
+new breakpoint with id 1
+>>> a 1 http.uri = "/modified.php"; accept
+new action on breakpoint 1
+>>> c host www.google.com and port 80
+capturing...
+on breakpoint 1: action 1
+on breakpoint 1: action 1
+on breakpoint 1: action 1
+ }}}
 
- Todo
+ Get all the TCP packets:
 
-==== Packet view ====
-
- Todo
+ {{{
+>>> pkts.tcp
+[4 packets]
+>>> 
+ }}}
+ 
