@@ -169,11 +169,11 @@ on breakpoint 1: running action
  Get the TCP packets where the SYN flag is set:
 
  {{{
->>> pkts tcp.flags.syn == 1
+>>> pkts tcp.flags.syn
  }}}
  
  Get the HTTP packets where the TTL is _64_, the method is _POST_ and the URI is _/index.php_:
 
  {{{
->>> pkts tcp.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
+>>> pkts ip.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
  }}}
