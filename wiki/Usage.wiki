@@ -95,11 +95,11 @@ Several commands are available:
 
 ==== `pkts | packets <filter-expression>` ====
 
- A special function returning all the previously captured packets. You can specify a filter expression to select a subset of packets. See the [TechnicalDescription technical description] for details about filter expressions.
+ When an action is triggered: a special function returning all the previously captured packets. You can specify a filter expression to select a subset of packets. See the [TechnicalDescription technical description] for details about filter expressions.
 
 ==== `pkt | packet` ====
 
- A special variable containing the last dissected packet.
+ When an action is triggered: a special variable containing the last dissected packet.
 
 ==== `accept` ====
 
@@ -109,16 +109,24 @@ Several commands are available:
 
  Drop the current packet and resume the capture.
 
+==== `break` ====
+
+ Pause the current capture.
+
+==== `stop` ====
+
+ Stop the current capture.
+
 ==== Examples ====
 
  Capture HTTP traffic from or to _www.google.com_ and break on index requests:
 
  {{{
->>> b http.method == "GET" and http.uri == "/"
-new breakpoint with id 1
+>>> b pkt.http.method == "GET" and pkt.http.uri == "/"
+new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> c host www.google.com and port 80
 capturing...
-on breakpoint 1: http.method == "GET" and http.uri == "/"
+on breakpoint 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> 
  }}}
 
@@ -134,7 +142,7 @@ on breakpoint 1: http.method == "GET" and http.uri == "/"
  Modify the URI and let the packet go:
 
  {{{
->>> pkt.uri = "/modified.php"
+>>> pkt.http.uri = "/modified.php"
 >>> pkt
 0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET /modified.php HTTP/1.1
 >>> accept
@@ -144,10 +152,10 @@ capturing...
  Automatically modify the URI when an index request is encountered:
 
  {{{
->>> b http.method == "GET" and http.uri == "/"
-new breakpoint with id 1
->>> a 1 http.uri = "/modified.php"; accept
-new action on breakpoint 1
+>>> b pkt.http.method == "GET" and pkt.http.uri == "/"
+new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
+>>> a 1 pkt.http.uri = "/modified.php"; accept()
+new action on breakpoint 1: pkt.http.uri = "/modified.php"; accept()
 >>> c host www.google.com and port 80
 capturing...
 on breakpoint 1: running action
@@ -158,7 +166,7 @@ on breakpoint 1: running action
  Get all the TCP packets:
 
  {{{
->>> pkts tcp
+>>> pkts pkt.tcp
 [4 packets]
 0.000000 192.168.98.102 -> 74.125.39.104 TCP 56511 > http [SYN] Seq=0 Win=5840 Len=0 MSS=1460 TSV=8507835 TSER=0 WS=1
 0.048718 74.125.39.104 -> 192.168.98.102 TCP http > 56511 [SYN, ACK] Seq=0 Ack=1 Win=5672 Len=0 MSS=1430 TSV=2275473486 TSER=8507835 WS=6
@@ -169,23 +177,58 @@ on breakpoint 1: running action
  Get the TCP packets where the SYN flag is set:
 
  {{{
->>> pkts tcp.flags.syn
+>>> pkts pkt.tcp.flags.syn
  }}}
  
  Get the HTTP packets where the TTL is _64_, the method is _POST_ and the URI is _/index.php_:
 
  {{{
->>> pkts ip.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
+>>> pkts pkt.ip.ttl == 64 and pkt.http.method == "POST" and pkt.http.uri == "/index.php"
  }}}
 
 == Scripting interface `[UPCOMING]` ==
 
-You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode except that you have to call them by using the traditional Python form _function(...)_.
+You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode except that you have to call them in their traditional Python form.
 
-For example:
+==== Example ====
 
  {{{
-#!/usr/bin/python
+#!~/proxyshark.py
 
+# define a complex action
+def myaction():
+    pkt.ip.ttl = 64
+    pkt.http.uri = "/modified.php"
+    # add any other action here
+    # ...
+    # stop the capture after 10 packets
+    if len(pkts) == 10:
+        print "Capture done."
+        stop()
+    else:
+        accept()
 
+# define breakpoints and actions
+b pkt.http.method == "GET" and pkt.http.uri == "/"
+a 1 myaction()
+c host www.google.fr and port 80
+print "End."
+ }}}
+
+ {{{
+root@debian:~$ python proxyshark.py myscript.py
+new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+new action on breakpoint 1: myaction()
+Capture done.
+End.
+root@debian:~$
  }}}
