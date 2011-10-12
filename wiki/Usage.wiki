@@ -10,11 +10,9 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
 
  Print a help message describing the available command-line arguments.
 
-==== `-v | --verbose [DEPRECATED]` ====
+==== `-v | --verbose` ====
 
  Turn on verbose output. Can be specified twice for debugging mode.
-
- _Deprecated_: verbose output is now enabled by default, a log file _proxyshark.log_ is also created at startup. `[UPCOMING]`
 
 ==== `-q | --queue-num <queue-num>` ====
 
@@ -188,12 +186,12 @@ on breakpoint 1: running action
 
 == Scripting interface `[UPCOMING]` ==
 
-You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode except that you have to call them in their traditional Python form.
+You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode.
 
 ==== Example ====
 
  {{{
-#!~/proxyshark.py
+#!~/proxyshark.py -v
 
 # define a complex action
 def myaction():
@@ -201,33 +199,37 @@ def myaction():
     pkt.http.uri = "/modified.php"
     # add any other action here
     # ...
+    # accept the packet
+    accept()
     # stop the capture after 10 packets
     if len(pkts) == 10:
         print "Capture done."
         stop()
-    else:
-        accept()
 
-# define breakpoints and actions
+# define a breakpoint and an action
 b pkt.http.method == "GET" and pkt.http.uri == "/"
 a 1 myaction()
+
+# run the capture
 c host www.google.fr and port 80
 print "End."
  }}}
 
  {{{
-root@debian:~$ python proxyshark.py myscript.py
+root@debian:~$ python proxyshark.py -v myscript.py
 new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
-new action on breakpoint 1: myaction()
+capturing...
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
+on breakpoint 1: running action
 Capture done.
 End.
 root@debian:~$
