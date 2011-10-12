@@ -5,7 +5,7 @@
   * `iptables -I OUTPUT 1 -d 1.2.3.4 -p tcp --dport 80 -j NFQUEUE --queue-num 0`
   * `iptables -I INPUT 1 -s 1.2.3.4 -p tcp --sport 80 -j NFQUEUE --queue-num 0`
  * Packets can be accepted or dropped but you have to call the functions by yourself
- * Packets are read-only... not really but there is no API to do that directly
+ * Packets are read-only, hmm not really but there is no API to modify them directly
  * Packets are dissected and printed to stdout by default
  * You must iterate manually over each protocols and fields to find a given item...
  * No command-line interface
