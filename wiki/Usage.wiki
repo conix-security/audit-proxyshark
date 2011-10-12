@@ -177,3 +177,15 @@ on breakpoint 1: running action
  {{{
 >>> pkts ip.ttl == 64 and http.method == "POST" and http.uri == "/index.php"
  }}}
+
+== Scripting interface `[UPCOMING]` ==
+
+You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode except that you have to call them by using the traditional Python form _function(...)_.
+
+For example:
+
+ {{{
+#!/usr/bin/python
+
+
+ }}}
