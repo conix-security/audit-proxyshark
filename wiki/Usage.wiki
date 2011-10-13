@@ -220,16 +220,16 @@ root@debian:~$ python proxyshark.py -v myscript.py
 new breakpoint with id 'mybreak': pkt.http.method == "GET" and pkt.http.uri == "/"
 new action on breakpoint 'mybreak': myaction()
 capturing...
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
+on breakpoint 'mybreak': myaction()
 Capture done.
 End.
 root@debian:~$
