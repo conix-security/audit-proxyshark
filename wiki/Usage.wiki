@@ -39,13 +39,13 @@ To run proxyshark, simply run the Python script _proxyshark.py_. You can use the
  Run proxyshark in command-line mode:
 
  {{{
-python proxyshark.py
+python proxyshark.py -v
  }}}
 
  Run proxyshark on queue 123 in web-based mode and port 8080:
 
  {{{
-python proxyshark.py -q 123 -w -p 8080
+python proxyshark.py -v -q 123 -w -p 8080
  }}}
 
 == Command-line interface `[UPCOMING]` ==
