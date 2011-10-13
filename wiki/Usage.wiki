@@ -93,11 +93,11 @@ Several commands are available:
 
 ==== `pkts | packets <filter-expression>` ====
 
- When an action is triggered: a special function returning all the previously captured packets. You can specify a filter expression to select a subset of packets. See the [TechnicalDescription technical description] for details about filter expressions.
+ Return all the previously captured packets. You can specify a filter expression to select a subset of packets. See the [TechnicalDescription technical description] for details about filter expressions.
 
 ==== `pkt | packet` ====
 
- When an action is triggered: a special variable containing the last dissected packet.
+ A special variable containing the last dissected packet.
 
 ==== `accept` ====
 
