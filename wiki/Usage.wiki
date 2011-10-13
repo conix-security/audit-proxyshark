@@ -124,7 +124,7 @@ Several commands are available:
 new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> c host www.google.com and port 80
 capturing...
-on breakpoint 1: pkt.http.method == "GET" and pkt.http.uri == "/"
+at breakpoint 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> 
  }}}
 
@@ -156,9 +156,9 @@ new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 new action on breakpoint 1: pkt.http.uri = "/modified.php"; accept()
 >>> c host www.google.com and port 80
 capturing...
-on breakpoint 1: running action
-on breakpoint 1: running action
-on breakpoint 1: running action
+at breakpoint 1: running action
+at breakpoint 1: running action
+at breakpoint 1: running action
  }}}
 
  Get all the TCP packets:
@@ -220,16 +220,16 @@ root@debian:~$ python proxyshark.py -v myscript.py
 new breakpoint with id 'mybreak': pkt.http.method == "GET" and pkt.http.uri == "/"
 new action on breakpoint 'mybreak': myaction()
 capturing...
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
-on breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
+at breakpoint 'mybreak': myaction()
 Capture done.
 End.
 root@debian:~$
