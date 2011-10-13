@@ -67,9 +67,9 @@ Several commands are available:
 
  See the [TechnicalDescription technical description] for details about BPF filters, netfilter rules, breakpoints and actions.
 
-==== `b | breakpoint [filter-expression]` ====
+==== `b | breakpoint <breakpoint-id> [filter-expression]` ====
 
- Create a new breakpoint based on the given expression. If no argument is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
+ Create a new breakpoint based on the given expression. The first argument must be the identifier of the new breakpoint. If no expression is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
 
 ==== `a | action <breakpoint-id> [python-code]` ====
 
@@ -120,7 +120,7 @@ Several commands are available:
  Capture HTTP traffic from or to _www.google.com_ and break on index requests:
 
  {{{
->>> b pkt.http.method == "GET" and pkt.http.uri == "/"
+>>> b 1 pkt.http.method == "GET" and pkt.http.uri == "/"
 new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> c host www.google.com and port 80
 capturing...
@@ -150,7 +150,7 @@ capturing...
  Automatically modify the URI when an index request is encountered:
 
  {{{
->>> b pkt.http.method == "GET" and pkt.http.uri == "/"
+>>> b 1 pkt.http.method == "GET" and pkt.http.uri == "/"
 new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
 >>> a 1 pkt.http.uri = "/modified.php"; accept()
 new action on breakpoint 1: pkt.http.uri = "/modified.php"; accept()
@@ -207,8 +207,8 @@ def myaction():
         stop()
 
 # define a breakpoint and an action
-b pkt.http.method == "GET" and pkt.http.uri == "/"
-a 1 myaction()
+b mybreak pkt.http.method == "GET" and pkt.http.uri == "/"
+a mybreak myaction()
 
 # run the capture
 c host www.google.fr and port 80
@@ -217,8 +217,8 @@ print "End."
 
  {{{
 root@debian:~$ python proxyshark.py -v myscript.py
-new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
-new action on breakpoint 1: myaction()
+new breakpoint with id 'mybreak': pkt.http.method == "GET" and pkt.http.uri == "/"
+new action on breakpoint 'mybreak': myaction()
 capturing...
 on breakpoint 1: running action
 on breakpoint 1: running action
