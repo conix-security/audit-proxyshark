@@ -1,4 +1,4 @@
-*`==` v0.1 (2010-10-07) `==`*
+==== `==` v0.1 (2010-10-07) `==` ====
 
  * Very first version of proxyshark!
  * Netfilter rules must be written manually:
