@@ -69,7 +69,7 @@ Several commands are available:
 
 ==== `b | breakpoint <breakpoint-id> [filter-expression]` ====
 
- Create a new breakpoint based on the given expression. The first argument must be the identifier of the new breakpoint. If no expression is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
+ Create a new breakpoint based on the given expression. The first argument is the identifier of the new breakpoint. If no expression is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
 
 ==== `a | action <breakpoint-id> [python-code]` ====
 
