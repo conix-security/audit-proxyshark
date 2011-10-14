@@ -8,9 +8,7 @@ Todo
 
 == Project architecture ==
 
-Todo: update this schema
-
-proxyshark.googlecode.com/svn/wiki/attachments/proxyshark_schema.png
+Todo
 
 == Packet capture ==
 
