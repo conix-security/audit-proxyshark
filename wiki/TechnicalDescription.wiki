@@ -10,13 +10,25 @@ Todo
 
 Todo
 
-<img src="http://yuml.me/diagram/scruffy;scale:80/class/[NFQueue]provides-.->*[NFPacket],[NFQueue]++->[Dissector],[NFPacket]dissected by-.->1[Dissector],[Dissector]provides-.->*[DissectedPacket],[DissectedPacket]->*[DissectedProto],[DissectedProto]->*[DissectedField],[CommandLineInterface]++->[NFQueue],[Console]uses-.->1[CommandLineInterface],[ScriptingInterface]++->[NFQueue],[WebBasedInterface]++->[NFQueue],[WebServer]++->[ThreadingWebServer],[ThreadingWebServer]uses-.->1[WebBasedInterface],[NFQueue]->*[DissectedPacket].jpg" />
+<img src="http://yuml.me/diagram/scruffy;scale:80/class/[NFQueue]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[NFPacket],[NFQueue]++->[Dissector],[NFPacket]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20dissected by-.->1[Dissector],[Dissector]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[DissectedPacket],[DissectedPacket]->*[DissectedProto],[DissectedProto]->*[DissectedField],[CommandLineInterface]++->[NFQueue],[Console]uses%20%20%20%20-.->1[CommandLineInterface],[ScriptingInterface]++->[NFQueue],[WebBasedInterface]++->[NFQueue],[WebServer]++->[ThreadingWebServer],[ThreadingWebServer]uses%20%20%20%20-.->1[WebBasedInterface],[NFQueue]->*%20%20%20%20%20%20%20%20%20%20%20%20[DissectedPacket].jpg" />
 
-==  ==
+== Implementation details ==
 
 Todo
 
- ==== NFQueue ====
+ ==== DissectedField ====
+
+ Todo
+
+ ==== DissectedProto ====
+
+ Todo
+
+ ==== DissectedPacket ====
+
+ Todo
+
+ ==== Dissector ====
 
  Todo
 
@@ -24,4 +36,18 @@ Todo
 
  Todo
 
- ==== 
+ ==== NFQueue ====
+
+ Todo
+
+ ==== ThreadingWebServer ====
+
+ Todo
+
+ ==== WebServer ====
+
+ Todo
+
+ ==== WebRequestHandler ====
+
+ Todo
