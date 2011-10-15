@@ -10,22 +10,18 @@ Todo
 
 Todo
 
-== Packet capture ==
+<img src="http://yuml.me/diagram/scruffy;scale:80/class/[NFQueue]provides-.->*[NFPacket],[NFQueue]++->[Dissector],[NFPacket]dissected by-.->1[Dissector],[Dissector]provides-.->*[DissectedPacket],[DissectedPacket]->*[DissectedProto],[DissectedProto]->*[DissectedField],[CommandLineInterface]++->[NFQueue],[Console]uses-.->1[CommandLineInterface],[ScriptingInterface]++->[NFQueue],[WebBasedInterface]++->[NFQueue],[WebServer]++->[ThreadingWebServer],[ThreadingWebServer]uses-.->1[WebBasedInterface],[NFQueue]->*[DissectedPacket].jpg" />
+
+==  ==
 
 Todo
 
- === Nfqueue binding ===
+ ==== NFQueue ====
 
  Todo
 
- === BPF filter and netfilter rules ===
+ ==== NFPacket ====
 
  Todo
 
-== Packet dissection ==
-
-Todo
-
-== Packet filtering ==
-
-Todo
+ ==== 
