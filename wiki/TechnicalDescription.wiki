@@ -2,19 +2,41 @@
 
 This document is based on the development version and should be considered as a technical specification document. As a consequence, some features could be absent from the last stable release and could be marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog changelog] for details.
 
-== Introduction ==
+== Global architecture ==
 
-Todo
+The aim of proxyshark is to provide a way to capture, dissect and alter IP packets on-the-fly. Actually, packets corresponding to a given filter are blocked by nfqueue `[capture]`, dissected by tshark `[dissection]`, modified `[processing]`, and finally accepted or dropped. This configuration allows proxyshark to be run as well on a client host, a router, a mobile phone or whatever. The only prerequisite is to have a Linux kernel with nfqueue support enabled and a tshark binary for your architecture. 
 
-== Project architecture ==
+http://yuml.me/diagram/scruffy;scale:80/activity/(start)->(capture)->(dissection)->(processing)->(end).jpg
 
-Todo
+The implementation is divided into 6 different source files:
+ * capture.py: nfqueue binding for packet capture and verdicts (accept or drop)
+ * dissection.py: packet dissection with tshark
+ * processing.py: generic interface for breakpoints, actions, ...
+ * console.py: command-line interface
+ * script.py: scripting interface
+ * web.py: web-based interface
+
+Basically, the packets captured into the capture layer are sent to the dissector and stored under their dissected form into the capture history. The processing part is called by the user interfaces to interact with the packets and manage the breakpoints and actions.
+
+The following diagram shows the interactions between the different elements:
+
+<img src="http://yuml.me/diagram/scruffy;scale:80/class/[Capture|NFQueue;NFPacket;...]<->[Processing|...],[Processing|...]^-[Command-line interface|...],[Processing|...]^-[Scripting interface|...],[Processing|...]^-[Web-based interface|...],[Capture|NFQueue;NFPacket;...]<->[Dissection|Dissector;DissectedPacket;DissectedProto;DissectedField;...].jpg" />
+
+The capture layer gets the packets from nfqueue and 
 
 <img src="http://yuml.me/diagram/scruffy;scale:80/class/[NFQueue]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[NFPacket],[NFQueue]++->[Dissector],[NFPacket]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20dissected by-.->1[Dissector],[Dissector]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[DissectedPacket],[DissectedPacket]->*[DissectedProto],[DissectedProto]->*[DissectedField],[CommandLineInterface]++->[NFQueue],[Console]uses%20%20%20%20-.->1[CommandLineInterface],[ScriptingInterface]++->[NFQueue],[WebBasedInterface]++->[NFQueue],[WebServer]++->[ThreadingWebServer],[ThreadingWebServer]uses%20%20%20%20-.->1[WebBasedInterface],[NFQueue]->*%20%20%20%20%20%20%20%20%20%20%20%20[DissectedPacket].jpg" />
 
-== Implementation details ==
+=== Capture ===
 
-Todo
+ ==== NFPacket ====
+
+ Todo
+
+ ==== NFQueue ====
+
+ Todo
+
+=== Dissection ===
 
  ==== DissectedField ====
 
@@ -32,13 +54,31 @@ Todo
 
  Todo
 
- ==== NFPacket ====
+=== Interface ===
 
  Todo
 
- ==== NFQueue ====
+ ==== Todo ====
 
  Todo
+
+=== Command-line interface ===
+
+ Todo
+
+ ==== Todo ====
+
+ Todo
+
+=== Scripting interface ===
+
+ Todo
+
+ ==== Todo ====
+
+ Todo
+
+=== Web-based interface ===
 
  ==== ThreadingWebServer ====
 
