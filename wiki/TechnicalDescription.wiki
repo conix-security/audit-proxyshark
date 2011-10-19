@@ -10,19 +10,19 @@ http://yuml.me/diagram/scruffy;scale:80/activity/(start)->(capture)->(dissection
 
 The implementation is divided into 6 different source files:
  * capture.py: nfqueue binding for packet capture and verdicts (accept or drop)
- * dissection.py: packet dissection with tshark
+ * dissection.py: packet dissection using tshark
  * processing.py: generic interface for breakpoints, actions, ...
  * console.py: command-line interface
  * script.py: scripting interface
  * web.py: web-based interface
 
-Basically, the packets captured into the capture layer are sent to the dissector and stored under their dissected form into the capture history. The processing part is called by the user interfaces to interact with the packets and manage the breakpoints and actions.
+Basically, the captured packets are sent to the dissector and stored into the capture layer under their dissected form. The processing part interacts with the packet history through one of the user interface. The processing part is also in charge of the breakpoints and actions management.
 
 The following diagram shows the interactions between the different elements:
 
-<img src="http://yuml.me/diagram/scruffy;scale:80/class/[Capture|NFQueue;NFPacket;...]<->[Processing|...],[Processing|...]^-[Command-line interface|...],[Processing|...]^-[Scripting interface|...],[Processing|...]^-[Web-based interface|...],[Capture|NFQueue;NFPacket;...]<->[Dissection|Dissector;DissectedPacket;DissectedProto;DissectedField;...].jpg" />
+<img src="http://yuml.me/diagram/scruffy;scale:80/class/[capture.py|NFQueue;NFPacket;...]<->[processing.py|...],[processing.py|...]^-[console.py|...],[processing.py|...]^-[script.py|...],[processing.py|...]^-[web.py|...],[capture.py|NFQueue;NFPacket;...]<->[dissection.py|Dissector;DissectedPacket;DissectedProto;DissectedField;...].jpg" />
 
-The capture layer gets the packets from nfqueue and 
+Detailed view showing the interactions between the different classes:
 
 <img src="http://yuml.me/diagram/scruffy;scale:80/class/[NFQueue]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[NFPacket],[NFQueue]++->[Dissector],[NFPacket]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20dissected by-.->1[Dissector],[Dissector]%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20provides-.->*[DissectedPacket],[DissectedPacket]->*[DissectedProto],[DissectedProto]->*[DissectedField],[CommandLineInterface]++->[NFQueue],[Console]uses%20%20%20%20-.->1[CommandLineInterface],[ScriptingInterface]++->[NFQueue],[WebBasedInterface]++->[NFQueue],[WebServer]++->[ThreadingWebServer],[ThreadingWebServer]uses%20%20%20%20-.->1[WebBasedInterface],[NFQueue]->*%20%20%20%20%20%20%20%20%20%20%20%20[DissectedPacket].jpg" />
 
