@@ -1,3 +1,0 @@
-wireshark-g711.o: g711.c g711.h
-
-g711.h:

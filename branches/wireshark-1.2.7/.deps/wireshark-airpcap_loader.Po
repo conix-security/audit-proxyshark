@@ -1,3 +1,0 @@
-wireshark-airpcap_loader.o: airpcap_loader.c config.h
-
-config.h:

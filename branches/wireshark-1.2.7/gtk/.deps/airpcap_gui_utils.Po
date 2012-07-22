@@ -1,3 +1,0 @@
-airpcap_gui_utils.o: airpcap_gui_utils.c ../config.h
-
-../config.h:
