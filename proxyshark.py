@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# This file is part of proxyshark, a tool designed to dissect and alter IP
+# This file is part of Proxyshark, a tool designed to dissect and alter IP
 # packets on-the-fly.
 #
 # Copyright (c) 2011 by Nicolas Grandjean <ncgrandjean@gmail.com>
@@ -21,7 +21,17 @@
 #
 
 #TODO:
-# - 'not' syntax in BPF filters
+# - support the 'not' keyword in BPF filters
+# - create a function to print a packet depending on a given field filter
+# - print the final packet in the web server request handler
+# - cleanup the imports
+# - take into account the case where many fields have the same name
+# - add an interactive mode
+# - performance optimizations
+#
+# - burp plugin:
+#   - provide a textarea to edit the packets (not in ascii-hex mode)
+#   - provide a new tab to log all captured packets
 #
 
 # can be overridden by command line arguments
@@ -39,6 +49,7 @@ import binascii
 import copy
 import cProfile
 import getopt
+import httplib
 import json
 import libnetfilter_queue as libnfq
 import logging
@@ -73,6 +84,7 @@ from scapy.all import (
     L3RawSocket,
     IP,
     TCP,
+    UDP,
     send)
 
 def cached(function):
@@ -119,72 +131,23 @@ def network_devices():
     #
 
 ###############################################################################
-# Test cases & Performance profiling
+# Globals
 ###############################################################################
 
-stats = None
-
-def profile(statement, env):
-    """ TODO """
-    global stats
-    statement = "__profile__ = " + statement.replace("\n", "").strip()
-    cProfile.runctx(statement, globals(), env, "proxyshark.stats")
-    stats = pstats.Stats("proxyshark.stats")
-    stats.sort_stats("time")
-    stats.print_stats()
-    return env["__profile__"]
-    #
-
-def profile_add(statement, env):
-    """ TODO """
-    global stats
-    statement = "__profile__ = " + statement.replace("\n", "").strip()
-    cProfile.runctx(statement, globals(), env, "proxyshark.stats")
-    if stats:
-        for i in xrange(10):
-            stats.add("proxyshark.stats")
-    else:
-        stats = pstats.Stats("proxyshark.stats")
-    return env["__profile__"]
-    #
-
-def profile_print(sig, frame):
-    """ TODO """
-    global stats
-    stats.sort_stats("time")
-    stats.print_stats()
-    #
-
-def testcase_dissection(sig, frame):
-    """ TODO """
-    global nfqueue
-    def wrapper(d):
-        for packet in nfqueue._cache.values():
-            d.dissect(
-                nfqueue._nfq_connection_handle["queue"],
-                packet._nfq_data,
-                packet.data
-            )
-    print "# Testcase: %s packet(s) in cache" % len(nfqueue._cache)
-    d = Dissector()
-    profile("wrapper(d)", locals())
-    #
-
-signal.signal(signal.SIGUSR1, testcase_dissection)
-signal.signal(signal.SIGPROF, profile_print)
+nfqueue = None
+web_server = None
 
 ###############################################################################
-# Classes (parsing)
+# Classes (filters)
 ###############################################################################
 
-class BPF:
-    """Provides static methods to parse BPF language and generate Netfilter
-    rules from it."""
-    prefix = 'PROXYSHARK'
-    existing_chains = []
+class Filters:
+    """Provides static methods to parse and filter various things."""
+    iptables_prefix = 'PROXYSHARK'
+    iptables_existing_chains = []
     @staticmethod
-    def cleanup():
-        """Removes all the Netfilter chains related to proxyshark."""
+    def iptables_cleanup():
+        """Removes all the Netfilter chains related to Proxyshark."""
         logging.info("cleaning up chains")
         iptables = Popen(
             ['/sbin/iptables', '-L', '-n'],
@@ -193,7 +156,7 @@ class BPF:
             stdout=PIPE,
             stderr=None)
         findall = re.findall(
-            r'\n(%s\d+) ' % BPF.prefix,
+            r'\n(%s\d+) ' % Filters.iptables_prefix,
             iptables.stdout.read())
         if len(findall) > 0:
             chains = findall
@@ -204,35 +167,35 @@ class BPF:
                 if chain in removed:
                     continue
                 for def_chain in ['INPUT', 'OUTPUT', 'FORWARD']:
-                    BPF._iptables_raw('-t filter -D %s -j %s' % (
+                    Filters._iptables_raw('-t filter -D %s -j %s' % (
                         def_chain,
                         chain))
-                BPF._iptables_raw('-t filter -F %s' % chain)
+                Filters._iptables_raw('-t filter -F %s' % chain)
                 removed.append(chain)
             # remove empty proxyshark chains
             removed = []
             for chain in chains:
                 if chain in removed:
                     continue
-                BPF._iptables_raw('-t filter -X %s' % chain)
+                Filters._iptables_raw('-t filter -X %s' % chain)
                 removed.append(chain)
         #
     @staticmethod
-    def _new_chain_id():
+    def _iptables_new_chain_id():
         """Generates a new Netfilter chain identifier."""
-        return BPF.__new_chain_id().next()
+        return Filters.__iptables_new_chain_id().next()
         #
     @staticmethod
     @cached
-    def __new_chain_id():
-        """Wrapper for the BPF._new_chain_id() method."""
+    def __iptables_new_chain_id():
+        """Cached wrapper for the Filters._iptables_new_chain_id() method."""
         existing = []
         chain_id = None
         while 1:
             while not chain_id or chain_id in existing:
                 chain_id = random.randint(1000, 9999)
                 existing.append(chain_id)
-                yield '%s%s' % (BPF.prefix, chain_id)
+                yield '%s%s' % (Filters.iptables_prefix, chain_id)
         #
     @staticmethod
     def _iptables_raw(args):
@@ -249,29 +212,52 @@ class BPF:
                 no_stderr = ' 2> /dev/null'
                 break
         else:
-            global verbose_level
             if verbose_level > 1:
                 logging.debug('iptables %s' % args)
         # execute the raw command with the given arguments
         os.system('/sbin/iptables %s%s' % (args, no_stderr))
         #
     @staticmethod
-    def iptables(table, chain, bpf_filter, custom_args, targetname):
+    @cached
+    def _bpf_parser():
+        """Provides a parser for the BPF language."""
+        # define a grammar to parse the bpf language
+        direction = oneOf('src dst')
+        dev = Optional(direction) + Literal('dev') + Word(alphanums)
+        ip = Combine(
+            Word(nums, max=3) + Literal('.') + Word(nums, max=3) +
+            Literal('.') +
+            Word(nums, max=3) + Literal('.') + Word(nums, max=3))
+        hostname = Combine(Word(alphas) + Word(alphanums + '-._'))
+        netmask = Literal('/') + Word(nums, max=2)
+        host = Optional(direction) + Literal('host') + (ip | hostname)
+        net = Optional(direction) + Literal('net') + Combine(ip + netmask)
+        port = Optional(direction) + Literal('port') + Word(nums, max=5)
+        proto = oneOf('icmp tcp udp') + Optional(port)
+        logical = oneOf('and or')
+        parser = Forward()
+        parser << (
+            Group(
+                dev | proto | host | net | port |
+                nestedExpr(content=parser)) +
+            Optional(
+                logical + Group(parser)))
+        parser = (
+            StringStart() +
+            (Literal('any') | parser) +
+            StringEnd())
+        return parser
+        #
+    @staticmethod
+    def iptables_bpf(bpf_filter, queue_num):
         """
         Generates and applies iptables rules from a given BPF filter.
 
-        table       -- table in which to apply the rules
-                       ('filter', 'nat', etc.)
-        chain       -- chain in which to apply the rules
-                       ('INPUT', 'OUTPUT', 'FORWARD', etc.)
-        bpf_filter  -- BPF filter from which to generate the rules
-        custom_args -- custom iptables arguments to append to the first
-                       generated rule
-        targetname  -- target of the last generated rule
-                       ('ACCEPT', 'DROP', 'NFQUEUE', etc.)
+        bpf_filter -- BPF-filter from which to generate the Netfilter rules
+        queue_num  -- queue number to use
 
         """
-        # wrapper to process a given list of tokens
+        # wrapper function to process tokens
         def parse(tokens):
             rules = []
             # if we have a token list
@@ -281,8 +267,8 @@ class BPF:
                 if direction in ['icmp', 'tcp', 'udp']:
                     proto = direction
                     direction = None
-                id0 = BPF._new_chain_id()
-                id1 = BPF._new_chain_id()
+                id0 = Filters._iptables_new_chain_id()
+                id1 = Filters._iptables_new_chain_id()
                 # any
                 if value == 'any':
                     rules.append((id0, '', id1))
@@ -365,76 +351,198 @@ class BPF:
                 raise ParseException(repr(tokens))
             return rules
             #
-        # process the bpf filter passed in argument
-        if len(custom_args) > 0:
-            custom_args = ' ' + custom_args.strip()
-        # define a grammar to parse the bpf language
-        direction = oneOf('src dst')
-        dev = Optional(direction) + Literal('dev') + Word(alphanums)
-        ip = Combine(
-            Word(nums, max=3) + Literal('.') + Word(nums, max=3) +
-            Literal('.') +
-            Word(nums, max=3) + Literal('.') + Word(nums, max=3))
-        hostname = Combine(Word(alphas) + Word(alphanums + '-._'))
-        netmask = Literal('/') + Word(nums, max=2)
-        host = Optional(direction) + Literal('host') + (ip | hostname)
-        net = Optional(direction) + Literal('net') + Combine(ip + netmask)
-        port = Optional(direction) + Literal('port') + Word(nums, max=5)
-        proto = oneOf('icmp tcp udp') + Optional(port)
-        logical = oneOf('and or')
-        parser = Forward()
-        parser << (
-            Group(
-                dev | proto | host | net | port |
-                nestedExpr(content=parser)) +
-            Optional(
-                logical + Group(parser)))
-        parser = (
-            StringStart() +
-            (Literal('any') | parser) +
-            StringEnd())
+        # iptables settings
+        table = 'filter'
+        custom_args = ''
+        targetname = 'NFQUEUE --queue-num %s' % queue_num
         # parse the bpf filter
-        logging.info('applying filter %s to chain %s' % (
-            repr(bpf_filter or 'any'),
-            repr(chain)))
-        tokens = parser.parseString(bpf_filter or 'any')
+        logging.info('applying bpf-filter %s' % repr(bpf_filter or 'any'))
+        tokens = Filters._bpf_parser().parseString(bpf_filter or 'any')
         rules = parse(tokens)
         new_chains = list(set( # remove doubles
             [x[0] for x in rules] + [x[2] for x in rules]))
         for new_chain in new_chains:
-            if new_chain not in BPF.existing_chains:
-                BPF._iptables_raw('-t %s -N %s' % (
+            if new_chain not in Filters.iptables_existing_chains:
+                Filters._iptables_raw('-t %s -N %s' % (
                     table,
                     new_chain))
-                BPF.existing_chains.append(new_chain)
-        BPF.existing_chains = list(set( # remove doubles
-            BPF.existing_chains))
-        BPF._iptables_raw('-t %s -I %s 1%s -j %s' % (
-            table,
-            chain,
-            custom_args,
-            rules[0][0]))
-        for id0, rule, id1 in rules:
-            if rule == '':
-                # handler the 'any' case
-                BPF._iptables_raw('-t %s -I %s 1 -j %s' % (
-                    table,
-                    id0,
-                    targetname))
-                break
-            else:
-                # general situation
-                BPF._iptables_raw('-t %s -I %s 1 %s -j %s' % (
-                    table,
-                    id0,
-                    rule,
-                    id1))
-        else:
-            # not in the 'any' case
-            BPF._iptables_raw('-t %s -I %s 1 -j %s' % (
+                Filters.iptables_existing_chains.append(new_chain)
+        Filters.iptables_existing_chains = list(set( # remove doubles
+            Filters.iptables_existing_chains))
+        # apply the rules
+        for chain in ['INPUT', 'OUTPUT', 'FORWARD']:
+            Filters._iptables_raw('-t %s -I %s 1%s -j %s' % (
                 table,
-                rules[-1][-1],
-                targetname))
+                chain,
+                custom_args,
+                rules[0][0]))
+            for id0, rule, id1 in rules:
+                if rule == '':
+                    # handler the 'any' case
+                    Filters._iptables_raw('-t %s -I %s 1 -j %s' % (
+                        table,
+                        id0,
+                        targetname))
+                    break
+                else:
+                    # general situation
+                    Filters._iptables_raw('-t %s -I %s 1 %s -j %s' % (
+                        table,
+                        id0,
+                        rule,
+                        id1))
+            else:
+                # not in the 'any' case
+                Filters._iptables_raw('-t %s -I %s 1 -j %s' % (
+                    table,
+                    rules[-1][-1],
+                    targetname))
+        #
+    @staticmethod
+    @cached
+    def _xpath_parser():
+        """Provides a parser to handle boolean expressions based on multiple
+        XPath filters."""
+        condition = Word(printables.replace('(', '').replace(')', ''))
+        logical = oneOf('and or')
+        parser = Forward()
+        parser << (
+            Group(
+                condition |
+                nestedExpr(content=parser)) +
+            Optional(
+                logical + Group(parser)))
+        parser = StringStart() + parser + StringEnd()
+        return parser
+        #
+    @staticmethod
+    def xpath(condition, packet):
+        """
+        Returns True if the given packet matches the given condition.
+
+        condition -- boolean expression based on multiple XPath filters
+        packet    -- packet to check
+
+        """
+        # wrapper function to process tokens
+        def parse(tokens):
+            result = False
+            # if we have a token list
+            if isinstance(tokens[0], basestring):
+                elements = packet[tokens[0]]
+                #logging.debug("xpath filter %s gives: %s" % (
+                #    repr(tokens[0]),
+                #    repr(elements)))
+                result = len(elements) > 0
+            # if we have a single group
+            elif len(tokens) == 1:
+                result = parse(tokens[0])
+            # if we have a composition ('and' or 'or')
+            elif len(tokens) == 3:
+                if tokens[1] in ['and']:
+                    result0 = parse(tokens[0])
+                    result1 = parse(tokens[2])
+                    result = result0 and result1
+                elif tokens[1] in ['or']:
+                    result0 = parse(tokens[0])
+                    result1 = parse(tokens[2])
+                    result = result0 or result1
+            else:
+                raise ParseException(repr(tokens))
+            return result
+            #
+        if condition:
+            parser = Filters._xpath_parser()
+            tokens = parser.parseString(condition)
+            return parse(tokens)
+        else:
+            return True
+        #
+    @staticmethod
+    @cached
+    def _field_parser():
+        """Provides a parser to handle boolean expressions based on multiple
+        field filters."""
+        condition = Word(printables.replace('(', '').replace(')', ''))
+        logical = oneOf('and or')
+        parser = Forward()
+        parser << (
+            Group(
+                condition |
+                nestedExpr(content=parser)) +
+            Optional(
+                logical + Group(parser)))
+        parser = StringStart() + parser + StringEnd()
+        return parser
+        #
+    @staticmethod
+    def field(condition, field):
+        """
+        Returns True if the given field matches the given condition.
+
+        condition -- boolean expression based on multiple field filters
+        field     -- a dictionary describing the field to check
+
+        """
+        # wrapper function to process tokens
+        def parse(tokens):
+            result = False
+            # if we have a token list
+            if isinstance(tokens[0], basestring):
+                findall = re.findall(
+                    r'^([a-z]+)(!)?(==|=|\^=|~=|\$=|<=|>=|<|>)(.+)$',
+                    tokens[0],
+                    re.IGNORECASE)
+                if len(findall) == 0:
+                    raise ParseException("invalid syntax %s" % repr(tokens[0]))
+                attr, neg, op, value = findall[0]
+                op_functions = {
+                    '==' : '__eq__',
+                    '='  : '__eq__',
+                    '^=' : 'startswith',
+                    '~=' : '__contains__',
+                    '$=' : 'endswith',
+                    '<'  : '__lt__',
+                    '>'  : '__gt__',
+                    '<=' : '__le__',
+                    '>=' : '__ge__',
+                }
+                if attr not in field or op not in op_functions:
+                    raise ParseException("invalid syntax %s" % repr(tokens[0]))
+                item_value = field[attr]
+                if item_value.isdigit() and value.isdigit():
+                    item_value = float(item_value)
+                    cond_value = float(value)
+                else:
+                    cond_value = '\'%s\'' % value
+                result = eval('%s%s.%s(%s)' % (
+                    neg != '' and 'not ' or '',
+                    repr(item_value),
+                    op_functions[op],
+                    cond_value))
+            # if we have a single group
+            elif len(tokens) == 1:
+                result = parse(tokens[0])
+            # if we have a composition ('and' or 'or')
+            elif len(tokens) == 3:
+                if tokens[1] in ['and']:
+                    result0 = parse(tokens[0])
+                    result1 = parse(tokens[2])
+                    result = result0 and result1
+                elif tokens[1] in ['or']:
+                    result0 = parse(tokens[0])
+                    result1 = parse(tokens[2])
+                    result = result0 or result1
+            else:
+                raise ParseException(repr(tokens))
+            return result
+            #
+        if condition:
+            parser = Filters._field_parser()
+            tokens = parser.parseString(condition)
+            return parse(tokens)
+        else:
+            return True
         #
     #
 
@@ -483,14 +591,22 @@ class DissectedPacket:
         self.etree_packet = etree_packet
         self.verdict = None
         # network interfaces
-        self.indev = network_devices()[libnfq.get_indev(nfq_data)]
-        self.outdev = network_devices()[libnfq.get_outdev(nfq_data)]
+        index = libnfq.get_indev(nfq_data)
+        if index < len(network_devices()):
+            self.indev = network_devices()[index]
+        else:
+            self.index = '-'
+        index = libnfq.get_outdev(nfq_data)
+        if index < len(network_devices()):
+            self.outdev = network_devices()[index]
+        else:
+            self.outdev = '-'
         # raw data
         self.data_length, self.data = libnfq.get_full_payload(nfq_data)
         # packet identifier
         try:
             items = self.__getitem__(
-                'proto[@name="geninfo"]/field[@name="num"]/show')
+                'proto[@name="geninfo"]/field[@name="num"][show]')
             self.identifier = int(items[0])
         except IndexError:
             self.identifier = '?'
@@ -499,7 +615,7 @@ class DissectedPacket:
         # packet stream
         try:
             items = self.__getitem__(
-                'proto[@name="tcp"]/field[@name="tcp.stream"]/show')
+                'proto[@name="tcp"]/field[@name="tcp.stream"][show]')
             self.stream = int(items[0])
         except IndexError:
             self.stream = None
@@ -553,43 +669,124 @@ class DissectedPacket:
         """Drops the packet."""
         self._set_verdict(libnfq.NF_DROP)
         #
+    def write(self, pos, size, new_value):
+        """"""
+        #TODO: handle the case where len(fields) > 1
+        new_value = binascii.a2b_hex(new_value)
+        scapy_packet = IP(self.data[:pos] + new_value + self.data[pos+size:])
+        del scapy_packet[IP].len
+        del scapy_packet[IP].chksum
+        if scapy_packet.haslayer(TCP):
+            del scapy_packet[TCP].chksum
+        if scapy_packet.haslayer(UDP):
+            del scapy_packet[UDP].chksum
+        new_data = str(scapy_packet)
+        new_data_length = len(new_data)
+        if self.data != new_data and self.data_length != new_data_length:
+            for field in self.etree_packet.findall('proto//field'):
+                pos = field.get('pos')
+                if pos:
+                    pos = int(pos)
+                    offset = new_data_length - self.data_length
+                    field.set('pos', pos+offset)
+            self.data = str(scapy_packet)
+            self.data_length = len(self.data)
+        #
     def __getitem__(self, key):
-        """Returns fields from a given XPath key."""
-        items = self.etree_packet.findall(key)
-        if items == []:
-            key, _, attr_name = key.rpartition('/')
-            items = self.etree_packet.findall(key)
-            if items == []:
+        """Returns fields from a given XPath-based key."""
+        # look for an attribute name or a condition
+        findall = re.findall(
+            r'^(.*)(?:\[([a-z]+)\])(?:(!)?(==|=|\^=|~=|\$=|<=|>=|<|>)(.+))?$',
+            key,
+            re.IGNORECASE)
+        # found an attribute name and/or a condition
+        if len(findall) > 0:
+            key, attr_name, neg, op, value = findall[0]
+            try:
+                items = self.__getitem__(key)
+            except Exception:
+                logging.debug("invalid xpath expression")
                 return []
+            if len(items) > 0:
+                # check the condition and return the result
+                if value != '':
+                    op_functions = {
+                        '==' : '__eq__',
+                        '='  : '__eq__',
+                        '^=' : 'startswith',
+                        '~=' : '__contains__',
+                        '$=' : 'endswith',
+                        '<'  : '__lt__',
+                        '>'  : '__gt__',
+                        '<=' : '__le__',
+                        '>=' : '__ge__',
+                    }
+                    result = []
+                    for item in items:
+                        item_value = item.get(attr_name)
+                        if item_value and op in op_functions:
+                            if item_value.isdigit() and value.isdigit():
+                                item_value = float(item_value)
+                                cond_value = float(value)
+                            else:
+                                cond_value = '\'%s\'' % value
+                            if eval('%s%s.%s(%s)' % (
+                                neg and 'not ' or '',
+                                repr(item_value),
+                                op_functions[op],
+                                cond_value
+                            )):
+                                result.append(item)
+                    return result
+                # return the attribute values
+                else:
+                    result = []
+                    for item in items:
+                        item_value = item.get(attr_name)
+                        if item_value:
+                            result.append(item_value)
+                    return result
             else:
-                return [item.get(attr_name) for item in items]
+                return []
+        # normal xpath filter
         else:
-            result = []
-            for item in items:
-                d = {}
-                for k, v in item.items():
-                    d[k] = v
-                result.append(d)
-            return result
+            try:
+                items = self.etree_packet.findall(key)
+            except Exception:
+                logging.debug("invalid xpath expression")
+                return []
+            # return the field as a dict containing the attributes
+            if len(items) > 0:
+                result = []
+                for item in items:
+                    d = {}
+                    for k, v in item.items():
+                        d[k] = v
+                    result.append(d)
+                return result
+            else:
+                return []
         #
     #
 
 class Dissector:
     """A packet dissector based on TShark."""
-    def __init__(self, quiet=False):
+    def __init__(self, tshark_dir, quiet=False):
         """
         Runs two instances of TShark: one in text mode (-T text) to get general
         packet descriptions and one in PDML mode (-T pdml) to get complete
         packet dissections.
 
-        quiet -- if True, don't print any information about the dissector state
+        tshark_dir -- location of the tshark binary to use
+        quiet      -- if True, don't print any information about the dissector
+                      state
 
         """
-        self._quiet = quiet
+        self.tshark_dir = tshark_dir
+        self.quiet = quiet
         self._stopping = Event()
         # use the tshark binary given in argument
-        global arg_tshark_dir
-        tshark_path = os.path.join(os.getcwd(), arg_tshark_dir, 'tshark')
+        tshark_path = os.path.join(os.getcwd(), tshark_dir, 'tshark')
         # provide tshark with a global pcap header
         pcap_global_header = (
             '\xd4\xc3\xb2\xa1' # magic number
@@ -635,7 +832,7 @@ class Dissector:
             if self._tshark[mode].returncode >= 0:
                 raise RuntimeError("running tshark in %s mode failed" % mode)
             self._tshark[mode].stderr.close()
-        if not self._quiet:
+        if not self.quiet:
             logging.info("dissector started")
         #
     #def _ensure_is_running(self, restart_attempts=None):
@@ -656,7 +853,7 @@ class Dissector:
     #    if not self._stopping.isSet():
     #        self._stop()
     #        if restart_attempts:
-    #            if not self._quiet:
+    #            if not self.quiet:
     #                logging.info("restarting dissector...")
     #            time.sleep((1 + max_restart_attempts - restart_attempts)**2)
     #            self.__init__()
@@ -709,9 +906,11 @@ class Dissector:
             # retrieve the packet description and the xml dissection
             parser = XMLParser()
             xml = []
-            parser_feed = lambda line: None
+            parser_feed = lambda line: None            
             while 1:
                 line = self._tshark['pdml'].stdout.readline()
+                #if 'sip.From' in line:
+                #    print line.strip()
                 if line is None:
                     raise DissectionException("unexpected end of file!")
                 if line == '<packet>\n':
@@ -722,16 +921,21 @@ class Dissector:
                     break
             description = self._tshark['text'].stdout.readline()[2:-1]
             etree_packet = parser.close()
-            return description, etree_packet
+            packet = DissectedPacket(
+                nfq_handle,
+                nfq_data,
+                description,
+                etree_packet)
+            return packet
         except IOError:
-            return None, None
+            return None
         #
     def stop(self):
         """Stops TShark instances properly."""
         if not self._stopping.isSet():
             self._stopping.set()
             self._stop()
-            if not self._quiet:
+            if not self.quiet:
                 logging.info("dissector stopped")
         #
     #
@@ -744,34 +948,27 @@ class NFQueue(Thread):
     """A Netfilter queue to receive packets, dissect them and make them
     available to the user interface."""
     #
-    def __init__(self, queue_num, bpf_filter, xpath_filter, web_server=None):
-        """
-        Creates a new instance.
-
-        queue_num    -- queue to listen
-        bpf_filter   -- bpf-filter describing the packets to capture
-        xpath_filter -- xpath filter describing the packets to process
-        web_server   -- a WebServer instance to host the local web services
-
-        """
+    def __init__(self, tshark_dir, queue_num,
+                 bpf_filter, xpath_filter, field_filter,
+                 proxy_addr, proxy_port, ws_bind, ws_port):
+        """Creates a new instance."""
         # initialization
         Thread.__init__(self, name='NFQueueThread')
+        self.tshark_dir = tshark_dir
         self.queue_num = queue_num
         self.bpf_filter = bpf_filter
         self.xpath_filter = xpath_filter
+        self.field_filter = field_filter
+        self.proxy_addr = proxy_addr
+        self.proxy_port = proxy_port
+        self.ws_bind = ws_bind
+        self.ws_port = ws_port
         self.packets = {}
         self.streams = {}
-        self._dissector = Dissector()
-        self._web_server = web_server
+        self._dissector = Dissector(tshark_dir)
         # setup the bpf filter
-        BPF.cleanup()
-        for chain in ['INPUT', 'OUTPUT', 'FORWARD']:
-            BPF.iptables(
-                'filter',
-                chain,
-                bpf_filter,
-                '',
-                'NFQUEUE --queue-num %s' % queue_num)
+        Filters.iptables_cleanup()
+        Filters.iptables_bpf(bpf_filter, queue_num)
         # events
         self._stopping = Event()
         self._dissector_stopping = Event()
@@ -787,12 +984,13 @@ class NFQueue(Thread):
         self._nfq_connection_handle = {}
         self._nfq_connection_handle['queue'] = libnfq.create_queue(
             self._nfq_handle,
-            self.queue_num,
+            queue_num,
             self._c_handler,
             None)
-        libnfq.set_mode(self._nfq_connection_handle['queue'],
-                        libnfq.NFQNL_COPY_PACKET,
-                        self._snaplen)
+        libnfq.set_mode(
+            self._nfq_connection_handle['queue'],
+            libnfq.NFQNL_COPY_PACKET,
+            self._snaplen)
         #
     def run(self):
         """Waits for packets from Netfilter."""
@@ -821,38 +1019,113 @@ class NFQueue(Thread):
         self._stopping.set()
         self._dissector_stopping.wait(1)
         self._dissector.stop()
-        BPF.cleanup()
+        Filters.iptables_cleanup()
         #
     def _callback(self, dummy1, dummy2, nfq_data, dummy3):
         """Handles the packets received from Netfilter."""
         try:
             # packet dissection
-            description, etree_packet = self._dissector.dissect(
+            packet = self._dissector.dissect(
                 self._nfq_connection_handle['queue'],
                 nfq_data)
-            if description != None and etree_packet != None:
-                packet = DissectedPacket(
-                    self._nfq_connection_handle['queue'],
-                    nfq_data,
-                    description,
-                    etree_packet)
-                global verbose_level
-                if verbose_level > 0: # quiet mode
-                    sys.stderr.write(str(packet) + '\n')
-                if verbose_level > 1: # verbose mode
-                    pass #TODO: add detailed description here
+            if packet:
+                if verbose_level > 0:
+                    print >>sys.stderr, str(packet)
+                # apply the xpath filter
+                try:
+                    if not Filters.xpath(self.xpath_filter, packet):
+                        packet.accept()
+                        return
+                except ParseException, exception:
+                    traceback(exception)
+                    packet.accept()
+                    return
+                # store the packet
+                self.packets[packet.identifier] = packet
+                # retrieve the fields to send to the web proxy
 
-                
+                """packet.write('ip.ttl', '0123')
+                print binascii.b2a_hex(packet.data)
+                packet.write('ip.version', 'AAAA')
+                print binascii.b2a_hex(packet.data)
+                packet.write('ip.ttl', '0124')
+                print binascii.b2a_hex(packet.data)
+                packet.write('ip.src', 'EEEEEEEE')
+                print binascii.b2a_hex(packet.data)
+                packet.write('ip.dst', 'FFFFFFFF')
+                print binascii.b2a_hex(packet.data)"""
 
-                # storage
-                #self.packets[packet.identifier] = packet
-                #if packet.stream is not None:
-                #    self.streams.setdefault(packet.stream, []).append(packet)
-                #TODO: processing
-                packet.accept()
-                #packet.drop()
+                post_params = []
+                if verbose_level > 1:
+                    print >>sys.stderr, 'Packet #%s: [' % packet.identifier
+                no_selected_field = True
+                for field in packet['proto//field']:
+                    if 'name' not in field:
+                        continue
+                    if 'show' not in field:
+                        continue
+                    if 'value' not in field:
+                        continue
+                    if field['name'].startswith('geninfo.'):
+                        continue
+                    if field['name'].startswith('frame.'):
+                        continue
+                    if '.' not in field['name']:
+                        continue
+                    #if self.field_filter:
+                    #    for field in packet[self.field_filter]:
+                    #        if 'name' in 
+                    #    findall = re.findall(
+                    #        self.field_filter,
+                    #        field['name'])
+                    #    if len(findall) == 0:
+                    #        continue
+                    try:
+                        if Filters.field(self.field_filter, field):
+                            no_selected_field = False
+                            if verbose_level > 1:
+                                print >>sys.stderr, '    %s%s= %s (%s)' % (
+                                    field['name'],
+                                    ' '*(32-len(field['name'])),
+                                    repr(field['show']),
+                                    repr(field['value'][:64]))
+                            post_params.append('%s=%s' % (
+                                field['name'],
+                                field['value']))
+                    except ParseException, exception:
+                        traceback(exception)
+                        logging.error("invalid field filter?")
+                        packet.accept()
+                        return
+                if verbose_level > 1:
+                    if no_selected_field:
+                        print >>sys.stderr, '    <null>'
+                    print >>sys.stderr, ']'
+                post_params = '&'.join(post_params)
+
+                #packet.accept()
+                #return
+
+                # headers
+                post_headers = {
+                    'Host': '%s:%s' % (self.ws_bind, self.ws_port),
+                    'User-Agent': 'Proxyshark (Python/%s)' %
+                                  sys.version.partition(' ')[0],
+                    'Accept-Encoding': 'identity',
+                }
+                # send a POST request to the web service
+                connection = httplib.HTTPConnection('%s:%s' % (
+                    self.proxy_addr,
+                    self.proxy_port))
+                connection.request(
+                    'POST',
+                    '/edit-packet/%s' % packet.identifier,
+                    post_params,
+                    post_headers)
+                response = connection.getresponse()
         except Exception, exception:
             traceback(exception)
+            # default choice in case of error
             full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
             nfq_packet_id = full_msg_packet_hdr['packet_id']
             data_length, data = libnfq.get_full_payload(nfq_data)
@@ -879,31 +1152,22 @@ class ThreadingWebServer(ThreadingMixIn, HTTPServer):
 class WebServer(Thread):
     """A small web server to receive its own traffic composed of HTTP-embedded
     captured packets."""
-    def __init__(self, proxy_addr, proxy_port, ws_addr, ws_port):
-        """
-        Creates a new instance.
-
-        proxy_addr -- address of the remote web proxy
-        proxy_port -- port of the remote web proxy
-        ws_addr -- bind address for the local web server
-        ws_port -- local port for client connections on the web services
-
-        """
-        Thread.__init__(self, name='WebProxyThread')
-        self._proxy_addr = proxy_addr
-        self._proxy_port = proxy_port
-        self._ws_addr = ws_addr
-        self._ws_port = ws_port
+    def __init__(self, ws_bind, ws_port):
+        """Creates a new instance."""
+        Thread.__init__(self, name='WebServerThread')
+        self.ws_bind = ws_bind
+        self.ws_port = ws_port
         self._server = None
         #
     def run(self):
         """Starts the web server."""
         try:
             self._server = ThreadingWebServer(
-                (self._ws_addr, self._ws_port),
+                (self.ws_bind, self.ws_port),
                 WebRequestHandler)
             logging.info("local server listening on %s:%s" % (
-                self._ws_addr, self._ws_port))
+                self.ws_bind,
+                self.ws_port))
             self._server.serve_forever()
             self._server.socket.close()
         except Exception, exception:
@@ -960,64 +1224,35 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                 self.path = ''
         self.path = '/' + self.path
         # parameters
+        if ('Content-Length' not in self.headers or
+            not self.headers['Content-Length'].isdigit()
+        ):
+            self.send_not_found()
+            return
+        length = int(self.headers['Content-Length'])
+        params = self.rfile.read(length)
         self.params = {}
-        findall = re.findall(r'([a-z_]+)=([^&]+)', findall[0][1])
-        if len(findall) > 0:
-            for param, value in findall:
-                self.params[param] = value
-        # ajax request
-        if self.is_ajax():
-            # just for indentation
-            if 0: pass
-            # /edit-packet
-            elif self.path == '/edit-packet':
-                self.edit_packet()
-            else:
-                self.send_not_found()
-        # file request
-        elif False: # disabled
-            # validate the extension
-            extension = self.path.rpartition('.')[2]
-            if not extension in ['css', 'gif', 'html', 'js']:
-                self.send_not_found()
-                return
-            # open the local file
-            try:
-                fd = open(os.path.join('www', self.path), 'r')
-            except IOError:
-                self.send_not_found()
-            else:
-                # send the response headers
-                self.send_response(200, 'OK')
-                mime = {
-                    'css': 'text/css',
-                    'gif': 'image/gif',
-                    'html': 'text/html',
-                    'js': 'application/javascript'
-                }
-                self.send_header('Content-Type', mime[extension])
-                self.end_headers()
-                # senf the file
-                self.wfile.write(fd.read())
-                fd.close()
+        for param in params.split('&'):
+            name, _, value = param.partition('=')
+            self.params[name] = value
+        # process the request
+        if 0: # for indentation
+            pass
+        # /edit-packet
+        elif self.path.startswith('/edit-packet/'):
+            self.edit_packet()
         else:
             self.send_not_found()
-        #
-    def is_ajax(self):
-        """Returns True if the current request was made in AJAX."""
-        return ('X-Requested-With' in self.headers and
-                self.headers['X-Requested-With'] == 'XMLHttpRequest')
         #
     def log_request(self, code):
         """Logs the current request."""
         # build the new log line
         if not hasattr(self, 'params'):
             self.params = {}
-        log_line = "%s %s %s %s %s" % (
+        log_line = "%s %s %s {...} %s" % (
             self.client_address[0],
             self.method,
             self.path,
-            self.params,
             code)
         # get the last log line
         lastlog = WebRequestHandler.lastlog
@@ -1043,6 +1278,32 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         #
     def edit_packet(self):
         """"""
+        # retrieve the packet identifier
+        findall = re.findall(r'([0-9]+)$', self.path)
+        if len(findall) == 0:
+            self.send_not_found()
+            return
+        identifier = int(findall[0])
+        if identifier not in nfqueue.packets:
+            self.send_not_found()
+            return
+        # get the packet from nfqueue
+        packet = nfqueue.packets[identifier]
+        # 
+
+        #print self.params
+        for name in self.params:
+            new_value = self.params[name]
+            fields = packet['proto//field[@name="%s"]' % name]
+            if len(fields) > 0:
+                if 'pos' in fields[0] and 'size' in fields[0]:
+                    pos = int(fields[0]['pos'])
+                    size = int(fields[0]['size'])
+                    #print 'packet.write(%s, %s, %s)' % (pos, size, new_value)
+                    packet.write(pos, size, new_value)
+
+        # accept the packet
+        packet.accept()
         self.send_response(200, 'OK')
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
@@ -1054,48 +1315,50 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 ###############################################################################
 
 def print_usage():
-    usage = """Usage: %s [-h] [-v [-v]] [-t <tshark-dir>] [-q <queue-num>] [-w <proxy-addr>:<proxy-port>:<ws-addr>:<ws-port>] [-b <bpf-filter>] [-x <xpath-filter>]
+    usage = """Usage: %s [-h] [-v] [-t <tshark-dir>] [-q <queue-num>] [-w <proxy-addr>:<proxy-port>:<ws-bind>:<ws-port>] <bpf-filter> [<xpath-filter>] [<field-filter>]
 
         -h : print this help and quit
 
-        -v : verbose mode, can be specified twice for debugging mode (default is quiet mode)
+        -v : verbose mode, can be specified twice for debugging mode
 
         -t : location of the tshark binary to use (default is './bin/%s/')
 
         -q : queue number to use (default is 1234)
 
-        -w : web-driven mode (local port for the web services and proxy to use to join them)
+        -w : proxy to use and local port to listen in web-driven mode
+             (default is 127.0.0.1:8080:127.0.0.1:1234)
 
-        -b : bpf-filter describing the packets to capture
+        <bpf-filter>   : bpf-filter describing the packets to capture
 
-        -x : xpath filter describing the packets to process
+        <xpath-filter> : filter describing the packets to process
+
+        <field-filter> : filter describing the fields to process
 
 
-    For example, if you want to intercept SIP traffic in web-driven mode using Burp Suite on port 8080:
+    For example, to intercept SIP traffic in web-driven mode with Burp Suite on port 8080:
 
-        root@debian:~$ %s -w 127.0.0.1:8080:127.0.0.1:1234 -b 'udp port 5060' -x 'proto[@name="sip"]'
+        root@debian:~$ %s 'udp port 5060' 'proto[name]=sip'
 
     """
-    sys.stdout.write(usage % (__file__, os.uname()[4], __file__))
-    sys.stdout.write('\n')
+    print usage % (__file__, os.uname()[4], __file__)
     #
 
 if __name__ == '__main__':
     # defaults
     arg_tshark_dir = 'bin/%s/' % os.uname()[4]
     arg_queue_num = 1234
-    arg_web_driven = False
-    arg_proxy_addr = None
-    arg_proxy_port = None
-    arg_ws_addr = None
-    arg_ws_port = None
-    arg_bpf_filter = None
-    arg_xpath_filter = None
+    arg_proxy_addr = '127.0.0.1'
+    arg_proxy_port = 8080
+    arg_ws_bind = '127.0.0.1'
+    arg_ws_port = 1234
+    arg_bpf_filter = 'any'
+    arg_xpath_filter = ''
+    arg_field_filter = ''
     # setup logging
     verbose_level = sys.argv.count('-v')
     logging_level = [logging.ERROR, logging.INFO, logging.DEBUG][verbose_level]
     logging_format = (
-        "%%(asctime)s %s proxyshark: [%%(levelname)s] %%(message)s" %
+        "%%(asctime)s %s Proxyshark: [%%(levelname)s] %%(message)s" %
         socket.gethostname())
     logging.basicConfig(level=logging_level, format=logging_format)
     # must be root
@@ -1119,6 +1382,10 @@ if __name__ == '__main__':
         # -t <tshark-dir>
         elif opt == '-t':
             arg_tshark_dir = arg
+            if not os.path.exists(arg_tshark_dir):
+                logging.error(
+                    "directory %s does not exist" % repr(arg_tshark_dir))
+                sys.exit(1)
         # -q <queue-num>
         elif opt == '-q':
             if arg.isdigit() and int(arg) >= 0 and int(arg) <= 65535:
@@ -1126,9 +1393,8 @@ if __name__ == '__main__':
             else:
                 logging.error("invalid queue number")
                 sys.exit(1)
-        # -w <proxy-addr>:<proxy-port>:<ws-addr>:<ws-port>
+        # -w <proxy-addr>:<proxy-port>:<ws-bind>:<ws-port>
         elif opt == '-w':
-            arg_web_driven = True
             split = arg.split(':')
             if len(split) == 4:
                 # proxy address
@@ -1149,7 +1415,7 @@ if __name__ == '__main__':
                 # local address for the web services
                 try:
                     socket.inet_aton(split[2])
-                    arg_ws_addr = split[2]
+                    arg_ws_bind = split[2]
                 except:
                     logging.error("invalid local address for the web services")
                     sys.exit(1)
@@ -1164,75 +1430,76 @@ if __name__ == '__main__':
             else:
                 logging.error("invalid proxy / web services specification")
                 sys.exit(1)
-        # -b <bpf-filter>
-        elif opt == '-b':
-            arg_bpf_filter = arg
-        # -x <xpath-filter>
-        elif opt == '-x':
-            arg_xpath_filter = arg
         else:
+            logging.error("unknown argument %s" % repr(opt))
             print_usage()
             sys.exit(1)
-    if not os.path.exists(arg_tshark_dir):
-        logging.error("directory %s does not exist" % repr(arg_tshark_dir))
-        sys.exit(1)
+    # other arguments
+    if len(args) > 0:
+        # <bpf-filter>
+        arg_bpf_filter = args[0]
+        if len(args) > 1:
+            # <xpath-filter>
+            arg_xpath_filter = args[1]
+            if len(args) > 2:
+                # <field-filter>
+                arg_field_filter = args[2]
+    # quiet mode?
     if verbose_level == 0:
-        sys.stderr.write("Running in quiet mode (use -h for help)...\n")
+        print >>sys.stderr, "Running in quiet mode (use -h for help)..."
+    # settings recap
     logging.info("tshark directory = %s" % repr(arg_tshark_dir))
     logging.info("queue number = %s" % arg_queue_num)
-    if arg_web_driven:
-        logging.info("web proxy = %s:%s" % (arg_proxy_addr, arg_proxy_port))
-        logging.info("web services = %s:%s" % (arg_ws_addr, arg_ws_port))
-    else:
-        logging.info("web proxy = None")
-        logging.info("web services = None")
+    logging.info("web proxy = %s:%s" % (arg_proxy_addr, arg_proxy_port))
+    logging.info("web services = %s:%s" % (arg_ws_bind, arg_ws_port))
     logging.info("bpf filter = %s" % repr(arg_bpf_filter))
-    logging.info("xpath_filter = %s" % repr(arg_xpath_filter))
-    # run the web server if necessary
-    try:
-        if arg_web_driven:
-            web_server = WebServer(
-                arg_proxy_addr, arg_proxy_port,
-                arg_ws_addr, arg_ws_port)
-            web_server.start()
-        else:
-            web_server = None
-    except Exception, exception:
-        logging.error(exception)
-        sys.exit(1)
+    logging.info("xpath filter = %s" % repr(arg_xpath_filter))
+    logging.info("field filter = %s" % repr(arg_field_filter))
     # run nfqueue
     try:
         nfqueue = NFQueue(
+            arg_tshark_dir,
             arg_queue_num,
             arg_bpf_filter,
             arg_xpath_filter,
-            web_server)
+            arg_field_filter,
+            arg_proxy_addr,
+            arg_proxy_port,
+            arg_ws_bind,
+            arg_ws_port)
         nfqueue.start()
     except Exception, exception:
-        logging.error(exception)
-        if arg_web_driven:
-            web_server.stop()
+        traceback(exception)
+        sys.exit(1)
+    # run the web server if necessary
+    try:
+        web_server = WebServer(
+            arg_ws_bind,
+            arg_ws_port)
+        web_server.start()
+    except Exception, exception:
+        traceback(exception)
+        nfqueue.stop()
         sys.exit(1)
     else:
         # infinite loop
         try:
             signal.signal(signal.SIGINT, handler_sigint)
             while nfqueue.isAlive():
-                if arg_web_driven and not web_server.isAlive():
+                if not web_server.isAlive():
                     break
                 time.sleep(0.5)
             time.sleep(1)
         except KeyboardInterrupt:
             pass
         except Exception, exception:
-            logging.error(exception)
+            traceback(exception)
         try:
             signal.signal(signal.SIGINT, signal.SIG_IGN)
         except KeyboardInterrupt:
             pass
         # stop the threads
-        if arg_web_driven:
-            web_server.stop()
+        web_server.stop()
         nfqueue.stop()
     logging.info("done.")
     sys.exit(0)
