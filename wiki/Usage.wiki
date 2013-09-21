@@ -84,15 +84,15 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can use t
 
 ==== `-b | --breakpoint <packet-filter>` ====
 
- Define a default [Usage#TODO breakpoint] based on the given packet filter (see the _--packet-filter_ argument).
+ Define a default breakpoint based on the given packet filter (see the _--packet-filter_ argument and the _breakpoints_ documentation below).
 
 ==== `-a | --action <expression>` ====
 
- An [Usage#TODO action] to run when the breakpoint is reached (see the _--breakpoint_ argument).
+ An action to run when the default breakpoint is reached (see the _--breakpoint_ argument and the _actions_ documentation below).
 
 ==== `<filename>` ====
 
- The name of an optional script to run (see [Usage#TODO]). 
+ The name of an optional script to run (see the _scripting_ documentation below).
 
 ==== Examples ====
 
