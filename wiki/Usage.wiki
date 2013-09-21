@@ -66,7 +66,6 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can use t
 
  Default is no filter (or _ip_).
 
-#packet_filter_argument
 ==== `-p | --packet-filter <packet-filter>` ====
 
  Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria. For example, a valid filter would be _http.request.method=GET and http.request.uri=/_. Further details can be found [PacketFilters here].
@@ -83,14 +82,13 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can use t
 
  Run the capture at start.
 
-#breakpoint_argument
 ==== `-b | --breakpoint <packet-filter>` ====
 
- Define a default [Usage#TODO breakpoint] based on the given packet filter (see the _[Usage#-p_|_--packet-filter_`<packet-filter>` --packet-filter]_ argument).
+ Define a default [Usage#TODO breakpoint] based on the given packet filter (see the _--packet-filter_ argument).
 
 ==== `-a | --action <expression>` ====
 
- An [Usage#TODO action] to run when the breakpoint is reached (see the _[Usage#-q_|_--breakpoint_`<queue-num>` --breakpoint]_ argument).
+ An [Usage#TODO action] to run when the breakpoint is reached (see the _--breakpoint_ argument).
 
 ==== `<filename>` ====
 
