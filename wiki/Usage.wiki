@@ -118,7 +118,7 @@ python proxyshark.py --verbose
 python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven-mode :::8888 --run
  }}}
 
- Turn all HTTP responses into "HTTP 500" errors (view mode):
+ Replace all HTTP responses by "HTTP 500" errors (view mode):
 
  {{{
 python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'any' --action 'http.response.code=500;continue'
