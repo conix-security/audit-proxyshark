@@ -4,7 +4,7 @@
 
 This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
 
-First of all, I have to say that _proxyshark_ can be used in 4 different modes:
+First of all, you have to know that _proxyshark_ can be used in 4 different modes:
  * *View mode*: all you have to do here is run _proxyshark_ with the appropriate arguments and watch the result directly in the standard output. You can setup filters and schedule actions based on given conditions, but nothing too complicated at this step. This mode can be used by running _proxyshark_ with the _[Usage#-r_%7C_--run --run]_ argument or by pressing Ctrl-D in interactive mode (see below).
  * *Interactive mode*: this mode is very close to the view mode except that you can use an interactive shell to change settings and manipulate packets dynamically. To use it, just run _proxyshark_ without the _[Usage#-r_%7C_--run --run]_ argument or press Ctrl-C when running in view mode.
  * *Scripting mode* *`[UPCOMING]`*: you can specify a file name containing a Python script to run as last command-line argument. All the [Usage#Interactive_console commands] from the interactive mode are also available. Note that you will switch to view mode after the script being interpreted.
