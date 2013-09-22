@@ -192,7 +192,7 @@ Several commands are available:
 tcp port 80 or 443
  }}}
 
- Capture SIP requests from _10.0.0.0/8_ to _1.2.3.4_ and _2.3.4.5_ on network device _eth1_:
+ Capture SIP requests from _10.0.0.0/8_ to _1.2.3.4_ or _2.3.4.5_ on network device _eth1_:
 
  {{{
 dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port 5060
