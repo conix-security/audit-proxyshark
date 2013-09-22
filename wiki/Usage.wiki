@@ -1,8 +1,14 @@
 *THIS PAGE IS UNDER CONSTRUCTION*
 
-*LAST UPDATE: Sep 21, 2013*
+*LAST UPDATE: Sep 22, 2013*
 
 This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
+
+First of all, I have to say that _proxyshark_ can be used in 4 different modes:
+ * *View mode*: all you have to do here is run _proxyshark_ with the appropriate arguments and watch the result directly in the standard output. You can setup filters and schedule actions based on given conditions, but nothing too complicated at this step. This mode can be used by running _proxyshark_ with the [Usage#%23%2d%72%5f%7c%5f%2d%2d%72%75%6e --run argument] or by pressing Ctrl-D in interactive mode (see below).
+ * *Interactive mode*: this mode is very close to the view mode except that you can use an interactive shell to change settings and manipulate packets dynamically. To use it, just run _proxyshark_ without the _--run_ argument or press Ctrl-C when running in view mode.
+ * *Web-driven mode*: a bit more complicated, here _proxyshark_ will generate an HTTP POST request to its own web service each time a packet is captured. The idea is to send this request through a local web proxy like Burp Suite Pro to offer the possibility of handling captured packets graphically. In this case you can also use the powerful tools provided by such proxy (Scanner, Intruder, Repeater, etc). Of course you will need the appropriate extension, or you will have to manipulate raw HTTP requests... Fortunately, an extension for Burp Suite Pro will be released with _proxyshark_ *`[UPCOMING]`*.
+ * *Scripting mode* *`[UPCOMING]`*: you can specify a file name containing a Python script to run as last command-line argument. All the commands from the interactive mode are also available. Note that you will switch to view mode after the script being interpreted.
 
 == Command-line arguments ==
 
@@ -44,13 +50,13 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can also 
 
  Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
 
-==== `-w | --web-driven-mode [<bind-address>]:[<listening-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+==== `-w | --web-driven-mode [<bind-address>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
  Turn on web-driven mode.
 
  Default is _off_. If enabled, default parameters are:
   * _`<bind-address>`_ = _127.0.0.1_
-  * _`<listening-port>`_ = _1234_
+  * _`<bind-port>`_ = _1234_
   * _`<proxy-ip>`_ = _127.0.0.1_
   * _`<proxy-port>`_ = _8080_
 
@@ -124,6 +130,39 @@ You can enter the interactive mode by running _proxyshark_ without the _--run_ a
 
 Several commands are available:
 
+==== `h | help [command]` ====
+
+ Print a short help describing the available commands. You can specify an optional command you want to get information about.
+
+==== `i | info | status [parameter]` ====
+
+ Print information about the current program state:
+  * Verbosity level
+  * Ethernet mode
+  * _Netfilter_ queue
+  * _Tshark_ path
+  * Web-driven mode and associated parameters
+  * Filters (capture, packet and field)
+  * Breakpoints and actions
+  * Statistics
+
+ You can specify an optional parameter to get information about it. Available parameters are:
+  * `verbosity [level]`
+  * `ethernet [mode]`
+  * `queue|nfqueue [number]`
+  * `tshark [path]`
+  * `web|web-driven [mode]`
+  * `bind ip|addr|address`
+  * `bind port`
+  * `proxy ip|addr|address|host`
+  * `proxy port`
+  * `capture [filter]`
+  * `packet [filter]`
+  * `field [filter]`
+  * `b|bp|breakpoint[s]`
+  * `a|action[s]`
+  * `cache|stat[s]`
+
 ==== `set verbose|verbosity [level] <0|1|2|3>` ====
 
  Set the verbosity level to one of the following values:
@@ -144,13 +183,13 @@ Several commands are available:
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
-==== `set web|web-driven [mode] [<bind-address>]:[<listening-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+==== `set web|web-driven [mode] [<bind-address>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
  Enable or disable web-driven mode. In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
 
  The parameters are:
   * _`<`bind-address`>`_: binding address of the embedded web server
-  * _`<`listening-port`>`_: listening port of the embedded web server
+  * _`<`bind-port`>`_: listening port of the embedded web server
   * _`<`proxy-ip`>`_: IP address of the web proxy to use
   * _`<`proxy-port`>`_: port of the web proxy to use
 
@@ -268,19 +307,6 @@ sip.*
  {{{
 ip$|tcp$|http.*
  }}}
-
-==== `h | help [command]` ====
-
- Print a help message describing the available commands. You can specify an optional command name to get information about a specific command.
-
-==== `i | info` ====
-
- Print information about the current program state:
-  * BPF filter and netfilter rules
-  * breakpoints and associated actions
-  * statistics
-
- See the [TechnicalDescription technical description] for details about BPF filters, netfilter rules, breakpoints and actions.
 
 ==== `b | breakpoint <breakpoint-id> [filter-expression]` ====
 
