@@ -220,7 +220,7 @@ dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port
   * `BooleanCondition` => `Operand` `[Operator` `Value]`
   * `Operand` => `Item` | `[`( *len* | *nb* ) *(* `Item` *)*`]`
   * `Item` => `ItemName` `[`*`[`* `AttributeName` *`]`*`]` `[`*`[`* `SliceKey` *`]`*`]`
-  * `ItemName` => `[`_alpha_.`]`+
+  * `ItemName` => `[`_alpha_._`]`+
   * `AttributeName` => `[`_alpha_`]`+
   * `SliceKey` => `[`-_nums_`]*` *:* `[`-_nums_`]*`
   * `Operator` => *`==`* | *`=`* | *`!=`* | *`^=`* | *`*=`* | *`$=`* | *`<=`* | *`<`* | *`>=`* | *`>`*
@@ -244,7 +244,22 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
 
 ==== `set field filter <field-filter>` ====
 
- Set the field filter. This filter is a regular expression that selects which fields are sent to the web proxy (and which ones will be editable/repeatable).
+ Set the field filter. In web-driven mode, this filter is just a [http://docs.python.org/2/howto/regex.html regular expression] that selects which items of the packets (protocols or fields) will be sent to the web proxy (which ones will be editable/repeatable).
+
+===== Examples =====
+
+ Forward only the fields related to SIP:
+
+ {{{
+sip.*
+ }}}
+
+
+ Forward only the IP and TCP protocols and all the fields from the HTTP layer:
+
+ {{{
+ip|tcp|http.*
+ }}}
 
 ==== `h | help [command]` ====
 
