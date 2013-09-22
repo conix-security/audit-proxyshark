@@ -165,14 +165,14 @@ Several commands are available:
  Set the capture filter. This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] in _`<capture-filter>`_ and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
 
  The grammar is:
-  * `PacketFilter` => `[` *any* | `BooleanKeyword` `]`
+  * `CaptureFilter` => `[`*any* | `BooleanKeyword]`
   * `BooleanKeyword` => *not* `Keyword` | `Keyword` *and* `Keyword` | `Keyword` *or* `Keyword`
   * `Keyword` => `Device` | `Host` | `Network` | `Port` | `Protocol`
-  * `Device` => `[` *in* | *out* `]` *dev* `BooleanValue`
-  * `Host` => `[` *src* | *dst* `]` *host* `BooleanValue`
-  * `Network` => `[` *src* | *dst* `]` *net* `BooleanValue`
-  * `Port` => `[` *src* | *dst* `]` *port* `BooleanValue`
-  * `Protocol` => *ip* | *icmp* | *tcp* [`Port`] | *udp* [`Port`]
+  * `Device` => `[`*in* | *out*`]` *dev* `BooleanValue`
+  * `Host` => `[`*src* | *dst*`]` *host* `BooleanValue`
+  * `Network` => `[`*src* | *dst*`]` *net* `BooleanValue`
+  * `Port` => `[`*src* | *dst*`]` *port* `BooleanValue`
+  * `Protocol` => *ip* | *icmp* | *tcp* `[Port]` | *udp* `[Port]`
   * `BooleanValue` => *not* *`<`value`>`* | *`<`value`>`* *and* *`<`value`>`* | *`<`value`>`* *or* *`<`value`>`*
 
  Values can be:
@@ -213,9 +213,34 @@ dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port
 
 ==== `set packet filter <packet-filter>` ====
 
- Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria. For example, a valid filter would be _http.request.method=GET and http.request.uri=/_. Further details can be found [PacketFilters here].
+ Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria.
 
+ The grammar is:
+  * `PacketFilter` => `[`*any* | `BooleanCondition]`
+  * `BooleanCondition` => `Operand` `[Operator` `Value]`
+  * `Operand` => `Item` | `[`( *len* | *nb* ) *(* `Item` *)*`]`
+  * `Item` => `ItemName` `[`*`[`* `AttributeName` *`]`*`]` `[`*`[`* `SliceKey` *`]`*`]`
+  * `ItemName` => `[`_alpha_.`]`+
+  * `AttributeName` => `[`_alpha_`]`+
+  * `SliceKey` => `[`-_nums_`]*` *:* `[`-_nums_`]*`
+  * `Operator` => *`==`* | *`=`* | *`!=`* | *`^=`* | *`*=`* | *`$=`* | *`<=`* | *`<`* | *`>=`* | *`>`*
+  * `Value` => `QuotedValue` | `UnquotedValue`
+  * `QuotedValue` => `"[`_printable_`]`+`"` | `'[`_printable_`]`+`'`
+  * `UnquotedValue` => `[`_printable_without_space_`]`+
 
+===== Examples =====
+
+ Select ICMP packets with TTL < 32:
+
+ {{{
+icmp and ip.ttl < 32
+ }}}
+
+ Select HTTP GET requests for URI starting with _/index.php?page=_ and with a User-Agent shorter than 10 characters:
+
+ {{{
+http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
+ }}}
 
 ==== `set field filter <field-filter>` ====
 
