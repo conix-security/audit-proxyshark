@@ -40,7 +40,7 @@ The following arguments are available (all optional):
 
 ==== `-q | --queue-num <queue-num>` ====
 
- Set the _[#set_queue_%3Cqueue-number%3E netfilter queue]_ to use.
+ Set the _netfilter_ [#set_queue_%3Cqueue-number%3E queue] to use.
 
  Default is _1234_.
 
