@@ -138,7 +138,7 @@ Several commands are available:
 
 ==== `set queue|nfqueue [number] <queue-number>` ====
 
- Select the _netfilter_ queue to use (the keyword _number_ is optional).
+ Select the _netfilter_ queue to use.
 
 ==== `set tshark [path] <tshark-path>` ====
 
