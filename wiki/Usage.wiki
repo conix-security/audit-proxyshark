@@ -46,9 +46,9 @@ The following arguments are available (all optional):
 
 ==== `-t | --tshark-path <tshark-path>` ====
 
- Set the location of the _tshark_ binary to use for packet dissection.
+ Set the location of the _[#set_tshark_%3Ctshark-path%3E tshark]_ binary to use for packet dissection.
 
- Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
+ Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc).
 
 ==== `-w | --web-driven-mode [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
@@ -82,7 +82,7 @@ The following arguments are available (all optional):
 
 ==== `-r | --run` ====
 
- Automatically run capture at start then switch to view mode.
+ Automatically run capture at start, then switch to view mode.
 
  Default is _off_.
 
