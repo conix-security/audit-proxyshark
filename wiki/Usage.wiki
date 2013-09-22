@@ -220,7 +220,7 @@ dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port
   * `BooleanCondition` => `Operand` `[Operator` `Value]`
   * `Operand` => `Item` | `[`( *len* | *nb* ) *(* `Item` *)*`]`
   * `Item` => `ItemName` `[`*`[`* `AttributeName` *`]`*`]` `[`*`[`* `SliceKey` *`]`*`]`
-  * `ItemName` => `[`_alpha_._`]`+
+  * `ItemName` => `[`_alpha_.`_]`+
   * `AttributeName` => `[`_alpha_`]`+
   * `SliceKey` => `[`-_nums_`]*` *:* `[`-_nums_`]*`
   * `Operator` => *`==`* | *`=`* | *`!=`* | *`^=`* | *`*=`* | *`$=`* | *`<=`* | *`<`* | *`>=`* | *`>`*
