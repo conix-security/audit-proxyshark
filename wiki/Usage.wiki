@@ -162,7 +162,7 @@ Several commands are available:
 
 ==== `set capture filter <capture-filter>` ====
 
- Set the capture filter. This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] in _`<capture-filter>`_ and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+ Set the capture filter. This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
 
  The grammar is:
   * `CaptureFilter` => `[`*any* | `BooleanKeyword]`
