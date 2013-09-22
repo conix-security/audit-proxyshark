@@ -40,7 +40,7 @@ The following arguments are available (all optional):
 
 ==== `-q | --queue-num <queue-num>` ====
 
- Set the _[http://www.iptables.info/en/iptables-targets-and-jumps.html#NFQUEUETARGET netfilter queue]_ to use.
+ Set the _[#set_queue_%3Cqueue-number%3E netfilter queue]_ to use.
 
  Default is _1234_.
 
@@ -183,7 +183,9 @@ Several commands are available:
 
 ==== `set queue <queue-number>` ====
 
- Set the _[http://www.iptables.info/en/iptables-targets-and-jumps.html#NFQUEUETARGET netfilter queue]_ to use.
+ Set the _netfilter_ queue to use.
+
+ This option specifies which queue to use and to send the queue'd data to. The queue number is a 16 bit unsigned integer, which means it can take any value between 0 and 65535.
 
 ==== `set tshark <tshark-path>` ====
 
