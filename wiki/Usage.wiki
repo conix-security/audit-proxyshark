@@ -48,7 +48,7 @@ The following arguments are available (all optional):
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
- Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from $PATH.
+ Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
 
 ==== `-w | --web-driven-mode [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
