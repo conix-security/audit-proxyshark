@@ -129,8 +129,8 @@ Several commands are available:
  Set the verbosity level to one of the following values:
   * `0` for errors only (quiet mode)
   * `1` for information and warnings
-  * `2` for debug mode
-  * `3` for debug mode and XML dissection
+  * `2` for debug
+  * `3` for debug and XML dissection
 
 ==== `set ethernet [mode] <off|on|0|1>` ====
 
