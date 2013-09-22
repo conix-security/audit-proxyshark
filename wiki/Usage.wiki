@@ -151,7 +151,7 @@ Several commands are available:
  The parameters are:
   * _`<`bind-address`>`_: binding address of the embedded web server
   * _`<`listening-port`>`_: listening port of the embedded web server
-  * _`<`proxy-ip`>`_: ip address of the web proxy to use
+  * _`<`proxy-ip`>`_: IP address of the web proxy to use
   * _`<`proxy-port`>`_: port of the web proxy to use
 
  Note that all of them are optional and that _:::_ is allowed.
