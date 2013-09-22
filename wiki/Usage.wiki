@@ -5,42 +5,42 @@
 This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
 
 First of all, I have to say that _proxyshark_ can be used in 4 different modes:
- * *View mode*: all you have to do here is run _proxyshark_ with the appropriate arguments and watch the result directly in the standard output. You can setup filters and schedule actions based on given conditions, but nothing too complicated at this step. This mode can be used by running _proxyshark_ with the [Usage#%2d%72%5f%7c%5f%2d%2d%72%75%6e --run argument] or by pressing Ctrl-D in interactive mode (see below).
- * *Interactive mode*: this mode is very close to the view mode except that you can use an interactive shell to change settings and manipulate packets dynamically. To use it, just run _proxyshark_ without the _--run_ argument or press Ctrl-C when running in view mode.
- * *Web-driven mode*: a bit more complicated, here _proxyshark_ will generate an HTTP POST request to its own web service each time a packet is captured. The idea is to send this request through a local web proxy like Burp Suite Pro to offer the possibility of handling captured packets graphically. In this case you can also use the powerful tools provided by such proxy (Scanner, Intruder, Repeater, etc). Of course you will need the appropriate extension, or you will have to manipulate raw HTTP requests... Fortunately, an extension for Burp Suite Pro will be released with _proxyshark_ *`[UPCOMING]`*.
- * *Scripting mode* *`[UPCOMING]`*: you can specify a file name containing a Python script to run as last command-line argument. All the commands from the interactive mode are also available. Note that you will switch to view mode after the script being interpreted.
+ * *View mode*: all you have to do here is run _proxyshark_ with the appropriate arguments and watch the result directly in the standard output. You can setup filters and schedule actions based on given conditions, but nothing too complicated at this step. This mode can be used by running _proxyshark_ with the _[Usage#-r_%7C_--run --run]_ argument or by pressing Ctrl-D in interactive mode (see below).
+ * *Interactive mode*: this mode is very close to the view mode except that you can use an interactive shell to change settings and manipulate packets dynamically. To use it, just run _proxyshark_ without the _[Usage#-r_%7C_--run --run]_ argument or press Ctrl-C when running in view mode.
+ * *Scripting mode* *`[UPCOMING]`*: you can specify a file name containing a Python script to run as last command-line argument. All the [Usage#Interactive_console commands] from the interactive mode are also available. Note that you will switch to view mode after the script being interpreted.
+ * *Web-driven mode*: a bit more complicated, here _proxyshark_ will generate an HTTP POST request to its own web service each time a packet is captured. The idea is to send this request through a local web proxy like Burp Suite Pro to offer the possibility of handling captured packets graphically. In this case you can also use the powerful tools provided by such proxy (Scanner, Intruder, Repeater, etc). Of course you will need the appropriate extension, or you will have to manipulate raw HTTP requests... Fortunately, an extension for Burp Suite Pro will be provided with _proxyshark_ *`[UPCOMING]`*. To use this mode, you either have to specify a _[Usage#-w_%7C_--web-driven-mode_%5B%3Cbind-ip%3E%5D%3A%5B%3Cbind-port%3E%5D%3A%5B%26l --web-driven-mode]_ argument or to [Usage#set_web-driven-mode_%3Coff%7Con%7C0%7C1%3E enable it] from the interactive console. Note that web-driven mode can be used in parallel with any other.
 
 == Command-line arguments ==
 
-To use _proxyshark_, simply run the Python script _proxyshark.py_. You can also use the following optional arguments (see the documentation about the interactive mode for details about each parameter):
+To use _proxyshark_, simply run the Python script _proxyshark.py_.
+
+You can also use the following optional arguments (see [Usage#Interactive_console interactive mode] documentation for details about each parameter):
 
 ==== `-h | --help` ====
 
  Print a short help describing the available command-line arguments.
 
- Default is _off_.
-
 ==== `-l | --logging [<handler>][,<handler>][...]` ====
 
- Enable the specified logging handlers. A handler can be either "_console_", "_file=`<`filename`>`_", "_syslog_" or "_syslog=`<`ip`>`:`<`port`>`_".
+ Enable the specified [Usage#set_logging_%5B%3Chandler%3E%5D%5B%2C%3Chandler%3E%5D%5B...%5D logging handlers].
 
  Default is _console_.
 
 ==== `-v | --verbose` ====
 
- Turn on verbose mode. Can be specified several times to increase verbosity.
+ Can be specified several times to increase the [Usage#set_verbosity_%3C0%7C1%7C2%7C3%3E verbosity level].
 
- Default is _on (level 1)_.
+ Default is _on (level 1)_ in view mode and _off (level 0)_ in interactive mode.
 
 ==== `-e | --ethernet` ====
 
- Turn on Ethernet mode.
+ Turn on [Usage#set_ethernet_%3Coff%7Con%7C0%7C1%3E Ethernet mode].
 
  Default is _off_.
 
 ==== `-q | --queue-num <queue-num>` ====
 
- Select the _netfilter_ queue to use.
+ Set the _[http://www.iptables.info/en/iptables-targets-and-jumps.html#NFQUEUETARGET netfilter queue]_ to use.
 
  Default is _1234_.
 
@@ -48,14 +48,14 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can also 
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
- Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
+ Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from $PATH.
 
-==== `-w | --web-driven-mode [<bind-address>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+==== `-w | --web-driven-mode [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
- Turn on web-driven mode.
+ Turn on [Usage#set_web-driven-mode_%3Coff%7Con%7C0%7C1%3E web-driven mode].
 
  Default is _off_. If enabled, default parameters are:
-  * _`<bind-address>`_ = _127.0.0.1_
+  * _`<bind-ip>`_ = _127.0.0.1_
   * _`<bind-port>`_ = _1234_
   * _`<proxy-ip>`_ = _127.0.0.1_
   * _`<proxy-port>`_ = _8080_
@@ -64,61 +64,61 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can also 
 
 ==== `-c | --capture-filter <capture-filter>` ====
 
- Set the capture filter.
+ Set the [Usage#set_capture_filter_%3Ccapture-filter%3E capture filter].
 
- Default is no filter (or _ip_).
+ Default is no filter (or _any_, or _ip_).
 
 ==== `-p | --packet-filter <packet-filter>` ====
 
- Set the packet filter.
+ Set the [Usage#set_packet_filter_%3Cpacket-filter%3E packet filter].
 
- Default is no filter.
+ Default is no filter (or _any_, or _ip_).
 
 ==== `-f | --field-filter <field-filter>` ====
 
- Set the field filter (only available in web-driven mode).
+ Set the [Usage#set_field_filter_%3Cfield-filter%3E field filter] (only available in web-driven mode).
 
- Default is no filter.
+ Default is no filter (or _.`*`_).
 
 ==== `-r | --run` ====
 
- Automatically run capture at start.
+ Automatically run capture at start then switch to view mode.
 
  Default is _off_.
 
 ==== `-b | --breakpoint <packet-filter>` ====
 
- Define a default breakpoint based on the given packet filter.
+ Define a default [Usage#b%7Cbreakpoint_%5B%3Cbreakpoint-id%3E%5D%7C%5B%3Cbreakpoint-id%3E_%3C breakpoint] based on the given packet filter.
 
  Default is no breakpoint.
 
 ==== `-a | --action <expression>` ====
 
- An action to run when the default breakpoint is reached.
+ An [Usage#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to run when the default breakpoint is reached.
 
  Default is no action.
 
 ==== [`<filename>`] ====
 
- An optional script to run at start.
+ An optional script to run at start (scripting mode).
 
  Default is no script.
 
 ==== Examples ====
 
- Run _proxyshark_ from the command-line (interactive mode):
+ Run _proxyshark_ in interactive mode:
 
  {{{
 python proxyshark.py --verbose
  }}}
 
- Capture SIP traffic in web-driven mode with local web proxy running on port 8888:
+ Capture SIP traffic in web-driven mode with local web proxy running on port 8888 (view mode):
 
  {{{
 python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven-mode :::8888 --run
  }}}
 
- Turn all HTTP responses into "HTTP 500" errors:
+ Turn all HTTP responses into "HTTP 500" errors (view mode):
 
  {{{
 python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'any' --action 'http.response.code=500;continue'
@@ -126,15 +126,13 @@ python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'an
 
 == Interactive console ==
 
-You can enter the interactive mode by running _proxyshark_ without the _--run_ argument or by pressing Ctrl-C in view mode. It allows the user to manipulate packets, change settings dynamically, setup breakpoints and so on.
-
 Several commands are available:
 
-==== `h | help [command]` ====
+==== `h|help [command]` ====
 
- Print a short help describing the available commands. You can specify an optional command you want to get information about.
+ Print a short help describing the available commands, or a particular one if specified in argument.
 
-==== `i | info | status [parameter]` ====
+==== `i|info [parameter]` ====
 
  Print information about the current program state:
   * Verbosity level
@@ -142,28 +140,34 @@ Several commands are available:
   * _Netfilter_ queue
   * _Tshark_ path
   * Web-driven mode and associated parameters
-  * Filters (capture, packet and field)
+  * Filters at capture, packet and field levels
   * Breakpoints and actions
-  * Statistics
+  * Cache
 
  You can specify an optional parameter to get information about it. Available parameters are:
-  * `verbosity [level]`
-  * `ethernet [mode]`
-  * `queue|nfqueue [number]`
-  * `tshark [path]`
-  * `web|web-driven [mode]`
-  * `bind ip|addr|address`
+  * `verbosity`
+  * `ethernet`
+  * `queue`
+  * `tshark`
+  * `web-driven`
+  * `bind ip`
   * `bind port`
-  * `proxy ip|addr|address|host`
+  * `proxy ip`
   * `proxy port`
-  * `capture [filter]`
-  * `packet [filter]`
-  * `field [filter]`
-  * `b|bp|breakpoint[s]`
-  * `a|action[s]`
-  * `cache|stat[s]`
+  * `capture filter`
+  * `packet filter`
+  * `field filter`
+  * `breakpoints`
+  * `actions`
+  * `cache`
 
-==== `set verbose|verbosity [level] <0|1|2|3>` ====
+==== `set logging [<handler>][,<handler>][...]` ====
+
+ Set the current logging handlers.
+
+ A handler can be either "_console_", "_file=`<`filename`>`_", "_syslog_" or "_syslog=`<`ip`>`:`<`port`>`_".
+
+==== `set verbosity <0|1|2|3>` ====
 
  Set the verbosity level to one of the following values:
   * `0` for errors only (quiet mode)
@@ -171,39 +175,45 @@ Several commands are available:
   * `2` for debug
   * `3` for debug and XML dissection
 
-==== `set ethernet [mode] <off|on|0|1>` ====
+==== `set ethernet <off|on|0|1>` ====
 
- Enable or disable Ethernet mode. If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). Enabling this mode is only required if you plan to replay packets at layer 2.
+ Enable or disable Ethernet mode.
 
-==== `set queue|nfqueue [number] <queue-number>` ====
+ If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). Enabling this mode is only required if you plan to replay packets at layer 2.
 
- Select the _netfilter_ queue to use.
+==== `set queue <queue-number>` ====
 
-==== `set tshark [path] <tshark-path>` ====
+ Set the _[http://www.iptables.info/en/iptables-targets-and-jumps.html#NFQUEUETARGET netfilter queue]_ to use.
+
+==== `set tshark <tshark-path>` ====
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
-==== `set web|web-driven [mode] [<bind-address>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+ If not found, _tshark_ is taken from _$PATH_.
 
- Enable or disable web-driven mode. In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
+==== `set web-driven-mode <off|on|0|1>` ====
 
- The parameters are:
-  * _`<`bind-address`>`_: binding address of the embedded web server
+ Enable or disable web-driven mode.
+
+ In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
+
+==== `set bind ip <bind-ip>` | `set bind port <bind-port>` | `set proxy ip <proxy-ip>` | `set proxy port <proxy-port>` ====
+
+ Set parameters of the web-driven mode. The available parameters are:
+  * _`<`bind-ip`>`_: binding address of the embedded web server
   * _`<`bind-port`>`_: listening port of the embedded web server
   * _`<`proxy-ip`>`_: IP address of the web proxy to use
   * _`<`proxy-port`>`_: port of the web proxy to use
 
  Note that all of them are optional and that _:::_ is allowed.
 
-==== `set bind|binding ip|addr|address <bind-address>` | `set bind|binding port <bind-port>` | `set proxy ip|addr|address|host <proxy-ip>` | `set proxy port <proxy-port>` ====
-
- Set the parameters of the web-driven mode individually.
-
 ==== `set capture filter <capture-filter>` ====
 
- Set the capture filter. This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+ Set the capture filter.
 
- The grammar is:
+ This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+
+ The formal grammar is:
   * `CaptureFilter` => `[`*any* | `BooleanKeyword]`
   * `BooleanKeyword` => *not* `Keyword` | `Keyword` *and* `Keyword` | `Keyword` *or* `Keyword`
   * `Keyword` => `Device` | `Host` | `Network` | `Port` | `Protocol`
@@ -252,9 +262,11 @@ dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port
 
 ==== `set packet filter <packet-filter>` ====
 
- Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria.
+ Set the packet filter.
 
- The grammar is:
+ This filter is almost like a _Wireshark_ [http://wiki.wireshark.org/DisplayFilters display filter]. You can use it to select captured packets based on dissection criteria.
+
+ The formal grammar is:
   * `PacketFilter` => `[`*any* | `BooleanCondition]`
   * `BooleanCondition` => `Operand` `[Operator` `Value]`
   * `Operand` => *raw* | `Item` | `[`( *len* | *nb* ) *(* `Item` *)*`]`
@@ -289,9 +301,11 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
 
 ==== `set field filter <field-filter>` ====
 
- Set the field filter. In web-driven mode, this filter is just a [http://docs.python.org/2/howto/regex.html regular expression] that selects which items of the packets (protocols or fields) will be sent to the web proxy (which ones will be editable/repeatable).
+ Set the field filter.
 
- Note: if no `^` or `$` are found in the string, they will be added automatically at the beginning or at the end of the filter.
+ This filter is only available in web-driven mode. It's just a [http://docs.python.org/2/howto/regex.html regular expression] that selects which items of the packets (protocols or fields) will be sent to the web proxy (and so, which ones will be editable/repeatable).
+
+ Note that if no `^` or `$` characters are found, they will be automatically added at the beginning or at the end of the filter.
 
 ===== Examples =====
 
@@ -301,22 +315,27 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
 sip.*
  }}}
 
-
  Forward only the IP and TCP protocols, and all the fields from the HTTP layer:
 
  {{{
 ip$|tcp$|http.*
  }}}
 
-==== `b | breakpoint <breakpoint-id> [filter-expression]` ====
+==== `b|breakpoint [<breakpoint-id>]|[<breakpoint-id> <packet-filter>]` ====
 
- Create a new breakpoint based on the given expression. The first argument is the identifier of the new breakpoint. If no expression is given, print a list of the existing breakpoints. See the [TechnicalDescription technical description] for details about breakpoints.
+ If a packet filter is provided, create a new breakpoint based on the given expression. Otherwise, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info breakpoints`]).
 
-==== `a | action <breakpoint-id> [python-code]` ====
+ 
+
+ The first argument is a unique identifier for the new breakpoint.
+
+ If no packet filter is given, print a list of the existing breakpoints.
+
+==== `a|action [<action-id>]|[<action-id> <breakpoint-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
 
  Associate a new action with a breakpoint. The first argument must be a valid breakpoint identifier returned by the command _b_ or _breakpoint_. The second argument is the code to execute when the action is triggered. If no code is given, print the action associated with the breakpoint. See the [TechnicalDescription technical description] for details about actions and breakpoints.
 
-==== `c | capture [bpf-filter]` ====
+==== `c|capture [bpf-filter]` ====
 
  Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules redirecting the matching packets to the selected netfilter queue. See the [TechnicalDescription technical description] for details about BPF filters and netfilter rules.
 
