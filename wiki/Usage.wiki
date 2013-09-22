@@ -246,6 +246,8 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
 
  Set the field filter. In web-driven mode, this filter is just a [http://docs.python.org/2/howto/regex.html regular expression] that selects which items of the packets (protocols or fields) will be sent to the web proxy (which ones will be editable/repeatable).
 
+ Note: if no `^` or `$` are found in the string, they will be added automatically at the beginning or at the end of the filter.
+
 ===== Examples =====
 
  Forward only the fields related to SIP:
@@ -255,10 +257,10 @@ sip.*
  }}}
 
 
- Forward only the IP and TCP protocols and all the fields from the HTTP layer:
+ Forward only the IP and TCP protocols, and all the fields from the HTTP layer:
 
  {{{
-ip|tcp|http.*
+ip$|tcp$|http.*
  }}}
 
 ==== `h | help [command]` ====
