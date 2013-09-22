@@ -2,37 +2,33 @@
 
 *LAST UPDATE: Sep 21, 2013*
 
-This document is based on the development version and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
+This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as _deprecated_ or _upcoming_ in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
 
-== Arguments ==
+== Command-line arguments ==
 
-To use _proxyshark_, simply run the Python script _proxyshark.py_. You can use the following arguments (all optional):
+To use _proxyshark_, simply run the Python script _proxyshark.py_. You can also use the following optional arguments (see the documentation about the interactive mode for details about each parameter):
 
 ==== `-h | --help` ====
 
  Print a short help describing the available command-line arguments.
 
-==== `-l | --logging [<target>][,<target][...]` ====
+ Default is _off_.
 
- Enable logging to the specified targets. A target can be either "_console_" or "_file=`<filename>`_".
+==== `-l | --logging [<handler>][,<handler>][...]` ====
+
+ Enable the specified logging handlers. A handler can be either "_console_", "_file=`<`filename`>`_", "_syslog_" or "_syslog=`<`ip`>`:`<`port`>`_".
 
  Default is _console_.
 
 ==== `-v | --verbose` ====
 
- Turn on verbose mode. Can be specified several times to increase verbosity:
-  * 0 = errors only (quiet mode)
-  * 1 = information + warnings
-  * 2 = debug mode
-  * 3 = debug mode + XML dissection
+ Turn on verbose mode. Can be specified several times to increase verbosity.
 
  Default is _on (level 1)_.
 
 ==== `-e | --ethernet` ====
 
- Turn on Ethernet mode. If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). In fact, enabling this mode is only required if you plan to replay packets at layer 2.
-
- For those who are interested, this mode is handled with Scapy.
+ Turn on Ethernet mode.
 
  Default is _off_.
 
@@ -46,73 +42,184 @@ To use _proxyshark_, simply run the Python script _proxyshark.py_. You can use t
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
- Default is _./bin/`<arch>`_ where _`<arch>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
+ Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (i686, _x86_64_, etc). If not found, _tshark_ is taken from _$PATH_.
 
-==== `-w | --web-driven-mode [<bind-address>]:[<listening-port]:[proxy-address]:[proxy-port]` ====
+==== `-w | --web-driven-mode [<bind-address>]:[<listening-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
- Turn on web-driven mode. In this mode, a local web service will wait for incoming requests from _proxyshark_. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
+ Turn on web-driven mode.
 
  Default is _off_. If enabled, default parameters are:
   * _`<bind-address>`_ = _127.0.0.1_
   * _`<listening-port>`_ = _1234_
-  * _`<proxy-address>`_ = _127.0.0.1_
+  * _`<proxy-ip>`_ = _127.0.0.1_
   * _`<proxy-port>`_ = _8080_
 
- Note that all parameters are optional and that _-w :::_ is allowed.
+ Note that all of them are optional and that _:::_ is allowed.
 
 ==== `-c | --capture-filter <capture-filter>` ====
 
- Set the capture filter. This filter will be used at a netfilter level to select which packets have to be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] in _`<capture-filter>`_ and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+ Set the capture filter.
 
  Default is no filter (or _ip_).
 
 ==== `-p | --packet-filter <packet-filter>` ====
 
- Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria. For example, a valid filter would be _http.request.method=GET and http.request.uri=/_. Further details can be found [PacketFilters here].
+ Set the packet filter.
 
  Default is no filter.
 
 ==== `-f | --field-filter <field-filter>` ====
 
- Set the field filter (only available in web-driven mode). This filter is a regular expression that selects which fields are sent to the web proxy (and which ones will be editable/repeatable).
+ Set the field filter (only available in web-driven mode).
 
  Default is no filter.
 
 ==== `-r | --run` ====
 
- Run the capture at start.
+ Automatically run capture at start.
+
+ Default is _off_.
 
 ==== `-b | --breakpoint <packet-filter>` ====
 
- Define a default breakpoint based on the given packet filter (see the _--packet-filter_ argument and the _breakpoints_ documentation below).
+ Define a default breakpoint based on the given packet filter.
+
+ Default is no breakpoint.
 
 ==== `-a | --action <expression>` ====
 
- An action to run when the default breakpoint is reached (see the _--breakpoint_ argument and the _actions_ documentation below).
+ An action to run when the default breakpoint is reached.
 
-==== `<filename>` ====
+ Default is no action.
 
- The name of an optional script to run (see the _scripting_ documentation below).
+==== [`<filename>`] ====
+
+ An optional script to run at start.
+
+ Default is no script.
 
 ==== Examples ====
 
- Run _proxyshark_ in command-line mode:
+ Run _proxyshark_ from the command-line (interactive mode):
 
  {{{
-python proxyshark.py -v
+python proxyshark.py --verbose
  }}}
 
- Run proxyshark on queue 123 in web-based mode and port 8080:
+ Capture SIP traffic in web-driven mode with local web proxy running on port 8888:
 
  {{{
-python proxyshark.py -v -q 123 -w -p 8080
+python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven-mode :::8888 --run
  }}}
 
-== Command-line interface `[UPCOMING]` ==
+ Turn all HTTP responses into "HTTP 500" errors:
 
-The command-line interface allows the user to setup breakpoints and to interactively manipulate the captured packets.
+ {{{
+python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'any' --action 'http.response.code=500;continue'
+ }}}
+
+== Interactive console ==
+
+You can enter the interactive mode by running _proxyshark_ without the _--run_ argument or by pressing Ctrl-C in view mode. It allows the user to manipulate packets, change settings dynamically, setup breakpoints and so on.
 
 Several commands are available:
+
+==== `set verbose|verbosity [level] <0|1|2|3>` ====
+
+ Set the verbosity level to one of the following values:
+  * `0` for errors only (quiet mode)
+  * `1` for information and warnings
+  * `2` for debug mode
+  * `3` for debug mode and XML dissection
+
+==== `set ethernet [mode] <off|on|0|1>` ====
+
+ Enable or disable Ethernet mode. If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). In fact, enabling this mode is only required if you plan to replay packets at layer 2.
+
+==== `set queue|nfqueue [number] <queue-number>` ====
+
+ Select the _netfilter_ queue to use (the keyword _number_ is optional).
+
+==== `set tshark [path] <tshark-path>` ====
+
+ Set the location of the _tshark_ binary to use for packet dissection.
+
+==== `set web|web-driven [mode] [<bind-address>]:[<listening-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+
+ Enable or disable web-driven mode. In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
+
+ The parameters are:
+  * _`<`bind-address`>`_: binding address of the embedded web server
+  * _`<`listening-port`>`_: listening port of the embedded web server
+  * _`<`proxy-ip`>`_: ip address of the web proxy to use
+  * _`<`proxy-port`>`_: port of the web proxy to use
+
+ Note that all of them are optional and that _:::_ is allowed.
+
+==== `set bind|binding ip|addr|address <bind-address>` | `set bind|binding port <bind-port>` | `set proxy ip|addr|address|host <proxy-ip>` | `set proxy port <proxy-port>` ====
+
+ Set the parameters of the web-driven mode individually.
+
+==== `set capture filter <capture-filter>` ====
+
+ Set the capture filter. This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] in _`<capture-filter>`_ and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+
+ The grammar is:
+  * `PacketFilter` => `[` *any* | `BooleanKeyword` `]`
+  * `BooleanKeyword` => *not* `Keyword` | `Keyword` *and* `Keyword` | `Keyword` *or* `Keyword`
+  * `Keyword` => `Device` | `Host` | `Network` | `Port` | `Protocol`
+  * `Device` => `[` *in* | *out* `]` *dev* `BooleanValue`
+  * `Host` => `[` *src* | *dst* `]` *host* `BooleanValue`
+  * `Network` => `[` *src* | *dst* `]` *net* `BooleanValue`
+  * `Port` => `[` *src* | *dst* `]` *port* `BooleanValue`
+  * `Protocol` => *ip* | *icmp* | *tcp* [`Port`] | *udp* [`Port`]
+  * `BooleanValue` => *not* *`<`value`>`* | *`<`value`>`* *and* *`<`value`>`* | *`<`value`>`* *or* *`<`value`>`*
+
+ Values can be:
+  * `Device` => `[`_alphas_`][`_alphanums_-.`_]*`
+  * `Host` => `IpAddr` | `[`_alphas_`][`_alphanums_-.`_]*`
+  * `Network` => `IpAddr` */* ( `IpAddr` | `[`_nums_`]{`1,2`}` ) | `IpAddr` *netmask* `IpAddr`
+  * `Port` => `[`_nums_`]{`1,5`}`
+
+ With:
+  * `IpAddr` => `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}`
+
+===== Examples =====
+
+ Capture HTTP traffic:
+
+ {{{
+tcp port 80 or 443
+ }}}
+
+ Capture SIP requests from _10.0.0.0/8_ to _1.2.3.4_ and _2.3.4.5_ on network device _eth1_:
+
+ {{{
+dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port 5060
+ }}}
+
+ {{{
+[DEBUG] iptables -t filter -A PROXYSHARK9213 -j NFQUEUE --queue-num 1234
+[DEBUG] iptables -t filter -A PROXYSHARK6054 -p udp --dport 5060 -j PROXYSHARK9213
+[DEBUG] iptables -t filter -A PROXYSHARK1240 -d 2.3.4.5 -j PROXYSHARK6054
+[DEBUG] iptables -t filter -A PROXYSHARK1240 -d 1.2.3.4 -j PROXYSHARK6054
+[DEBUG] iptables -t filter -A PROXYSHARK9274 -s 10.0.0.0/8 -j PROXYSHARK1240
+[DEBUG] iptables -t filter -A PROXYSHARK5027 -o eth1 -j PROXYSHARK9274
+[DEBUG] iptables -t filter -A PROXYSHARK5027 -i eth1 -j PROXYSHARK9274
+[DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK5027
+[DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK5027
+[DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK5027
+ }}}
+
+==== `set packet filter <packet-filter>` ====
+
+ Set the packet filter. This filter is almost like a _Wireshark_ filter. You can use it to select captured packets based on dissection criteria. For example, a valid filter would be _http.request.method=GET and http.request.uri=/_. Further details can be found [PacketFilters here].
+
+
+
+==== `set field filter <field-filter>` ====
+
+ Set the field filter. This filter is a regular expression that selects which fields are sent to the web proxy (and which ones will be editable/repeatable).
 
 ==== `h | help [command]` ====
 
