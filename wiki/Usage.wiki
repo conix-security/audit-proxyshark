@@ -383,17 +383,21 @@ ip$|tcp$|http.*
 
 ==== `b|breakpoint [<breakpoint-id>]|[<breakpoint-id> <packet-filter>]` ====
 
- If a packet filter is provided, create a new breakpoint based on the given expression. Otherwise, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info breakpoints`]).
+ Breakpoints are designed to pause current capture when a given [#set_capture_filter_%3Ccapture-filter%3E packet filter] is triggered. In view mode, you first need to define an [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to run when the breakpoint is triggered (see below). In interactive mode, you can either define an action or alter the packet manually, accept it, drop it, replay it, etc. 
 
- 
+ This command can be used in 3 different ways:
+  * If no argument is given, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info breakpoints`]).
+  * If a breakpoint identifier is given, print the packet filter associated to this breakpoint.
+  * If a packet filter is given, create a new breakpoint based on the given identifier and filter.
 
- The first argument is a unique identifier for the new breakpoint.
+==== `a|action [<action-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
 
- If no packet filter is given, print a list of the existing breakpoints.
+ Actions are Python expressions that can be run automatically when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
 
-==== `a|action [<action-id>]|[<action-id> <breakpoint-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
-
- Associate a new action with a breakpoint. The first argument must be a valid breakpoint identifier returned by the command _b_ or _breakpoint_. The second argument is the code to execute when the action is triggered. If no code is given, print the action associated with the breakpoint. See the [TechnicalDescription technical description] for details about actions and breakpoints.
+ This command can be used in 3 different ways:
+  * If no argument is given, print a list of all existing actions (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info actions`]).
+  * If an action identifier is given, print the breakpoint and the Python expression associated to this action.
+  * If a breakpoint identifier and a Python expression are given, create a new action based on the given identifiers and expression.
 
 ==== `c|capture [bpf-filter]` ====
 
