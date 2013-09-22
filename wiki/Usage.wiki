@@ -242,7 +242,7 @@ icmp and ip.ttl < 32
 len(raw) > 1000 and raw*='</html>\r\n'
  }}}
 
- Select HTTP GET requests for URI starting with _/index.php?page=_ and with a User-Agent shorter than 10 characters:
+ Select HTTP GET requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
 
  {{{
 http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
