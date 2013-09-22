@@ -12,7 +12,9 @@ First of all, you have to know that _proxyshark_ can be used in 4 different mode
 
 == Command-line arguments ==
 
-To use _proxyshark_, simply run the Python script _proxyshark.py_. The following arguments are available (all optional):
+To use _proxyshark_, simply run the Python script _proxyshark.py_.
+
+The following arguments are available (all optional):
 
 ==== `-h | --help` ====
 
