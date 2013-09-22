@@ -32,21 +32,21 @@ The following arguments are available (all optional):
 
  Default is _on (level 1)_ in view mode and _off (level 0)_ in interactive mode.
 
-==== `-e | --ethernet` ====
+==== `-e | --ethernet-mode` ====
 
- Turn on [#set_ethernet_%3Coff%7Con%7C0%7C1%3E Ethernet mode].
+ Turn on [#set_ethernet-mode_%3Coff%7Con%7C0%7C1%3E Ethernet mode].
 
  Default is _off_.
 
 ==== `-q | --queue-num <queue-num>` ====
 
- Set the _netfilter_ [#set_queue_%3Cqueue-number%3E queue] to use.
+ Set the _netfilter_ [#set_queue-num_%3Cqueue-num%3E queue] to use.
 
  Default is _1234_.
 
 ==== `-t | --tshark-path <tshark-path>` ====
 
- Set the location of the _[#set_tshark_%3Ctshark-path%3E tshark]_ binary to use for packet dissection.
+ Set the location of the _[#set_tshark-path_%3Ctshark-path%3E tshark]_ binary to use for packet dissection.
 
  Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc).
 
@@ -130,7 +130,7 @@ Several commands are available:
 
 ==== `h|help [command]` ====
 
- Print a short help describing the available commands, or a particular one if specified in argument.
+ Print a short help describing the available commands.
 
 ==== `i|info [parameter]` ====
 
@@ -139,17 +139,18 @@ Several commands are available:
   * Ethernet mode
   * _Netfilter_ queue
   * _Tshark_ path
-  * Web-driven mode and associated parameters
-  * Filters at capture, packet and field levels
-  * Breakpoints and actions
+  * Web-driven mode
+  * Filters
+  * Breakpoints
+  * Actions
   * Cache
 
  You can specify an optional parameter to get information about it. Available parameters are:
   * `verbosity`
-  * `ethernet`
-  * `queue`
-  * `tshark`
-  * `web-driven`
+  * `ethernet-mode`
+  * `queue-num`
+  * `tshark-path`
+  * `web-driven-mode`
   * `bind ip`
   * `bind port`
   * `proxy ip`
@@ -175,19 +176,19 @@ Several commands are available:
   * `2` for debug
   * `3` for debug and XML dissection
 
-==== `set ethernet <off|on|0|1>` ====
+==== `set ethernet-mode <off|on|0|1>` ====
 
  Enable or disable Ethernet mode.
 
  If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). Enabling this mode is only required if you plan to replay packets at layer 2.
 
-==== `set queue <queue-number>` ====
+==== `set queue-num <queue-num>` ====
 
  Set the _netfilter_ queue to use.
 
  This option specifies which queue to use and to send the queue'd data to. The queue number is a 16 bit unsigned integer, which means it can take any value between 0 and 65535.
 
-==== `set tshark <tshark-path>` ====
+==== `set tshark-path <tshark-path>` ====
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
@@ -207,13 +208,11 @@ Several commands are available:
   * _`<`proxy-ip`>`_: IP address of the web proxy to use
   * _`<`proxy-port`>`_: port of the web proxy to use
 
- Note that all of them are optional and that _:::_ is allowed.
-
 ==== `set capture filter <capture-filter>` ====
 
- Set the capture filter.
+ Set the current capture filter.
 
- This filter will be used at a _netfilter_ level to select which packets will be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
+ This filter acts at a _netfilter_ level to select which packets have to be captured. Basically, you just have to provide a [http://en.wikipedia.org/wiki/Berkeley_Packet_Filter BPF filter] and _proxyshark_ will use it to generate appropriate _iptables_ rules targeting the _NFQUEUE_ target.
 
  The formal grammar is:
   * `CaptureFilter` => `[`*any* | `BooleanKeyword]`
@@ -224,47 +223,95 @@ Several commands are available:
   * `Network` => `[`*src* | *dst*`]` *net* `BooleanValue`
   * `Port` => `[`*src* | *dst*`]` *port* `BooleanValue`
   * `Protocol` => *ip* | *icmp* | *tcp* `[Port]` | *udp* `[Port]`
-  * `BooleanValue` => *not* *`<`value`>`* | *`<`value`>`* *and* *`<`value`>`* | *`<`value`>`* *or* *`<`value`>`*
+  * `BooleanValue` => *not* `<`value`>` | `<`value`>` *and* `<`value`>` | `<`value`>` *or* `<`value`>`
 
- Values can be:
-  * `Device` => `[`_alphas_`][`_alphanums_-.`_]*`
-  * `Host` => `IpAddress` | `[`_alphas_`][`_alphanums_-.`_]*`
-  * `Network` => `IpAddress` */* ( `IpAddress` | `[`_nums_`]{`1,2`}` ) | `IpAddress` *netmask* `IpAddress`
-  * `Port` => `[`_nums_`]{`1,5`}`
+ Where values can be:
+  * `DeviceValue` => `[`_alphas_`][`_alphanums_-.`_]*`
+  * `HostValue` => `IpAddress` | `[`_alphas_`][`_alphanums_-.`_]*`
+  * `NetworkValue` => `IpAddress` */* ( `IpAddress` | `[`_nums_`]{`1,2`}` ) | `IpAddress` *netmask* `IpAddress`
+  * `PortValue` => `[`_nums_`]{`1,5`}`
 
  With:
   * `IpAddress` => `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}` *.* `[`_nums_`]{`1,3`}`
 
 ===== Examples =====
 
- Capture HTTP traffic:
+ Capture Google Docs traffic:
 
  {{{
-tcp port 80 or 443
- }}}
-
- Capture SIP requests from _10.0.0.0/8_ to _1.2.3.4_ or _2.3.4.5_ on network device _eth1_:
-
- {{{
-dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port 5060
+host docs.google.com and tcp port 80 or 443
  }}}
 
  {{{
-[DEBUG] iptables -t filter -A PROXYSHARK9213 -j NFQUEUE --queue-num 1234
-[DEBUG] iptables -t filter -A PROXYSHARK6054 -p udp --dport 5060 -j PROXYSHARK9213
-[DEBUG] iptables -t filter -A PROXYSHARK1240 -d 2.3.4.5 -j PROXYSHARK6054
-[DEBUG] iptables -t filter -A PROXYSHARK1240 -d 1.2.3.4 -j PROXYSHARK6054
-[DEBUG] iptables -t filter -A PROXYSHARK9274 -s 10.0.0.0/8 -j PROXYSHARK1240
-[DEBUG] iptables -t filter -A PROXYSHARK5027 -o eth1 -j PROXYSHARK9274
-[DEBUG] iptables -t filter -A PROXYSHARK5027 -i eth1 -j PROXYSHARK9274
-[DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK5027
-[DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK5027
-[DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK5027
+[DEBUG] name 'docs.google.com' resolved:
+[DEBUG] - 173.194.40.134
+[DEBUG] - 173.194.40.129
+[DEBUG] - 173.194.40.130
+[DEBUG] - 173.194.40.135
+[DEBUG] - 173.194.40.131
+[DEBUG] - 173.194.40.137
+[DEBUG] - 173.194.40.128
+[DEBUG] - 173.194.40.136
+[DEBUG] - 173.194.40.133
+[DEBUG] - 173.194.40.142
+[DEBUG] - 173.194.40.132
+[DEBUG] iptables -t filter -A PROXYSHARK5022 -j NFQUEUE --queue-num 1234
+[DEBUG] iptables -t filter -A PROXYSHARK6242 -p tcp --dport 443 -j PROXYSHARK5022
+[DEBUG] iptables -t filter -A PROXYSHARK6242 -p tcp --sport 443 -j PROXYSHARK5022
+[DEBUG] iptables -t filter -A PROXYSHARK6242 -p tcp --dport 80 -j PROXYSHARK5022
+[DEBUG] iptables -t filter -A PROXYSHARK6242 -p tcp --sport 80 -j PROXYSHARK5022
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.132 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.132 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.142 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.142 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.133 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.133 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.136 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.136 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.128 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.128 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.137 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.137 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.131 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.131 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.135 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.135 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.130 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.130 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.129 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.129 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -d 173.194.40.134 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -A PROXYSHARK9104 -s 173.194.40.134 -j PROXYSHARK6242
+[DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9104
+[DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9104
+[DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9104
+ }}}
+
+ Capture all DNS traffic, and SIP requests from _10.0.0.0/8_ to _1.2.3.4_ or _2.3.4.5_ on network device _eth1_:
+
+ {{{
+dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)
+ }}}
+
+ {{{
+[DEBUG] iptables -t filter -A PROXYSHARK5605 -j NFQUEUE --queue-num 1234
+[DEBUG] iptables -t filter -A PROXYSHARK5297 -d 2.3.4.5 -j PROXYSHARK5605
+[DEBUG] iptables -t filter -A PROXYSHARK5297 -d 1.2.3.4 -j PROXYSHARK5605
+[DEBUG] iptables -t filter -A PROXYSHARK6208 -s 10.0.0.0/8 -j PROXYSHARK5297
+[DEBUG] iptables -t filter -A PROXYSHARK3724 -p udp --dport 5060 -j PROXYSHARK6208
+[DEBUG] iptables -t filter -A PROXYSHARK3724 -p tcp --dport 5060 -j PROXYSHARK6208
+[DEBUG] iptables -t filter -A PROXYSHARK3724 -p udp --dport 53 -j PROXYSHARK5605
+[DEBUG] iptables -t filter -A PROXYSHARK3724 -p udp --sport 53 -j PROXYSHARK5605
+[DEBUG] iptables -t filter -A PROXYSHARK9821 -o eth1 -j PROXYSHARK3724
+[DEBUG] iptables -t filter -A PROXYSHARK9821 -i eth1 -j PROXYSHARK3724
+[DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9821
+[DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9821
+[DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9821
  }}}
 
 ==== `set packet filter <packet-filter>` ====
 
- Set the packet filter.
+ Set the current packet filter.
 
  This filter is almost like a _Wireshark_ [http://wiki.wireshark.org/DisplayFilters display filter]. You can use it to select captured packets based on dissection criteria.
 
@@ -281,21 +328,32 @@ dev eth1 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5 and udp dst port
   * `QuotedValue` => `"[`_printable_`]`+`"` | `'[`_printable_`]`+`'`
   * `UnquotedValue` => `[`_printable_without_space_`]`+
 
+ Operators are:
+  * Equals: *`==`* or *`=`*
+  * Differs: *`!=`*
+  * Begins with: *`^=`*
+  * Contains: *`*=`*
+  * Ends with: *`$=`*
+  * Lower than or equal: *`<=`*
+  * Lower than: *`<`*
+  * Greater than or equal: *`>=`*
+  * Greater than: *`>`*
+
 ===== Examples =====
 
- Select ICMP packets with TTL < 32:
+ Select ICMP packets with TTL lower than 32:
 
  {{{
 icmp and ip.ttl < 32
  }}}
 
- Select packets longer than 1000 characters and containing raw string `"</html>\r\n"`:
+ Select packets bigger than 1kB and containing raw string `"</html>\r\n"`:
 
  {{{
-len(raw) > 1000 and raw*='</html>\r\n'
+len(raw) > 1024 and raw*='</html>\r\n'
  }}}
 
- Select HTTP GET requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
+ Select GET requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
 
  {{{
 http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
@@ -303,21 +361,21 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
 
 ==== `set field filter <field-filter>` ====
 
- Set the field filter.
+ Set the current field filter.
 
- This filter is only available in web-driven mode. It's just a [http://docs.python.org/2/howto/regex.html regular expression] that selects which items of the packets (protocols or fields) will be sent to the web proxy (and so, which ones will be editable/repeatable).
+ This filter is only available in web-driven mode. It's just a [http://docs.python.org/2/howto/regex.html regular expression] to select which protocols and fields are sent to the web proxy (ie which ones will be editable/repeatable through the GUI).
 
- Note that if no `^` or `$` characters are found, they will be automatically added at the beginning or at the end of the filter.
+ Note that if no *`^`* or *`$`* characters are found, they will be automatically added at the beginning or at the end of the filter.
 
 ===== Examples =====
 
- Forward only the fields related to SIP:
+ Forward only the fields from the SIP layer:
 
  {{{
 sip.*
  }}}
 
- Forward only the IP and TCP protocols, and all the fields from the HTTP layer:
+ Forward IP and TCP protocols (not the fields), and all the fields from the HTTP layer:
 
  {{{
 ip$|tcp$|http.*
