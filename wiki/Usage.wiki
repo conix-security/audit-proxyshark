@@ -134,7 +134,7 @@ Several commands are available:
 
 ==== `set ethernet [mode] <off|on|0|1>` ====
 
- Enable or disable Ethernet mode. If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). In fact, enabling this mode is only required if you plan to replay packets at layer 2.
+ Enable or disable Ethernet mode. If enabled, an Ethernet layer will be automatically generated for all captured packets. Otherwise, packets will start at layer 3 (IP). Enabling this mode is only required if you plan to replay packets at layer 2.
 
 ==== `set queue|nfqueue [number] <queue-number>` ====
 
