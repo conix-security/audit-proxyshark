@@ -4,16 +4,33 @@
 
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement a _!DissectedPacketList_ class
+  * herited from _list_
+  * custom _str_ and _repr_ methods
+
  * Start in interactive mode by default, with no filter
+ * Update help message printed by the _-h_ argument
+ * Implement _-l_ argument (logging handlers)
+ * Make sure that the _-v_ argument is correctly handled (verbosity)
+ * Implement Ethernet mode
+ * Implement _-e_ argument (Ethernet mode)
+ * Check behavior of _-t_ argument (tshark path)
+ * Rename parameters of _-w_ argument (web-driven mode)
+ * Implement ability to disable the web-driven mode
+ * Transmit the _showname_ attribute in web-driven mode
+ * Implement _-c_, _-p_ and _-f_ arguments (filters)
+ * Implement ability to modify filters dynamically
+ * Implement _-r_ argument (run capture at start)
+ * Implement breakpoints
+ * Implement _-b_ argument (default breakpoint)
+ * Implement actions
+ * Implement _-a_ argument (default action)
+ * Implement script name as last argument
+
  * Implement packet replay at arbitrary levels (2, 3 and so on):
   * Store hashes of replayed packets
   * If a packet comes from _lo_ with a known hash, set the _packet.replayed_ flag and store the stream number
   * If a packet comes from a known stream, set the flag too
   * Add the _.replayed_ attribute to _!DissectedPacket_ and _!DissectedPacketList_
- * Ability to pass a script name in argument
- * Ability to disable the web-driven mode
- * Transmit the _showname_ attribute in web-driven mode
- * Implement arguments about logging handlers
- * Implement the Ethernet mode
- * Ability to modify the filters dynamically
- * Restrict autocompletion to predefined commands only
+
+ * Restrict autocompletion to a list of predefined commands
+ * Implement all the documented commands
