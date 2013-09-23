@@ -348,7 +348,7 @@ dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1
 icmp and ip.ttl < 32
  }}}
 
- Select packets bigger than 1kB and containing raw string `"</html>\r\n"`:
+ Select packets bigger than 1kB containing raw string `"</html>\r\n"`:
 
  {{{
 len(raw) > 1024 and raw*='</html>\r\n'
