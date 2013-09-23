@@ -2,7 +2,7 @@
 
 *LAST UPDATE: Sep 22, 2013*
 
-This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as `[DEPRECATED]` or `[UPCOMING]` in the following documentation. See the [ChangeLog] and the [ToDoList] for further details.
+This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as `[DEPRECATED]` or `[UPCOMING]` in the following documentation. See the [ChangeLog changelog] and the [ToDoList todolist] for further details.
 
 First of all, you have to know that _proxyshark_ can be used in 4 different modes:
  * *View mode*: all you have to do is run _proxyshark_ with the appropriate arguments and watch the result in your favorite shell. You can setup filters and schedule simple actions based on given conditions, but nothing too complicated. For example, you can define an action to automatically replace all occurrences of a given value in a given packet field by another value. You can switch to this mode by running _proxyshark_ with the _[#-r_%7C_--run --run]_ argument or by pressing Ctrl-D in interactive mode (see below).
