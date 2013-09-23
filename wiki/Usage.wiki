@@ -386,175 +386,96 @@ ip$|tcp$|http.*
  Breakpoints are designed to pause current capture when a given [#set_capture_filter_%3Ccapture-filter%3E packet filter] is triggered. In view mode, you first need to define an [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to run when the breakpoint is triggered (see below). In interactive mode, you can either define an action or alter the packet manually, accept it, drop it, replay it, etc. 
 
  This command can be used in 3 different ways:
-  * If no argument is given, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info breakpoints`]).
-  * If a breakpoint identifier is given, print the packet filter associated to this breakpoint.
+  * If no argument is given, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info breakpoints]).
+  * If a breakpoint identifier is given, print the packet filter associated to this breakpoint. The breakpoint identifier must be an arbitrary string containing letters, digits, dashes, dots and underscores.
   * If a packet filter is given, create a new breakpoint based on the given identifier and filter.
+
+==== `en|enable <breakpoint-id>` ====
+
+ Enable an existing breakpoint.
+
+==== `dis|disable <breakpoint-id>` ====
+
+ Disable an existing breakpoint.
+
+==== `d|delete breakpoint <breakpoint-id>` ====
+
+ Delete an existing breakpoint.
 
 ==== `a|action [<action-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
 
- Actions are Python expressions that can be run automatically when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
+ Actions are Python expressions to run when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
 
  This command can be used in 3 different ways:
-  * If no argument is given, print a list of all existing actions (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D `info actions`]).
-  * If an action identifier is given, print the breakpoint and the Python expression associated to this action.
+  * If no argument is given, print a list of all existing actions (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info actions]).
+  * If an action identifier is given, print the breakpoint and the Python expression associated to this action. The action identifier must be an arbitrary string containing letters, digits, dashes, dots and underscores.
   * If a breakpoint identifier and a Python expression are given, create a new action based on the given identifiers and expression.
 
-==== `c|capture [bpf-filter]` ====
+==== `d|delete action <action-id> [<breakpoint-id>]` ====
 
- Start a new capture. The argument will be parsed as a BPF filter and converted into a set of netfilter rules redirecting the matching packets to the selected netfilter queue. See the [TechnicalDescription technical description] for details about BPF filters and netfilter rules.
+ Delete an existing action.
 
-==== `en | enable <breakpoint-id>` ====
+ If a breakpoint identifier is given, delete only the association between the action and the breakpoint.
 
- Enable an existing breakpoint. The _breakpoint-id_ must be a valid breakpoint identifier returned by the command _b_ or _breakpoint_.
+==== `r|run [<capture-filter>] [<packet-filter>] [<field-filter>]` ====
 
-==== `dis | disable <breakpoint-id>` ====
+ Run a new capture.
 
- Disable an existing breakpoint. The _breakpoint-id_ must be a valid breakpoint identifier returned by the command _b_ or _breakpoint_. 
+ Filters can be provided to override current [#set_capture_filter_%3Ccapture-filter%3E settings].
 
-==== `d | delete <type> <breakpoint-id>` ====
-
- Delete a breakpoint or an action. The _type_ argument can be _b_ or _breakpoint_ for a breakpoint and _a_ or _action_ for an action. The _breakpoint-id_ must be a valid breakpoint identifier returned by the command _b_ or _breakpoint_.
-
-==== `pkts | packets <filter-expression>` ====
-
- Return all the previously captured packets. You can specify a filter expression to select a subset of packets. See the [TechnicalDescription technical description] for details about filter expressions.
-
-==== `pkt | packet` ====
-
- A special variable containing the last dissected packet.
-
-==== `accept` ====
-
- Accept the current packet and resume the capture.
-
-==== `drop` ====
-
- Drop the current packet and resume the capture.
-
-==== `break` ====
+==== `p|pause` ====
 
  Pause the current capture.
 
-==== `stop` ====
+==== `c|continue` ====
+
+ Continue the current capture.
+
+==== `s|stop` ====
 
  Stop the current capture.
 
-==== Examples ====
+==== `pkts|packets` ====
 
- Capture HTTP traffic from or to _www.google.com_ and break on index requests:
+ Return a list of captured packets.
 
- {{{
->>> b 1 pkt.http.method == "GET" and pkt.http.uri == "/"
-new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
->>> c host www.google.com and port 80
-capturing...
-at breakpoint 1: pkt.http.method == "GET" and pkt.http.uri == "/"
->>> 
- }}}
+ Use `help(DissectedPacketList)` and `help(DissectedPacket)` to get available attributes and methods.
 
- Print the captured packet:
+===== Examples =====
+
+ Get HTTP packets from _1.2.3.4_:
 
  {{{
->>> pkt
-0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
->>> print pkt
-[todo: put the dissected fields here]
+>>> x = packets['ip.src=1.2.3.4 and http']
  }}}
 
- Modify the URI and let the packet go:
+ Retrieve all User-Agents from the previous packets:
 
  {{{
->>> pkt.http.uri = "/modified.php"
->>> pkt
-0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET /modified.php HTTP/1.1
->>> accept
-capturing...
+>>> list(set(x['http.user_agent'])) # list(set(...)) is a Python trick to remove doubles from a list
  }}}
 
- Automatically modify the URI when an index request is encountered:
+==== `pkt|packet` ====
+
+ A special variable containing the last captured packet (equivalent to `packets[-1]`). You can use it to retrieve the current packet when a breakpoint is triggered in interactive mode.
+
+===== Examples =====
+
+ After a break on an HTTP packet, change the _User-Agent_ and accept the packet:
 
  {{{
->>> b 1 pkt.http.method == "GET" and pkt.http.uri == "/"
-new breakpoint with id 1: pkt.http.method == "GET" and pkt.http.uri == "/"
->>> a 1 pkt.http.uri = "/modified.php"; accept()
-new action on breakpoint 1: pkt.http.uri = "/modified.php"; accept()
->>> c host www.google.com and port 80
-capturing...
-at breakpoint 1: running action
-at breakpoint 1: running action
-at breakpoint 1: running action
+>>> packet['http.user_agent'] = 'My Custom User-Agent'
+>>> packet.accept()
  }}}
 
- Get all the TCP packets:
+ Or drop the current packet and replay the request to another server:
 
  {{{
->>> pkts pkt.tcp
-[4 packets]
-0.000000 192.168.98.102 -> 74.125.39.104 TCP 56511 > http [SYN] Seq=0 Win=5840 Len=0 MSS=1460 TSV=8507835 TSER=0 WS=1
-0.048718 74.125.39.104 -> 192.168.98.102 TCP http > 56511 [SYN, ACK] Seq=0 Ack=1 Win=5672 Len=0 MSS=1430 TSV=2275473486 TSER=8507835 WS=6
-0.048905 192.168.98.102 -> 74.125.39.104 TCP 56511 > http [ACK] Seq=1 Ack=1 Win=5840 Len=0 TSV=8507840 TSER=2275473486
-0.089290 192.168.98.102 -> 74.125.39.104 HTTP GET / HTTP/1.1
+>>> packet.drop()
+>>> packet['ip.dst'] = socket.inet_aton('2.3.4.5')
+>>> packet.replay('http') # see help(DissectedPacket)
  }}}
 
- Get the TCP packets where the SYN flag is set:
+==== `break` ====
 
- {{{
->>> pkts pkt.tcp.flags.syn
- }}}
- 
- Get the HTTP packets where the TTL is _64_, the method is _POST_ and the URI is _/index.php_:
-
- {{{
->>> pkts pkt.ip.ttl == 64 and pkt.http.method == "POST" and pkt.http.uri == "/index.php"
- }}}
-
-== Scripting interface `[UPCOMING]` ==
-
-You can also write Python scripts based on proxyshark. The available functions are the same than in command-line mode.
-
-==== Example ====
-
- {{{
-#!~/proxyshark.py -v
-
-# define a complex action
-def myaction():
-    pkt.ip.ttl = 64
-    pkt.http.uri = "/modified.php"
-    # add any other action here
-    # ...
-    # accept the packet
-    accept()
-    # stop the capture after 10 packets
-    if len(pkts) == 10:
-        print "Capture done."
-        stop()
-
-# define a breakpoint and an action
-b mybreak pkt.http.method == "GET" and pkt.http.uri == "/"
-a mybreak myaction()
-
-# run the capture
-c host www.google.fr and port 80
-print "End."
- }}}
-
- {{{
-root@debian:~$ python proxyshark.py -v myscript.py
-new breakpoint with id 'mybreak': pkt.http.method == "GET" and pkt.http.uri == "/"
-new action on breakpoint 'mybreak': myaction()
-capturing...
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-at breakpoint 'mybreak': myaction()
-Capture done.
-End.
-root@debian:~$
- }}}
+ Swith to view mode (equivalent to Ctrl-D).
