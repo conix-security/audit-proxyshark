@@ -469,7 +469,7 @@ ip$|tcp$|http.*
  After a break on an HTTP packet, change the _User-Agent_ and accept the packet:
 
  {{{
->>> packet['http.user_agent'] = 'My Custom User-Agent'
+>>> packet['http.user_agent'] = 'User-Agent: My Custom User-Agent\r\n'
 >>> packet.accept()
  }}}
 
@@ -478,7 +478,7 @@ ip$|tcp$|http.*
  {{{
 >>> packet.drop()
 >>> packet['ip.dst'] = socket.inet_aton('2.3.4.5')
->>> packet['http.host'] = '2.3.4.5'
+>>> packet['http.host'] = 'Host: 2.3.4.5\r\n'
 >>> packet.replay('http') # see help(DissectedPacket)
  }}}
 
