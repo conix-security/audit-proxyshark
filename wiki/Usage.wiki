@@ -420,7 +420,7 @@ ip$|tcp$|http.*
 
 ==== `r|run [<capture-filter>] [<packet-filter>] [<field-filter>]` ====
 
- Run a new capture. Drop previously captured packets.
+ Run a new capture (drop previously captured packets).
 
  Filters can be provided to override current [#set_capture_filter_%3Ccapture-filter%3E settings].
 
@@ -436,7 +436,7 @@ ip$|tcp$|http.*
 
 ==== `s|stop` ====
 
- Stop the current capture. Drop previously captured packets.
+ Stop the current capture (drop previously captured packets).
 
 ==== `pkts|packets` ====
 
