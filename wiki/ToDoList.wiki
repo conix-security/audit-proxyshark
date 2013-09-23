@@ -5,8 +5,9 @@
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement packet edition in interactive mode
  * Implement a _!DissectedPacketList_ class
-  * herited from _list_
-  * custom _str_ and _repr_ methods
+  * Herited from _list_
+  * With custom _str_ and _repr_ methods
+  * With custom _getitem_ method
 
  * Start in interactive mode by default, with no filter
  * Update help message printed by the _-h_ argument
