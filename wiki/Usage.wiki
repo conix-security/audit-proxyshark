@@ -420,9 +420,11 @@ ip$|tcp$|http.*
 
 ==== `r|run [<capture-filter>] [<packet-filter>] [<field-filter>]` ====
 
- Run a new capture.
+ Run a new capture. Drop previously captured packets.
 
  Filters can be provided to override current [#set_capture_filter_%3Ccapture-filter%3E settings].
+
+ You can also run a capture at start with the _[#-r_%7C_--run --run]_ command-line argument.
 
 ==== `p|pause` ====
 
@@ -434,7 +436,7 @@ ip$|tcp$|http.*
 
 ==== `s|stop` ====
 
- Stop the current capture.
+ Stop the current capture. Drop previously captured packets.
 
 ==== `pkts|packets` ====
 
@@ -458,7 +460,9 @@ ip$|tcp$|http.*
 
 ==== `pkt|packet` ====
 
- A special variable containing the last captured packet (equivalent to `packets[-1]`). You can use it to retrieve the current packet when a breakpoint is triggered in interactive mode.
+ A special variable containing the last captured packet (equivalent to `packets[-1]`).
+
+ You can use it to retrieve the current packet when a breakpoint is triggered in interactive mode.
 
 ===== Examples =====
 
@@ -480,3 +484,11 @@ ip$|tcp$|http.*
 ==== `break` ====
 
  Swith to view mode (equivalent to Ctrl-D).
+
+==== `flush cache` ====
+
+ Flush internal cache to free memory (captured packets are not removed).
+
+==== `q|quit|x|exit` ====
+
+ Stop the current capture, flush internal cache and quit _proxyshark_.
