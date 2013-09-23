@@ -328,7 +328,7 @@ dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1
   * `QuotedValue` => `"[`_printable_`]`+`"` | `'[`_printable_`]`+`'`
   * `UnquotedValue` => `[`_printable_without_space_`]`+
 
- Operators are:
+ Where operators are:
   * Equals: *`==`* or *`=`*
   * Differs: *`!=`*
   * Begins with: *`^=`*
