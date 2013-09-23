@@ -1,3 +1,9 @@
+*LAST UPDATE: Sep 22, 2013*
+
+==== `==` v1.0b `==` ====
+
+ * Coming soon...
+
 ==== `==` v0.1 (2010-10-07) `==` ====
 
  * Very first version of proxyshark!
