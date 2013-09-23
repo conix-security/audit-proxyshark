@@ -12,7 +12,7 @@
  * Start in interactive mode by default, with no filter
  * Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
- * Make sure that the _-v_ argument is correctly handled (verbosity)
+ * Make sure the _-v_ argument is correctly handled (verbosity)
  * Implement Ethernet mode
  * Implement _-e_ argument (Ethernet mode)
  * Check behavior of _-t_ argument (tshark path)
