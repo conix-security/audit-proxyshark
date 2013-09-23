@@ -236,7 +236,7 @@ Several commands are available:
 
 ===== Examples =====
 
- Capture traffic from _Google Docs_:
+ Capture _Google Docs_ traffic:
 
  {{{
 host docs.google.com and tcp port 80 or 443
