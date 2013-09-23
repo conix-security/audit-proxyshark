@@ -2,6 +2,8 @@
 
 *TODOLIST (v1.0b)*
 
+ * Evaluate performance in web-driven mode without Gzip compression
+
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement packet edition in interactive mode
  * Implement a _!DissectedPacketList_ class
