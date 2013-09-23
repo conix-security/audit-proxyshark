@@ -405,7 +405,7 @@ ip$|tcp$|http.*
 
 ==== `a|action [<action-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
 
- Actions are Python expressions to run when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
+ Actions are Python expressions to be run when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
 
  This command can be used in 3 different ways:
   * If no argument is given, print a list of all existing actions (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info actions]).
