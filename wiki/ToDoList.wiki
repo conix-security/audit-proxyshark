@@ -1,8 +1,8 @@
-*LAST UPDATE: Sep 22, 2013*
+*LAST UPDATE: Sep 23, 2013*
 
 *TODOLIST (v1.0b)*
 
- * Evaluate performance in web-driven mode without Gzip compression
+ * Evaluate performance in web-driven mode without GZip compression
 
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement packet edition in interactive mode
