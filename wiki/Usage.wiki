@@ -473,7 +473,7 @@ ip$|tcp$|http.*
 >>> packet.accept()
  }}}
 
- Or drop the current packet and replay the request to another server:
+ Or drop the current packet and replay it with another server as destination:
 
  {{{
 >>> packet.drop()
