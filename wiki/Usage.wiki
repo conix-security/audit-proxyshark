@@ -478,6 +478,7 @@ ip$|tcp$|http.*
  {{{
 >>> packet.drop()
 >>> packet['ip.dst'] = socket.inet_aton('2.3.4.5')
+>>> packet['http.host'] = '2.3.4.5'
 >>> packet.replay('http') # see help(DissectedPacket)
  }}}
 
