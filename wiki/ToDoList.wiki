@@ -9,32 +9,46 @@
   * With custom _str_ and _repr_ methods
   * With custom _getitem_ method
 
- * Start in interactive mode by default, with no filter
  * Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
  * Make sure the _-v_ argument is correctly handled (verbosity)
- * Implement Ethernet mode
- * Implement _-e_ argument (Ethernet mode)
  * Check behavior of _-t_ argument (tshark path)
  * Rename parameters of _-w_ argument (web-driven mode)
- * Implement ability to disable the web-driven mode
+ * Implement ability to disable web-driven mode
  * Transmit the _showname_ attribute in web-driven mode
+ * Transmit _value_ in Python ASCII form instead of ASCII hex
  * Implement _-c_, _-p_ and _-f_ arguments (filters)
  * Implement ability to modify filters dynamically
  * Implement _-r_ argument (run capture at start)
- * Implement breakpoints
- * Implement _-b_ argument (default breakpoint)
+ * Start in interactive mode by default, with no filter
+
+ * Implement _nfqueue.run_, _.pause_, _.stop_, _.flush_
+
+ * Implement Ethernet mode
+ * Implement _-e_ argument (Ethernet mode)
+
  * Implement actions
+  * A dict _breakpoint_ => _action_
+  * Contain a Python expression with an activation flag
+  * Call the appropriate action when a breakpoint is triggered
+  * Add methods _nfqueue.add_action_ and _.delete_action_
  * Implement _-a_ argument (default action)
+ * Implement breakpoints
+  * A list of packet filters with an activation flag
+  * Test all the filters on each captured packet
+  * If triggered, call _nfqueue.pause_ and _nfqueue.break_
+  * Add methods _nfqueue.add_breakpoint_, _.enable_breakpoint_, _.disable_breakpoint_, _.delete_breakpoint_
+ * Implement _-b_ argument (default breakpoint)
 
  * Implement packet replay at arbitrary levels (2, 3 and so on):
   * Store hashes of replayed packets
   * If a packet comes from _lo_ with a known hash, set the _packet.replayed_ flag and store the stream number
   * If a packet comes from a known stream, set the flag too
   * Add the _.replayed_ attribute to _!DissectedPacket_ and _!DissectedPacketList_
+  * Add method _DissectedPacket.replay_
 
  * Restrict autocompletion to a list of predefined commands
- * Implement all documented commands!
+ * Implement all documented commands
 
 *TODOLIST (v2.0)*
 
