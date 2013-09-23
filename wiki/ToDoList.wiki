@@ -10,7 +10,7 @@
   * With custom _getitem_ method
 
  * Start in interactive mode by default, with no filter
- * Update help message printed by the _-h_ argument
+ * Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
  * Make sure that the _-v_ argument is correctly handled (verbosity)
  * Implement Ethernet mode
