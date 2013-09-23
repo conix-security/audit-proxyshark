@@ -388,7 +388,7 @@ ip$|tcp$|http.*
 
  This command can be used in 3 different ways:
   * If no argument is given, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info breakpoints]).
-  * If a breakpoint identifier is given, print the packet filter associated to this breakpoint. The breakpoint identifier must be an arbitrary string containing letters, digits, dashes, dots and underscores.
+  * If a breakpoint identifier is given, print the packet filter associated to this breakpoint. The breakpoint identifier must be an arbitrary string containing letters, digits, dashes, dots or underscores.
   * If a packet filter is given, create a new breakpoint based on the given identifier and filter.
 
 ==== `en|enable <breakpoint-id>` ====
@@ -409,7 +409,7 @@ ip$|tcp$|http.*
 
  This command can be used in 3 different ways:
   * If no argument is given, print a list of all existing actions (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info actions]).
-  * If an action identifier is given, print the breakpoint and the Python expression associated to this action. The action identifier must be an arbitrary string containing letters, digits, dashes, dots and underscores.
+  * If an action identifier is given, print the breakpoint and the Python expression associated to this action. The action identifier must be an arbitrary string containing letters, digits, dashes, dots or underscores.
   * If a breakpoint identifier and a Python expression are given, create a new action based on the given identifiers and expression.
 
 ==== `d|delete action <action-id> [<breakpoint-id>]` ====
