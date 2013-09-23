@@ -1,6 +1,6 @@
-*TODOLIST (v1.0b)*
-
 *LAST UPDATE: Sep 22, 2013*
+
+*TODOLIST (v1.0b)*
 
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement a _!DissectedPacketList_ class
@@ -24,7 +24,6 @@
  * Implement _-b_ argument (default breakpoint)
  * Implement actions
  * Implement _-a_ argument (default action)
- * Implement script name as last argument
 
  * Implement packet replay at arbitrary levels (2, 3 and so on):
   * Store hashes of replayed packets
@@ -35,4 +34,8 @@
  * Restrict autocompletion to a list of predefined commands
  * Implement all documented commands!
 
- * And for the next version => Burp Suite Pro plugin
+*TODOLIST (v2.0)*
+
+ * Plugin for Burp Suite Pro
+ * Implement script name as last argument
+ * Implement scripting mode
