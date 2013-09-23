@@ -485,10 +485,10 @@ ip$|tcp$|http.*
 
  Swith to view mode (equivalent to Ctrl-D).
 
-==== `flush cache` ====
+==== `flush` ====
 
  Flush internal cache to free memory (captured packets are not removed).
 
 ==== `q|quit|x|exit` ====
 
- Stop the current capture, flush internal cache and quit _proxyshark_.
+ Stop the current capture and quit _proxyshark_.
