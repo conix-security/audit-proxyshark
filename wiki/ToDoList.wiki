@@ -34,3 +34,5 @@
 
  * Restrict autocompletion to a list of predefined commands
  * Implement all documented commands!
+
+ * And for the next version => Burp Suite Pro plugin
