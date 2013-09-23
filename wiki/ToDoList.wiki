@@ -33,4 +33,4 @@
   * Add the _.replayed_ attribute to _!DissectedPacket_ and _!DissectedPacketList_
 
  * Restrict autocompletion to a list of predefined commands
- * Implement all the documented commands
+ * Implement all documented commands!
