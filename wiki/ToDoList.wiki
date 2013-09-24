@@ -2,9 +2,10 @@
 
 *TODOLIST (v1.0b)*
 
- * Fix segfault provoked by readline library
-
- * Evaluate performance in web-driven mode without GZip compression
+ * *DONE* Fix segfault provoked by _readline_ library
+  * Incorrect value in variable _isearch-terminators_ was causing segfaults 
+ * *DONE* Evaluate performance without GZip compression in web-driven mode
+  * No difference so GZip was disabled
 
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_
  * Implement packet edition in interactive mode
