@@ -2,7 +2,7 @@
 
 ==== `==` v1.0b `==` ====
 
- * Coming soon
+ * Coming soon...
 
  * Added internal caching mechanism (better performance)
  * Added _file_ and _syslog_ logging handlers
