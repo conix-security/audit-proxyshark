@@ -2,7 +2,7 @@
 
 *TODOLIST (v1.0b)*
 
- * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_
+ * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_ variable
  * *DONE* Evaluate performance without GZip compression in web-driven mode:
   * No difference so GZip was disabled
 
