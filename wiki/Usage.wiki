@@ -88,13 +88,13 @@ The following arguments are available (all optional):
 
 ==== `-b | --breakpoint <packet-filter>` ====
 
- Define a default [#b%7Cbreakpoint_%5B%3Cbreakpoint-id%3E%5D%7C%5B%3Cbreakpoint-id%3E_%3C breakpoint] based on the given packet filter.
+ Define a default [#b%7Cbreakpoint_%5B%3Cbreakpoint-id%3E%5D_%5B%3Cpacket-filter%3E%5D breakpoint] based on the given packet filter.
 
  Default is no breakpoint.
 
 ==== `-a | --action <expression>` ====
 
- An [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to run when the default breakpoint is reached.
+ An [#a%7Caction_%5B%3Caction-id%3E%5D_%5B%3Cbreakpoint-id%3E_%3Cpython-e action] to run when the default breakpoint is reached.
 
  Default is no action.
 
@@ -382,7 +382,7 @@ sip.*
 ip$|tcp$|http.*
  }}}
 
-==== `b|breakpoint [<breakpoint-id>]|[<breakpoint-id> <packet-filter>]` ====
+==== `b|breakpoint [<breakpoint-id>] [<packet-filter>]` ====
 
  Breakpoints are designed to pause current capture when a given [#set_capture_filter_%3Ccapture-filter%3E packet filter] is triggered. In view mode, you first need to define an [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to be run when the breakpoint is triggered (see below). In interactive mode, you can either define an action or alter the packet manually, accept it, drop it, replay it, etc. 
 
@@ -403,7 +403,7 @@ ip$|tcp$|http.*
 
  Delete an existing breakpoint.
 
-==== `a|action [<action-id>]|[<action-id> <breakpoint-id> <python-expression>]` ====
+==== `a|action [<action-id>] [<breakpoint-id> <python-expression>]` ====
 
  Actions are Python expressions to be run when a breakpoint is triggered. Note that commands available in interactive mode are also available in such expressions.
 
