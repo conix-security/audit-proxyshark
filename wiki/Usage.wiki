@@ -452,7 +452,7 @@ ip$|tcp$|http.*
 >>> x = packets['ip.src=1.2.3.4 and http']
  }}}
 
- Retrieve all User-Agents from the previous packets:
+ Retrieve all User-Agents from the previous packet list:
 
  {{{
 >>> list(set(x['http.user_agent'])) # list(set(...)) is a Python trick to remove doubles in a list
