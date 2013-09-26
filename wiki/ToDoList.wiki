@@ -54,7 +54,7 @@
   * Add method _DissectedPacket.replay_
 
  * Restrict autocompletion to a list of predefined commands
- * Make sure all documented commands are implemented
+ * Make sure that all documented commands are implemented:
   * Including a feature to flush global cache
 
 *TODOLIST (v2.0)*
