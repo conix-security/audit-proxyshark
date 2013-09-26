@@ -11,7 +11,7 @@
  * Added capture filters based on BPF filters
  * Added packet filters inspired from _Wireshark_ display filters
  * Added field filters based on regular expressions
- * Enhanced performance and data structure of dissected packets (xpath)
+ * Enhanced performance and data structure of dissected packets (based on _xpath_)
  * Added local web server (web-driven mode)
  * Added interactive console
  * Added packet modification ability
