@@ -1,4 +1,4 @@
-*LAST UPDATE: Sep 23, 2013*
+*LAST UPDATE: Sep 27, 2013*
 
 ==== `==` v1.0b `==` ====
 
@@ -10,8 +10,12 @@
  * Improved verbosity levels
  * Added capture filters based on BPF filters
  * Added packet filters inspired from _Wireshark_ display filters
- * Added field filters (based on regular expressions)
- * 
+ * Added field filters based on regular expressions
+ * Enhanced performance and data structure of dissected packets (xpath)
+ * Added local web server (web-driven mode)
+ * Added interactive console
+ * Added packet modification ability
+ * Added several command-line arguments
 
 ==== `==` v0.1 (Oct 07, 2010) `==` ====
 
