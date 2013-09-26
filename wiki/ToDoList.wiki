@@ -47,7 +47,7 @@
  * Implement _-b_ argument (default breakpoint)
 
  * Implement packet replay at arbitrary levels (2, 3 and so on):
-  * Store hashes of replayed packets (tuple containing packet timestamp and _ip.id_)
+  * Store hashes of replayed packets (_id_ of the dissected packet)
   * If a packet comes from _lo_ with a known hash, set the _packet.replayed_ flag and store the stream number
   * If a packet comes from a known stream, set the flag too
   * Add _.replayed_ attribute to _!DissectedPacket_ and _!DissectedPacketList_
