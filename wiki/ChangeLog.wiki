@@ -17,7 +17,7 @@
  * Added packet modification ability
  * Added several command-line arguments
 
-==== `==` v0.1 (Oct 07, 2010) `==` ====
+==== `==` v0.1 (Oct 07, 2011) `==` ====
 
  * Very first version of _proxyshark_!
  * Netfilter rules must be written manually:
