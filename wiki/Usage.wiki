@@ -100,7 +100,7 @@ The following arguments are available (all optional):
 
 ==== [`<filename>`] ====
 
- An optional script to run at start (scripting mode).
+ An optional script to run at start (in scripting mode) *`[UPCOMING]`*.
 
  Default is no script.
 
@@ -466,7 +466,7 @@ ip$|tcp$|http.*
 
 ===== Examples =====
 
- After a break on an HTTP packet, change the _User-Agent_ and accept the packet:
+ After a break on an HTTP packet, change the User-Agent and accept the packet:
 
  {{{
 >>> packet['http.user_agent'] = 'User-Agent: My Custom User-Agent\r\n'
