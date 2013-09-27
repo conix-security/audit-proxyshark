@@ -6,7 +6,7 @@
  * *DONE* Evaluate performance without GZip compression in web-driven mode:
   * No difference so GZip was disabled
 
- * Add _indev_ and _outdev_ attributes to _DissectedPacket_
+ * Add _indev_ and _outdev_ attributes to _!DissectedPacket_
 
  * Modify _str_ and _repr_ implementation of _!DissectedPacket_:
   * _str_ should print the packet description
