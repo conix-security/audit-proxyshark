@@ -1,6 +1,6 @@
 *LAST UPDATE: Sep 27, 2013*
 
-*TODOLIST (v1.0b)*
+==== `==` v1.0b `==` ====
 
  * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_ variable
  * *DONE* Evaluate performance without GZip compression in web-driven mode:
@@ -61,7 +61,7 @@
  * Make sure that all documented commands are implemented:
   * Including a feature to flush global cache
 
-*TODOLIST (v2.0)*
+==== `==` v2.0 `==` ====
 
  * Plugin for Burp Suite Pro
  * Implement script name as last argument
