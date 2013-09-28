@@ -2,13 +2,12 @@
 
 ==== `==` v1.0b `==` ====
 
- * Rename special variable _packets_ into _q_ or _queue_
- * Remove special variable _packet_:
-  * Or rename it into _p_ or _packet_
+ * *DONE* Rename special variable _packets_ into _q_ or _queue_
+ * *DONE* Rename special variable _packet_ into _p_ or _packet_
+ * *DONE* Remove default attribute _`[`show`]`_ from the _!DissectedPacketSubList_ syntax
+
  * The _value_ attribute is sometimes Python ASCII and sometimes ASCII hex:
   * It should be stored in ASCII hex but printed in Python ASCII
- * Add _`[`show`]`_ default attribute to _!DissectedPacket.`__`getitem`__`_:
-  * Or remove default attribute from the _!DissectedPacketSubList_ syntax
 
  * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_ variable
  * *DONE* Evaluate performance without GZip compression in web-driven mode:
