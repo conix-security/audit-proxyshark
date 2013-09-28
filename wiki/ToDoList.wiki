@@ -22,11 +22,12 @@
  * *DONE* Modify _str_ and _repr_ implementation of _!DissectedPacket_:
   * _str_ should print the packet description
   * _repr_ should print the packet details
- * Implement packet edition in interactive mode via _setitem_
- * Implement a _!DissectedPacketList_ class:
-  * Herited from _list_
+ * *DONE* Implement _!DissectedPacketList_ and _!DissectedPacketSubList_ classes:
+  * Herited from _list_ or _!DissectedPacketList_
   * With custom _str_ and _repr_ methods
-  * With custom _getitem_ method
+  * With custom _getitem_ methods
+
+ * Implement packet edition in interactive mode via _setitem_
 
  * Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
