@@ -8,9 +8,11 @@
 
  * *DONE* Add _indev_ and _outdev_ attributes to _!DissectedPacket_
 
- * *DONE* Add distinction between _real_identifier_ (the one from tshark) and _identifier_ (given after packet filtering)
+ * *DONE* Add distinction between _real_identifier_ (the one from tshark) and _identifier_
 
- * Modify _str_ and _repr_ implementation of _!DissectedPacket_:
+ * *DONE* Rename empty _names_ in packet fields (_proto_.data)
+
+ * *DONE* Modify _str_ and _repr_ implementation of _!DissectedPacket_:
   * _str_ should print the packet description
   * _repr_ should print the packet details
  * Implement packet edition in interactive mode via _setitem_
