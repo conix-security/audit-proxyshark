@@ -1,6 +1,6 @@
 *THIS PAGE IS UNDER CONSTRUCTION*
 
-*LAST UPDATE: Sep 27, 2013*
+*LAST UPDATE: Sep 28, 2013*
 
 This document is based on the current development version of _proxyshark_ and should be considered as a technical specification document. As a consequence, a number of features could be absent from the last stable release and marked as `[DEPRECATED]` or `[UPCOMING]` in the following documentation. See [ChangeLog changelog] and [ToDoList todolist] for further details.
 
@@ -239,10 +239,11 @@ Several commands are available:
  Capture _Google Docs_ traffic:
 
  {{{
-host docs.google.com and tcp port 80 or 443
+python proxyshark.py -v -v -c 'host docs.google.com and tcp port 80 or 443'
  }}}
 
  {{{
+...
 [DEBUG] name 'docs.google.com' resolved:
 [DEBUG] - 173.194.40.134
 [DEBUG] - 173.194.40.129
@@ -285,15 +286,17 @@ host docs.google.com and tcp port 80 or 443
 [DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9104
 [DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9104
 [DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9104
+...
  }}}
 
  Capture all DNS traffic, and SIP requests from _10.0.0.0/8_ to _1.2.3.4_ or _2.3.4.5_ on network device _eth1_:
 
  {{{
-dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)
+python proxyshark.py -v -v -c 'dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)'
  }}}
 
  {{{
+...
 [DEBUG] iptables -t filter -A PROXYSHARK5605 -j NFQUEUE --queue-num 1234
 [DEBUG] iptables -t filter -A PROXYSHARK5297 -d 2.3.4.5 -j PROXYSHARK5605
 [DEBUG] iptables -t filter -A PROXYSHARK5297 -d 1.2.3.4 -j PROXYSHARK5605
@@ -307,6 +310,7 @@ dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1
 [DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9821
 [DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9821
 [DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9821
+...
  }}}
 
 ==== `set packet filter <packet-filter>` ====
@@ -345,19 +349,19 @@ dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1
  Select ICMP packets with TTL lower than 32:
 
  {{{
-icmp and ip.ttl < 32
+python proxyshark.py -c 'icmp' -p 'icmp and ip.ttl < 32'
  }}}
 
  Select packets bigger than 1kB containing raw string `"</html>\r\n"`:
 
  {{{
-len(raw) > 1024 and raw*='</html>\r\n'
+python proxyshark.py -c 'any' -p 'len(raw) > 1024 and raw*="</html>\r\n"'
  }}}
 
- Select GET requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
+ Select HTTP requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
 
  {{{
-http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
+python proxyshark.py -c 'port 80' -p 'http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10'
  }}}
 
 ==== `set field filter <field-filter>` ====
@@ -373,13 +377,13 @@ http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user
  Forward only the fields from the SIP layer:
 
  {{{
-sip.*
+python proxyshark.py -c 'port 5060' -p 'sip' -f 'sip.*'
  }}}
 
  Forward IP and TCP protocols (not the fields), and all the fields from the HTTP layer:
 
  {{{
-ip$|tcp$|http.*
+python proxyshark.py -c 'port 80' -p 'http' -f 'ip$|tcp$|http.*'
  }}}
 
 ==== `b|breakpoint [<breakpoint-id>] [<packet-filter>]` ====
@@ -449,13 +453,14 @@ ip$|tcp$|http.*
  Get HTTP packets from _1.2.3.4_:
 
  {{{
->>> x = packets['ip.src=1.2.3.4 and http']
+>>> mypackets = packets['ip.src=1.2.3.4 and http']
  }}}
 
- Retrieve all User-Agents from the previous packet list:
+ Retrieve all unique User-Agents from the previous packet list:
 
  {{{
->>> list(set(x['http.user_agent'])) # list(set(...)) is a Python trick to remove doubles in a list
+>>> uniq = lambda x: list(set(reduce(list.__add__, x))) # list(set(...)) is a Python trick to remove doubles
+>>> uniq(mypackets['http.user_agent']
  }}}
 
 ==== `pkt|packet` ====
