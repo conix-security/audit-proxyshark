@@ -239,11 +239,10 @@ Several commands are available:
  Capture _Google Docs_ traffic:
 
  {{{
-python proxyshark.py -v -v -c 'host docs.google.com and tcp port 80 or 443'
+host docs.google.com and tcp port 80 or 443
  }}}
 
  {{{
-...
 [DEBUG] name 'docs.google.com' resolved:
 [DEBUG] - 173.194.40.134
 [DEBUG] - 173.194.40.129
@@ -286,17 +285,15 @@ python proxyshark.py -v -v -c 'host docs.google.com and tcp port 80 or 443'
 [DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9104
 [DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9104
 [DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9104
-...
  }}}
 
  Capture all DNS traffic, and SIP requests from _10.0.0.0/8_ to _1.2.3.4_ or _2.3.4.5_ on network device _eth1_:
 
  {{{
-python proxyshark.py -v -v -c 'dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)'
+dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)
  }}}
 
  {{{
-...
 [DEBUG] iptables -t filter -A PROXYSHARK5605 -j NFQUEUE --queue-num 1234
 [DEBUG] iptables -t filter -A PROXYSHARK5297 -d 2.3.4.5 -j PROXYSHARK5605
 [DEBUG] iptables -t filter -A PROXYSHARK5297 -d 1.2.3.4 -j PROXYSHARK5605
@@ -310,7 +307,6 @@ python proxyshark.py -v -v -c 'dev eth1 and (udp port 53 or dst port 5060 and sr
 [DEBUG] iptables -t filter -I INPUT 1 -j PROXYSHARK9821
 [DEBUG] iptables -t filter -I OUTPUT 1 -j PROXYSHARK9821
 [DEBUG] iptables -t filter -I FORWARD 1 -j PROXYSHARK9821
-...
  }}}
 
 ==== `set packet filter <packet-filter>` ====
@@ -349,19 +345,19 @@ python proxyshark.py -v -v -c 'dev eth1 and (udp port 53 or dst port 5060 and sr
  Select ICMP packets with TTL lower than 32:
 
  {{{
-python proxyshark.py -c 'icmp' -p 'icmp and ip.ttl < 32'
+icmp and ip.ttl < 32
  }}}
 
  Select packets bigger than 1kB containing raw string `"</html>\r\n"`:
 
  {{{
-python proxyshark.py -c 'any' -p 'len(raw) > 1024 and raw*="</html>\r\n"'
+len(raw) > 1024 and raw*="</html>\r\n"
  }}}
 
  Select HTTP requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
 
  {{{
-python proxyshark.py -c 'port 80' -p 'http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10'
+http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
  }}}
 
 ==== `set field filter <field-filter>` ====
@@ -377,13 +373,13 @@ python proxyshark.py -c 'port 80' -p 'http.request.method=GET and http.request.u
  Forward only the fields from the SIP layer:
 
  {{{
-python proxyshark.py -c 'port 5060' -p 'sip' -f 'sip.*'
+sip.*
  }}}
 
  Forward IP and TCP protocols (not the fields), and all the fields from the HTTP layer:
 
  {{{
-python proxyshark.py -c 'port 80' -p 'http' -f 'ip$|tcp$|http.*'
+ip$|tcp$|http.*
  }}}
 
 ==== `b|breakpoint [<breakpoint-id>] [<packet-filter>]` ====
@@ -442,30 +438,28 @@ python proxyshark.py -c 'port 80' -p 'http' -f 'ip$|tcp$|http.*'
 
  Stop the current capture (drop previously captured packets).
 
-==== `pkts|packets` ====
+==== `q|queue` ====
 
  Return a list of captured packets.
-
- Use `help(DissectedPacketList)` and `help(DissectedPacket)` to get available attributes and methods.
 
 ===== Examples =====
 
  Get HTTP packets from _1.2.3.4_:
 
  {{{
->>> mypackets = packets['ip.src=1.2.3.4 and http']
+>>> packets = queue['ip.src=1.2.3.4 and http']
  }}}
 
  Retrieve all unique User-Agents from the previous packet list:
 
  {{{
 >>> uniq = lambda x: list(set(reduce(list.__add__, x))) # list(set(...)) is a Python trick to remove doubles
->>> uniq(mypackets['http.user_agent']
+>>> uniq(packets['http.user_agent[show]']
  }}}
 
-==== `pkt|packet` ====
+==== `p|packet` ====
 
- A special variable containing the last captured packet (equivalent to `packets[-1]`).
+ A special variable containing the last captured packet (equivalent to `queue[-1]`).
 
  You can use it to retrieve the current packet when a breakpoint is triggered in interactive mode.
 
@@ -495,6 +489,6 @@ python proxyshark.py -c 'port 80' -p 'http' -f 'ip$|tcp$|http.*'
 
  Flush internal cache to free memory (captured packets are not removed).
 
-==== `q|quit|x|exit` ====
+==== `x|exit` ====
 
  Stop the current capture and quit _proxyshark_.
