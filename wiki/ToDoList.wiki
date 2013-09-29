@@ -6,7 +6,7 @@
  * *DONE* Rename special variable _packet_ into _p_ or _packet_
  * *DONE* Remove default attribute _`[`show`]`_ from the _!DissectedPacketSubList_ syntax
 
- * The _value_ attribute is sometimes Python ASCII and sometimes ASCII hex:
+ * *DONE* The _value_ attribute is sometimes Python ASCII and sometimes ASCII hex:
   * It should be stored in ASCII hex but printed in Python ASCII
 
  * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_ variable
