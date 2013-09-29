@@ -2,31 +2,6 @@
 
 ==== `==` v1.0b `==` ====
 
- * *DONE* Rename special variable _packets_ into _q_ or _queue_
- * *DONE* Rename special variable _packet_ into _p_ or _packet_
- * *DONE* Remove default attribute _`[`show`]`_ from the _!DissectedPacketSubList_ syntax
-
- * *DONE* The _value_ attribute is sometimes Python ASCII and sometimes ASCII hex:
-  * It should be stored in ASCII hex but printed in Python ASCII
-
- * *DONE* Fix segfault provoked by incorrect value in _isearch-terminators_ variable
- * *DONE* Evaluate performance without GZip compression in web-driven mode:
-  * No difference so GZip was disabled
-
- * *DONE* Add _indev_ and _outdev_ attributes to _!DissectedPacket_
-
- * *DONE* Add distinction between _real_identifier_ (the one from tshark) and _identifier_
-
- * *DONE* Rename empty _names_ in packet fields (_proto_.data)
-
- * *DONE* Modify _str_ and _repr_ implementation of _!DissectedPacket_:
-  * _str_ should print the packet description
-  * _repr_ should print the packet details
- * *DONE* Implement _!DissectedPacketList_ and _!DissectedPacketSubList_ classes:
-  * Herited from _list_ or _!DissectedPacketList_
-  * With custom _str_ and _repr_ methods
-  * With custom _getitem_ methods
-
  * Implement packet edition in interactive mode via _setitem_
 
  * Update help message displayed with the _-h_ argument
