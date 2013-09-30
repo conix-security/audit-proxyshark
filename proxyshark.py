@@ -1619,7 +1619,8 @@ class Dissector:
                           settings))
             self._tshark[mode] = Popen(cmdline.split(' '),
                                        preexec_fn=os.setpgrp, # don't forward
-                                                              # signals
+                                                              # signals to
+                                                              # tshark
                                        bufsize=-1,
                                        stdin=PIPE,
                                        stdout=PIPE,
