@@ -348,10 +348,10 @@ dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1
 icmp and ip.ttl < 32
  }}}
 
- Select packets bigger than 1kB containing raw string `"</html>\r\n"`:
+ Select packets bigger than 1kB containing raw string `'</html>\r\n'`:
 
  {{{
-len(raw) > 1024 and raw*="</html>\r\n"
+len(raw) > 1024 and raw*='</html>\r\n'
  }}}
 
  Select HTTP requests with URI starting with _/index.php?page=_ and User-Agent shorter than 10 characters:
@@ -459,7 +459,7 @@ ip$|tcp$|http.*
 
 ==== `p|packet` ====
 
- A special variable containing the last captured packet (equivalent to `queue[-1]`).
+ A special variable containing the last packet (equivalent to `queue[-1]`).
 
  You can use it to retrieve the current packet when a breakpoint is triggered in interactive mode.
 
@@ -480,10 +480,6 @@ ip$|tcp$|http.*
 >>> packet['http.host'] = 'Host: 2.3.4.5\r\n'
 >>> packet.replay('http') # see help(DissectedPacket)
  }}}
-
-==== `break` ====
-
- Swith to view mode (equivalent to Ctrl-D).
 
 ==== `flush` ====
 
