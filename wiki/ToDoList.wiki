@@ -40,7 +40,7 @@
   * If a packet comes from _lo_ with a known hash, set the _packet.replayed_ flag and store the stream number
   * If a packet comes from a known stream, set the flag too
   * Add _.replayed_ attribute to _!DissectedPacket_ and _!DissectedPacketList_
-  * Add method _DissectedPacket.replay_
+  * Add method _!DissectedPacket.replay_
 
  * Restrict autocompletion to a list of predefined commands
  * Make sure that all documented commands are implemented:
