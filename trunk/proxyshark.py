@@ -233,7 +233,7 @@ def trunc_repr(string, max_length=50):
     #
 
 def logging_disable():
-    """Temporarily disable logging."""
+    """Temporarily disables logging."""
     global verbose_level, real_verbose_level
     real_verbose_level = verbose_level
     logging.disable(logging.ERROR)
@@ -241,20 +241,20 @@ def logging_disable():
     #
 
 def logging_enable():
-    """Enable logging."""
+    """Enables or re-enables logging."""
     global verbose_level, real_verbose_level
     verbose_level = real_verbose_level
     logging.disable(logging.NOTSET)
     #
 
 def save_history():
-    """Saves history to disk."""
+    """Saves command-line history to disk."""
     history_path = os.path.expanduser('~/.proxyshark_history')
     readline.write_history_file(history_path)
     #
 
 def load_history():
-    """Loads history from disk."""
+    """Loads command-line history from disk."""
     history_path = os.path.expanduser('~/.proxyshark_history')
     if os.path.exists(history_path):
         readline.read_history_file(history_path)
