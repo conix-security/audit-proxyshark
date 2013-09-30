@@ -1569,9 +1569,9 @@ class Dissector:
     # Public methods ##########################################################
     def __init__(self, tshark_dir, quiet):
         """
-        Runs 2 instances of tshark: one in text mode (-T text) to get general
-        packet descriptions and one in PDML mode (-T pdml) to get detailed XML
-        dissections.
+        Runs 2 instances of tshark: one in text mode ('-T text') to get general
+        packet descriptions and one in PDML mode ('-T pdml') to get detailed
+        XML dissections.
 
         tshark_dir -- location of the tshark binary
         quiet      -- if True, don't print any information about the dissector
@@ -1636,7 +1636,7 @@ class Dissector:
         #
     def dissect(self, nfq_handle, nfq_data, field_filter):
         """
-        Returns a tuple composed of a short description and an etree.Element
+        Returns a tuple composed of a short description and an 'etree.Element'
         describing the packet given in argument.
 
         nfq_handle   -- connection handle from the Netfilter queue
