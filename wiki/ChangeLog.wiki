@@ -1,4 +1,4 @@
-*LAST UPDATE: Sep 27, 2013*
+*LAST UPDATE: Sep 30, 2013*
 
 ==== `==` v1.0b `==` ====
 
@@ -11,11 +11,11 @@
  * Added capture filters based on BPF filters (you don't need to write your own _iptables_ rules)
  * Added packet filters inspired from _Wireshark_ display filters
  * Added field filters based on regular expressions
- * Enhanced performance and data structure of dissected packets (based on _xpath_)
- * Added local web server (web-driven mode)
- * Added interactive console
- * Added packet modification ability
- * Added several command-line arguments
+ * Enhanced search mechanism in dissected packets (based on _xpath_)
+ * Added local web server for the web-driven mode
+ * Added an interactive console for the interactive mode
+ * Added packet modification ability in web-driven and interactive modes
+ * Added several command-line arguments (see the [Usage documentation])
 
 ==== `==` v0.1 (Oct 07, 2011) `==` ====
 
