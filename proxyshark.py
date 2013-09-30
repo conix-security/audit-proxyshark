@@ -1373,7 +1373,7 @@ class DissectedPacket:
         #
     def __str__(self):
         """Returns the packet description and items."""
-        # commit pending items to reflect any possible modifications
+        # commit pending items to reflect possible modifications
         self.commit()
         # get items and max length for each attribute
         items = self.read_items()
