@@ -163,7 +163,7 @@ class ColorFormatter(logging.Formatter):
 
 @not_concurrent
 def _logging_exception(exception):
-    """Prints the backtrace of an exception."""
+    """Prints an exception."""
     exc_type, _, exc_tb = sys.exc_info()
     exc_type = str(exc_type).partition('exceptions.')[2].rpartition('\'>')[0]
     stack = traceback.extract_tb(exc_tb)
