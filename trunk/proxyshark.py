@@ -178,6 +178,7 @@ def _logging_exception(exception):
                      filename,
                      lineno,
                      str(exception)))
+    # print the backtrace only in debug mode
     if verbose_level > 1:
         for filename, lineno, _, line in stack:
             logging_error("- %s:%-4s => %s"
@@ -188,7 +189,7 @@ def _logging_exception(exception):
 
 @not_concurrent
 def _logging_print(string):
-    """Prints a string to stderr."""
+    """Prints a raw string to stderr."""
     sys.stderr.write("\033[37m%s\033[0m\n" % string)
     #
 
