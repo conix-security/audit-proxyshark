@@ -1368,7 +1368,7 @@ class DissectedPacket:
             KeyError("field %s was not found!" % trunc_repr(field_name))
         #
     def __iter__(self):
-        """Returns an iterator on the packet items."""
+        """Returns an iterator on all the items."""
         return self.etree_packet.iter()
         #
     def __str__(self):
