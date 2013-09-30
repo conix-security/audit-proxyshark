@@ -139,7 +139,7 @@ COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ  = "\033[1m"
 
 class ColorFormatter(logging.Formatter):
-    """Provides the logging module with colored output."""
+    """Implements colored output for the logging module."""
     def __init__(self, *args, **kwargs):
         """Creates a new instance."""
         # can't do super(...) here because Formatter is an old school class
