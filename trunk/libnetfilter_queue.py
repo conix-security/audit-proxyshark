@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of proxyshark, a tool designed to dissect and alter IP
-# packets on-the-fly. This code was taken from python-libnetfilter-queue:
+# packets on-the-fly. This file was taken from python-libnetfilter-queue:
 # http://code.google.com/p/python-libnetfilter-queue by Andres Lopez Luksenberg
 # <alopezluksenberg@gmail.com>.
 #
