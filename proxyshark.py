@@ -203,7 +203,7 @@ logging_exception = _logging_exception
 logging_print     = _logging_print
 
 def cleanup_log_line(string):
-    """Removes unwanted parts of a given log line."""
+    """Removes unwanted parts of a log line."""
     return r(r'\'_dc\': \'\d+\'').subn('', string)[0]
     #
 
@@ -212,7 +212,7 @@ def one_line(obj):
     return r(r' *\r*\n+ *').sub(' ', str(obj)).strip()
     #
 
-def truncated(string, max_length=50):
+def trunc(string, max_length=50):
     """Returns the truncated value of a string."""
     default = str(string)
     if len(default) > max_length:
@@ -1388,12 +1388,12 @@ class DissectedPacket:
                     max_length['name'] = length
             item_value = item.get('value')
             if item_value:
-                length = len(truncated(urllib.unquote(item_value), 32))
+                length = len(trunc(urllib.unquote(item_value), 32))
                 if length > max_length['value']:
                     max_length['value'] = length
             item_show = item.get('show')
             if item_show:
-                length = len(truncated(urllib.unquote(item_show), 64))
+                length = len(trunc(urllib.unquote(item_show), 64))
                 if length > max_length['show']:
                     max_length['show'] = length
             item_showname = item.get('showname')
@@ -1417,8 +1417,8 @@ class DissectedPacket:
                 pos = int(item['pos'])
                 size = int(item['size'])
                 name = item['name']
-                show = truncated(urllib.unquote(item['show']), 64)
-                value = truncated(urllib.unquote(item['value']), 32)
+                show = trunc(urllib.unquote(item['show']), 64)
+                value = trunc(urllib.unquote(item['value']), 32)
                 fmt = ("\n    |   %s%%-12s %%-%ss : %%-%ss (%%s)\033[0m"
                        % ("\033[1;33m" if 'modified' in item else "",
                           max_length['name'],
