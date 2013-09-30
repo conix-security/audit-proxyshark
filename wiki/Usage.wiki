@@ -198,7 +198,7 @@ Several commands are available:
 
  Enable or disable web-driven mode.
 
- In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle them.
+ In this mode, an embedded web server will wait for incoming requests from _proxyshark_ itself. The idea is to ask _proxyshark_ to call this web service each time a packet is captured so that we can use a tool such as Burp Suite Pro to handle it.
 
 ==== `set bind ip <bind-ip>` | `set bind port <bind-port>` | `set proxy ip <proxy-ip>` | `set proxy port <proxy-port>` ====
 
