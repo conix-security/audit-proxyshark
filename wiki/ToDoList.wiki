@@ -2,8 +2,6 @@
 
 ==== `==` v1.0b `==` ====
 
- * Implement packet edition in interactive mode via _setitem_
-
  * Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
  * Make sure the _-v_ argument is correctly handled (verbosity)
