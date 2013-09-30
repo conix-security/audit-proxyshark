@@ -384,7 +384,7 @@ ip$|tcp$|http.*
 
 ==== `b|breakpoint [<breakpoint-id>] [<packet-filter>]` ====
 
- Breakpoints are designed to pause current capture when a given [#set_capture_filter_%3Ccapture-filter%3E packet filter] is triggered. In view mode, you first need to define an [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to be run when the breakpoint is triggered (see below). In interactive mode, you can either define an action or alter the packet manually, accept it, drop it, replay it, etc. 
+ Breakpoints are designed to pause the current capture when a given [#set_capture_filter_%3Ccapture-filter%3E packet filter] is triggered. In view mode, you first need to define an [#a%7Caction_%5B%3Caction-id%3E%5D%7C%5B%3Caction-id%3E_%3Cbreakpoint-i action] to be run when the breakpoint is triggered (see below). In interactive mode, you can either define an action or alter the packet manually, accept it, drop it, replay it, etc. 
 
  This command can be used in 3 different ways:
   * If no argument is given, print a list of all existing breakpoints (equivalent to [Usage#i%7Cinfo_%5Bparameter%5D info breakpoints]).
