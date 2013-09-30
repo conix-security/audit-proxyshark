@@ -1677,7 +1677,7 @@ class Dissector:
                     raise DissectionException("unexpected end of file!")
                 if line == '<packet>\n':
                     break
-            # wait for the ip layer
+            # wait for an ip layer
             while 1:
                 line = readline()
                 if line is None:
@@ -1686,7 +1686,7 @@ class Dissector:
                     parser_feed('<packet>\n')
                     parser_feed(line)
                     break
-            # wait for the packet end
+            # wait for a packet end
             while 1:
                 line = readline()
                 if line is None:
