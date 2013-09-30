@@ -1887,7 +1887,7 @@ class NFQueue(Thread):
                                  libnfq.NF_ACCEPT,
                                  data_length,
                                  data)
-        # flush the buffers
+        # flush buffers
         finally:
             sys.stdout.flush()
             sys.stderr.flush()
