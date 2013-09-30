@@ -1172,7 +1172,7 @@ class DissectedPacket:
             logging_print(repr(old_items))
             logging_print("New items are:")
             logging_print(repr(new_items))
-        offset = 0 # offset in case of increase/decrease of an item size
+        offset = 0 # offset in case of increase/decrease of a field size
         new_data = self.data
         packet_modified = False
         for old_item, new_item in zip(old_items, new_items):
