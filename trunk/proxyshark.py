@@ -1531,8 +1531,8 @@ class DissectedPacketList(list):
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
-    dissected list is that '__getitem__()' returns the item values and not only
-    a boolean."""
+    dissected list is that '__getitem__()' returns the item values and not the
+    entire packets."""
     # Public methods ##########################################################
     #
     # Built-in methods ########################################################
