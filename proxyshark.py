@@ -1187,7 +1187,8 @@ class DissectedPacket:
                               % (trunc_repr(item_name),
                                  trunc_repr(old_item.get('name'))))
                 return False
-            # ensure that we have a field and not a protocol
+            # ensure that we have a packet field and not a protocol (protocols
+            # are not editable as they don't really contain data)
             if '.' not in item_name:
                 continue
             # get item position
