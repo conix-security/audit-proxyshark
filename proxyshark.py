@@ -194,7 +194,7 @@ def _logging_print(string):
     sys.stderr.write("\033[37m%s\033[0m\n" % string)
     #
 
-# shortcuts (performance tip)
+# shortcuts (performance tips)
 logging_debug     = not_concurrent(logging.debug)
 logging_info      = not_concurrent(logging.info)
 logging_warning   = not_concurrent(logging.warning)
