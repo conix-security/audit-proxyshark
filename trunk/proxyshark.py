@@ -1841,7 +1841,7 @@ class NFQueue(Thread):
             if not packet.match(self.packet_filter):
                 packet.accept()
                 return
-            # store the packet in cache
+            # store the packet
             logging_info("nfqueue received packet #%s" % packet.identifier)
             self.packets.append(packet)
             # print the packet if needed
@@ -1854,7 +1854,7 @@ class NFQueue(Thread):
             if not items:
                 packet.accept()
                 return
-            # prepare the http headers
+            # prepare http headers
             post_headers = {
                 'Host'            : ('%s:%s'
                                      % (self.server_ip,
@@ -1862,7 +1862,7 @@ class NFQueue(Thread):
                 'User-Agent'      : ('Proxyshark (Python/%s)'
                                      % sys.version.partition(' ')[0]),
                 'Accept-Encoding' : 'identity',}
-            # send a post to the local web server through the proxy
+            # send a post request to the local server through the web proxy
             connection = httplib.HTTPConnection(self.proxy_ip,
                                                 self.proxy_port,
                                                 False,
