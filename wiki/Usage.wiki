@@ -409,7 +409,7 @@ ip$|tcp$|http.*
 
  This command can be used in 3 different ways:
   * If no argument is given, print a list of all existing actions (equivalent to [#i%7Cinfo_%5Bparameter%5D info actions]).
-  * If an action identifier is given, print the breakpoint and Python expression associated to this action. The action identifier must be an arbitrary string containing letters, digits, dashes, dots or underscores.
+  * If an action identifier is given, print the breakpoint and the Python expression associated to this action. The action identifier must be an arbitrary string containing letters, digits, dashes, dots or underscores.
   * If a breakpoint identifier and a Python expression are given, create a new action based on the given expression and identifiers.
 
 ==== `d|delete action <action-id> [<breakpoint-id>]` ====
