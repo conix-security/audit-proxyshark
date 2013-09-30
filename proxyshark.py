@@ -1054,13 +1054,14 @@ class DissectedPacket:
     def read_items(self):
         """Returns a list of dictionaries representing all the protocols and
         fields of the current packet. Items are taken either from the XML tree
-        or from the last committed items."""
+        or from the last committed items (the modified items, if the packet was
+        modified)."""
         items = self._committed_items
         return items if items else self._read_items()
         #
-    @cached # these items won't be updated even if we write the packet
+    @cached # these items won't be updated even if the packet is modified
     def _read_items(self):
-        """Reads items of the current packet from the XML tree."""
+        """Reads items from the XML tree."""
         last_proto_name = None
         items = [] # [{name='...', pos='', size='', value='', show=''}, ...]
         for item in self.__iter__():
