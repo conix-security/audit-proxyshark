@@ -7,13 +7,14 @@
  * Make sure the _-v_ argument is correctly handled (verbosity)
  * Check behavior of _-t_ argument (tshark path)
  * Rename parameters of _-w_ argument (web-driven mode)
- * Implement ability to disable web-driven mode
- * Transmit the _showname_ attribute in web-driven mode
- * Transmit _value_ in Python ASCII form instead of ASCII hex
+ * Implement an option to disable the web-driven mode
+ * Make the arguments of the web-driven mode optional
+
  * Implement _-c_, _-p_ and _-f_ arguments (filters)
  * Implement ability to modify filters dynamically
+
  * Implement _-r_ argument (run capture at start)
- * Start in interactive mode by default, with no filter
+ * Start in interactive mode by default, with no filter and no capture
 
  * Implement _nfqueue.run_, _.pause_, _.stop_ and _.flush_ methods
 
@@ -26,6 +27,7 @@
   * Call the appropriate action when a breakpoint is triggered
   * Add methods _nfqueue.add_action_ and _.delete_action_
  * Implement _-a_ argument (default action)
+
  * Implement breakpoints:
   * A list of packet filters with an activation flag
   * Test all enabled filters on each captured packet
