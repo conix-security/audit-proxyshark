@@ -164,6 +164,7 @@ class ColorFormatter(logging.Formatter):
 @not_concurrent
 def _logging_exception(exception):
     """Prints an exception."""
+    # retrieve information about the exception
     exc_type, _, exc_tb = sys.exc_info()
     exc_type = str(exc_type).partition('exceptions.')[2].rpartition('\'>')[0]
     stack = traceback.extract_tb(exc_tb)
@@ -178,7 +179,7 @@ def _logging_exception(exception):
                      filename,
                      lineno,
                      str(exception)))
-    # print the backtrace only in debug mode
+    # print backtrace only in debug mode
     if verbose_level > 1:
         for filename, lineno, _, line in stack:
             logging_error("- %s:%-4s => %s"
