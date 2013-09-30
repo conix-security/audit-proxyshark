@@ -1468,7 +1468,7 @@ class DissectedPacketList(list):
     """A list of dissected packet."""
     # Public methods ##########################################################
     def __init__(self, *args):
-        """Create a new instance."""
+        """Creates a new instance."""
         super(DissectedPacketList, self).__init__(*args)
         # packet identifiers start at index 1 so we have to append a dummy
         # element in position 0
