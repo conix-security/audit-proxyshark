@@ -15,7 +15,7 @@
  * Added local web server for the web-driven mode
  * Added an interactive console for the interactive mode
  * Added packet modification ability in web-driven and interactive modes
- * Added several command-line arguments (see the [Usage documentation])
+ * Added several command-line arguments
 
 ==== `==` v0.1 (Oct 07, 2011) `==` ====
 
