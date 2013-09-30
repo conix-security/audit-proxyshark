@@ -47,6 +47,7 @@
   * Including a feature to flush global cache
   * Make available _struct.pack_ and _.unpack_
   * Make available _binascii.a2b_hex_ and _.b2a_hex_
+  * Make available a function called _uniq_ to remove doubles from a list
 
 ==== `==` v2.0 `==` ====
 
