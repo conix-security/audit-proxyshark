@@ -90,8 +90,7 @@ def cached(function):
 
 _not_concurrent_lock = RLock()
 def not_concurrent(function):
-    """Implements a decorator to ensure that a function is not called by
-    several threads at the same time."""
+    """Ensures that a given function can't be called concurrently."""
     global _not_concurrent_lock
     def wrapper(*args):
         _not_concurrent_lock.acquire()
