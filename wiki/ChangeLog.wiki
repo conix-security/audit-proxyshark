@@ -8,7 +8,7 @@
  * Added _file_ and _syslog_ logging handlers
  * Added logging coloration
  * Improved verbosity levels
- * Added capture filters based on BPF filters (no need to write _iptables_ rules)
+ * Added capture filters based on BPF filters (you don't need to write _iptables_ rules)
  * Added packet filters inspired from _Wireshark_ display filters
  * Added field filters based on regular expressions
  * Enhanced performance and data structure of dissected packets (based on _xpath_)
