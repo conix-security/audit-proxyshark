@@ -1537,8 +1537,8 @@ class DissectedPacketSubList(DissectedPacketList):
     #
     # Built-in methods ########################################################
     def __getitem__(self, key):
-        """Evaluates 'self[key]'. The key can be only a packet filter. In fact,
-        only a field name. Otherwise, the default method is used."""
+        """Evaluates 'self[key]'. The key can be only a field name. Otherwise,
+        the default method is used."""
         # ensure that we have a packet filter
         if isinstance(key, basestring):
             # ensure that we have a field name (without space)
