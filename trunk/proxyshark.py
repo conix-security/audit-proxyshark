@@ -1546,10 +1546,11 @@ class DissectedPacketSubList(DissectedPacketList):
             if ' ' in key:
                 raise KeyError("key %s must be a valid field name!"
                                % trunc_repr(key))
-            # evaluate the filter for each packet
+            packet_filter = key
+            # evaluate the key for each packet (as a packet filter)
             result = {}
             for packet in self.__iter__():
-                results = packet.evaluate(key)
+                results = packet.evaluate(packet_filter)
                 # make sure that we have a list as result, for consistency
                 if not isinstance(results, list):
                     results = [results]
