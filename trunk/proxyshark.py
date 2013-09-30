@@ -1019,7 +1019,7 @@ class DissectedPacket:
     @cached
     def lookup(self, key):
         """Uses the given key to search items in the current packet. The key
-        could be a protocol name or a field name."""
+        can be a protocol name or a field name."""
         item_name, _, attr_name = key.partition('[')
         attr_name = attr_name.rstrip(']')
         if '.' in item_name:
