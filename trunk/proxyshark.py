@@ -1368,7 +1368,7 @@ class DissectedPacket:
             KeyError("field %s was not found!" % trunc_repr(field_name))
         #
     def __iter__(self):
-        """Iterates over the items (protocols and fields)."""
+        """Iterates the protocols and fields."""
         return self.etree_packet.iter()
         #
     def __str__(self):
