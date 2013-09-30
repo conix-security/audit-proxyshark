@@ -1,8 +1,6 @@
 *LAST UPDATE: Sep 30, 2013*
 
-==== `==` v1.0b `==` ====
-
- * Coming soon...
+==== `==` v1.0b (coming soon) `==` ====
 
  * Added internal caching mechanism (better performance)
  * Added _file_ and _syslog_ logging handlers
