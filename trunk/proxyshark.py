@@ -1344,7 +1344,7 @@ class DissectedPacket:
         #
     def __setitem__(self, field_name, new_value):
         """Puts a new value in the field given in argument. The new value must
-        be a raw string without ASCII-HEX representation."""
+        be a raw string NOT in ASCII-HEX representation."""
         # ensure that we have a field name (without space or bracket)
         field_name = field_name.strip()
         if ' ' in field_name or field_name.endswith(']'):
