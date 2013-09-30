@@ -1275,7 +1275,7 @@ class DissectedPacket:
                 # update the current item
                 new_item['pos'] = attr_pos
                 new_item['size'] = attr_size
-                #new_item['value'] = attr_value # the value is already set
+                #new_item['value'] = attr_value # this value is already set
                 new_item['show'] = attr_show
                 new_item['showname'] = attr_showname
                 new_item['modified'] = '1'
