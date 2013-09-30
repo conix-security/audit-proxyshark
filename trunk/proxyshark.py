@@ -2057,7 +2057,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
         # retrieve the packet from cache
         packet = nfqueue.packets[identifier]
-        # write the packet if needed
+        # modify the packet if needed
         modified = packet.commit(eval(self.params.keys()[0]))
         # print the packet if needed
         if modified:
