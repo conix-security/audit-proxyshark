@@ -32,9 +32,9 @@ The following arguments are available (all optional):
 
  Default is _on (level 1)_ in view mode and _off (level 0)_ in interactive mode.
 
-==== `-e | --ethernet-mode` ====
+==== `-e | --ethernet` ====
 
- Turn on [#set_ethernet-mode_%3Coff%7Con%7C0%7C1%3E Ethernet mode].
+ Turn on [#set_ethernet_%3Coff%7Con%7C0%7C1%3E Ethernet mode].
 
  Default is _off_.
 
@@ -147,7 +147,7 @@ Several commands are available:
 
  You can specify an optional parameter to get information about it. Available parameters are:
   * `verbosity`
-  * `ethernet-mode`
+  * `ethernet`
   * `queue-num`
   * `tshark-path`
   * `web-driven`
@@ -176,7 +176,7 @@ Several commands are available:
   * `2` for debug
   * `3` for debug, raw data and XML dissection
 
-==== `set ethernet-mode <off|on|0|1>` ====
+==== `set ethernet <off|on|0|1>` ====
 
  Enable or disable Ethernet mode.
 
