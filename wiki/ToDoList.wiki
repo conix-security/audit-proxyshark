@@ -2,7 +2,6 @@
 
 ==== `==` v1.0b `==` ====
 
- * OK Update help message displayed with the _-h_ argument
  * Implement _-l_ argument (logging handlers)
  * Make sure the _-v_ argument is correctly handled (verbosity)
  * Check behavior of _-t_ argument (tshark path)
