@@ -8,7 +8,7 @@ First of all, you have to know that _proxyshark_ can be used in 4 different mode
  * *View mode*: all you have to do here is run _proxyshark_ with the appropriate arguments and watch the result in your favorite shell. You can setup filters and schedule simple actions based on given conditions, but nothing too complicated. For example, you can define an action to automatically replace by a given value all occurrences of a given value in a given field. You can switch to this mode by running _proxyshark_ with the _[#-r_%7C_--run --run]_ argument or by pressing Ctrl-D in interactive mode (see below).
  * *Interactive mode*: this mode is very close to the view mode except that you can use the embedded shell to change settings and manipulate packets at run-time. It gives you complete control over what _proxyshark_ is doing. To switch to interactive mode, just run _proxyshark_ without the _[#-r_%7C_--run --run]_ argument or press Ctrl-C in view mode. Available commands are listed [#Interactive_console below].
  * *Scripting mode* *`[UPCOMING]`*: you can specify a Python script as [#%5B_%3Cfilename%3E_%5D last command-line argument]. All commands available in interactive mode are also available here. Note that you will switch to view mode after the script being interpreted.
- * *Web-driven mode*: a bit more complicated, here _proxyshark_ will generate an HTTP POST to its own web service each time a packet is captured. The idea is to send this request through a local web proxy to handle captured packets through a GUI. This way, all powerful tools provided by such proxy will be available (for example, Scanner, Intruder and Repeater from [http://portswigger.net/ Burp Suite Pro]). Of course, you will need an appropriate extension if you don't want to manipulate raw HTTP requests. Fortunately, an extension for Burp Suite Pro will be released with _proxyshark_ *`[UPCOMING]`*. To use this mode, you have either to pass the _[#-w_%7C_--web-driven-mode_%5B%3Cbind-ip%3E%5D%3A%5B%3Cbind-port%3E%5D%3A%5B%26l --web-driven-mode]_ argument or to [#set_web-driven-mode_%3Coff%7Con%7C0%7C1%3E enable it] from the interactive console. Note that web-driven mode can be used in parallel with any other mode.
+ * *Web-driven mode*: a bit more complicated, here _proxyshark_ will generate an HTTP POST to its own web service each time a packet is captured. The idea is to send this request through a local web proxy to handle captured packets through a GUI. This way, all powerful tools provided by such proxy will be available (for example, Scanner, Intruder and Repeater from [http://portswigger.net/ Burp Suite Pro]). Of course, you will need an appropriate extension if you don't want to manipulate raw HTTP requests. Fortunately, an extension for Burp Suite Pro will be released with _proxyshark_ *`[UPCOMING]`*. To use this mode, you have either to pass the _[#-w_%7C_--web-driven_%5B%3Cbind-ip%3E%5D%3A%5B%3Cbind-port%3E%5D%3A%5B%26l --web-driven]_ argument or to [#set_web-driven_%3Coff%7Con%7C0%7C1%3E enable it] from the interactive console. Note that web-driven mode can be used in parallel with any other mode.
 
 == Command-line arguments ==
 
@@ -50,9 +50,9 @@ The following arguments are available (all optional):
 
  Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc).
 
-==== `-w | --web-driven-mode [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
+==== `-w | --web-driven [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]` ====
 
- Turn on [#set_web-driven-mode_%3Coff%7Con%7C0%7C1%3E web-driven mode].
+ Turn on [#set_web-driven_%3Coff%7Con%7C0%7C1%3E web-driven mode].
 
  Default is _off_. If enabled, default parameters are:
   * _`<bind-ip>`_ = _127.0.0.1_
@@ -115,7 +115,7 @@ python proxyshark.py --verbose
  Capture SIP traffic in web-driven mode with local web proxy running on port 8888 (view mode):
 
  {{{
-python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven-mode :::8888 --run
+python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven :::8888 --run
  }}}
 
  Replace all HTTP responses by HTTP 500 errors (view mode):
@@ -150,7 +150,7 @@ Several commands are available:
   * `ethernet-mode`
   * `queue-num`
   * `tshark-path`
-  * `web-driven-mode`
+  * `web-driven`
   * `bind ip`
   * `bind port`
   * `proxy ip`
@@ -194,7 +194,7 @@ Several commands are available:
 
  If not found, _tshark_ is taken from _$PATH_.
 
-==== `set web-driven-mode <off|on|0|1>` ====
+==== `set web-driven <off|on|0|1>` ====
 
  Enable or disable web-driven mode.
 
