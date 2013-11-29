@@ -38,9 +38,9 @@ The following arguments are available (all optional):
 
  Default is _1234_.
 
-==== `-t | --tshark-path <tshark-path>` ====
+==== `-t | --tshark-dir <tshark-dir>` ====
 
- Set the location of the _[#set_tshark-path_%3Ctshark-path%3E tshark]_ binary to use for packet dissection.
+ Set the location of the _[#set_tshark-dir_%3Ctshark-dir%3E tshark]_ binary to use for packet dissection.
 
  Default is _./bin/`<`arch`>`_ where _`<`arch`>`_ is the current architecture (_i686_, _x86_64_, etc).
 
@@ -132,7 +132,7 @@ Several commands are available:
   * Verbosity level
   * Ethernet mode
   * _Netfilter_ queue
-  * _Tshark_ path
+  * _Tshark_ directory
   * Web-driven mode
   * Filters
   * Breakpoints
@@ -143,7 +143,7 @@ Several commands are available:
   * `verbosity`
   * `ethernet`
   * `queue-num`
-  * `tshark-path`
+  * `tshark-dir`
   * `web-driven`
   * `bind ip`
   * `bind port`
@@ -176,7 +176,7 @@ Several commands are available:
 
  This option specifies which queue to use and to send the queue'd data to. The queue number is a 16 bit unsigned integer, which means it can take any value between 0 and 65535.
 
-==== `set tshark-path <tshark-path>` ====
+==== `set tshark-dir <tshark-dir>` ====
 
  Set the location of the _tshark_ binary to use for packet dissection.
 
