@@ -2,8 +2,6 @@
 
 ==== `==` v1.0b `==` ====
 
- * Implement _-l_ argument (logging handlers)
- * Make sure the _-v_ argument is correctly handled (verbosity)
  * Check behavior of _-t_ argument (tshark path)
  * Rename parameters of _-w_ argument (web-driven mode)
  * Implement an option to disable the web-driven mode
