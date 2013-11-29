@@ -40,6 +40,7 @@ import gzip
 import httplib
 import libnetfilter_queue as libnfq # need python-nfqueue
 import logging
+import logging.handlers
 import os
 import pstats
 import random
@@ -114,7 +115,7 @@ def re_compile(pattern, flags=0):
 r = re_compile
 
 ###############################################################################
-# Logging
+# Logging & History
 ###############################################################################
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
@@ -624,7 +625,7 @@ class Netfilter:
                 logging_info("querying name %s..." % trunc_repr(hostname))
                 values = resolver.query(hostname)
                 if values:
-                    logging_debug("name %s resolved:" % (trunc_repr(hostname)))
+                    logging_debug("name %s resolved:" % trunc_repr(hostname))
                     for value in values:
                         logging_debug("- %s" % value)
                 else:
@@ -1402,7 +1403,7 @@ class DissectedPacket:
             if '.' not in item_name and item_showname:
                 length = 4
                 length += len(item_name)
-                length += len(urllib.unquote(item['showname']))
+                length += len(urllib.unquote(item_showname))
                 if length > max_length['showname']:
                     max_length['showname'] = length
         # length of the protocol separator composed of '=' and '-'
@@ -1414,13 +1415,19 @@ class DissectedPacket:
         # build the result string
         result = self.__repr__()
         for item in items:
+            # is it a field?
             if 'show' in item:
-                # is it a field?
-                pos = int(item['pos'])
-                size = int(item['size'])
-                name = item['name']
-                show = trunc(urllib.unquote(item['show']), 64)
-                value = trunc(urllib.unquote(item['value']), 32)
+                try:
+                    pos = int(item.get('pos'))
+                except:
+                    pos = '!ERROR!'
+                try:
+                    size = int(item.get('size'))
+                except:
+                    size = '!ERROR!'
+                name = item.get('name', '!ERROR!')
+                show = trunc(urllib.unquote(item.get('show', '!ERROR!')), 64)
+                value = trunc(urllib.unquote(item.get('value', '!ERROR!')), 32)
                 fmt = ("\n    |   %s%%-12s %%-%ss : %%-%ss (%%s)\033[0m"
                        % ("\033[1;33m" if 'modified' in item else "",
                           max_length['name'],
@@ -1430,10 +1437,10 @@ class DissectedPacket:
                               name,
                               show,
                               value))
+            # is it a protocol?
             else:
-                # is it a protocol?
-                name = item['name']
-                showname = urllib.unquote(item['showname'])
+                name = item.get('name', '!ERROR!')
+                showname = urllib.unquote(item.get('showname', '!ERROR!'))
                 result += "\n    " + "=" * separator_length
                 result += "\n   + %s: %s" % (name, showname)
                 result += "\n   \\" + "-" * separator_length
@@ -1650,8 +1657,16 @@ class Dissector:
             data_length, data = libnfq.get_full_payload(nfq_data)
             # get the current timestamp
             current_time = time.time()
-            sec = int(current_time)
-            usec = int((current_time - sec) * 1000000)
+            try:
+                sec = int(current_time)
+            except:
+                logging_error("cant't get the current time! (sec)")
+                return None
+            try:
+                usec = int((current_time - sec) * 1000000)
+            except:
+                logging_error("cant't get the current time! (usec)")
+                return None
             # create a valid pcap header
             packed_data_length = struct.pack('I', data_length)
             pcap_data = ''.join((struct.pack('I', sec),
@@ -1871,9 +1886,9 @@ class NFQueue(Thread):
                                '/edit-packet/%s' % packet.identifier,
                                r(r' +').sub('', repr(items)),
                                post_headers)
-            # send the packet, but ignore the response
             try:
-                response = connection.getresponse()
+                # send the packet, but we don't need the response
+                connection.getresponse()
             except:
                 pass
         # accept the packet in case of error
@@ -2043,14 +2058,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if not findings:
             self.send_not_found()
             return
-        try:
-            identifier = int(findings[0])
-            logging_info("local server received packet #%s" % identifier)
-        except:
-            logging_error("%s is not a valid identifier!"
-                          % trunc_repr(identifier))
-            self.send_not_found()
-            return
+        identifier = int(findings[0])
+        logging_info("local server received packet #%s" % identifier)
         if identifier >= len(nfqueue.packets):
             logging_error("packet #%s was not found!" % identifier)
             self.send_not_found()
@@ -2092,24 +2101,43 @@ class Console(InteractiveConsole):
             'queue'  : nfqueue.packets,})
         self._nfqueue = nfqueue
         #
-    def raw_input(self, prompt=""):
-        """Overwrites the default prompt."""
-
-        """prompt = "\r\033[1;34m>>>\033[0m "
-        stream = sys.stderr
-        input = sys.stdin
-        prompt = str(prompt)
-        if prompt:
-            stream.write(prompt)
-            stream.flush()
-        line = input.readline()
-        if not line:
-            raise EOFError
-        if line[-1] == '\n':
-            line = line[:-1]
-        return line"""
-
-        return raw_input("\r\033[1;34m>>>\033[0m ")
+    def interact(self, banner=None):
+        """"""
+        # 
+        try:
+            sys.ps1
+        except AttributeError:
+            sys.ps1 = ">>> "
+        try:
+            sys.ps2
+        except AttributeError:
+            sys.ps2 = "... "
+        # 
+        more = 0
+        while 1:
+            try:
+                if more:
+                    prompt = sys.ps2
+                else:
+                    prompt = sys.ps1
+                try:
+                    line = self.raw_input("\001\033[1;34m\002%s\001\033[0m\002" % prompt)
+                    # Can be None if sys.stdin was redefined
+                    #encoding = getattr(sys.stdin, "encoding", None)
+                    #if encoding and not isinstance(line, unicode):
+                    #    line = line.decode(encoding)
+                except EOFError:
+                    self.write("\n")
+                    break
+                else:
+                    #more = self.push(line)
+                    self.runsource(line, '<console>')
+                    if line.strip() == 'exit()':
+                        break
+            except KeyboardInterrupt:
+                self.write("\nKeyboardInterrupt\n")
+                self.resetbuffer()
+                more = 0
         #
     def runsource(self, source, filename):
         """Interprets the command line."""
@@ -2156,98 +2184,238 @@ def print_usage():
 
     Usage: %s [arguments] with optional arguments within:
 
-        -h : print this help and quit
+        -h | --help
 
-        -v : verbose mode, can be specified several times for debug mode
+        -l | --logging [<handler>][,<handler>][...]
 
-        -q : queue number (default is 1234)
+        -v | --verbose
 
-        -t : location of the tshark binary (default in $PATH or in ./bin/%s/)
+        -e | --ethernet
 
-        -w : web proxy and server to use in web-driven mode 
-             (default is 127.0.0.1:8080:127.0.0.1:1234)
+        -q | --queue-num <queue-num>
 
-        <capture-filter> : bpf-filter describing the packets to capture
+        -t | --tshark-path <tshark-path>
 
-        <packet-filter>  : filter describing the packets to process
+        -w | --web-driven [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]
 
-        <field-filter>   : filter describing the fields to process
+        -c | --capture-filter <capture-filter>
 
-    """ % (__banner__, __file__, os.uname()[4])
+        -p | --packet-filter <packet-filter>
+
+        -f | --field-filter <field-filter>
+
+        -r | --run
+
+        -b | --breakpoint <packet-filter>
+
+        -a | --action <expression>
+
+        [<filename>]
+
+
+        See https://code.google.com/p/proxyshark/ for further instructions.
+
+    """ % (__banner__, __file__)
     logging_print(r(r'\n    ').sub('\n', usage))
     #
 
 if __name__ == '__main__':
     # search a directory containing a tshark binary
     locations = ['bin/%s/' % os.uname()[4]]
-    locations += os.environ.get('PATH').split(os.pathsep)
+    locations += os.environ.get('PATH', '').split(os.pathsep)
     for location in locations:
         candidate = os.path.join(location, 'tshark')
         if os.path.isfile(candidate):
-            arg_tshark_dir = os.path.dirname(candidate)
+            arg_tshark_path = os.path.dirname(candidate)
             break
     else:
         raise RuntimeError("tshark was not found!") 
     # other default values
+    arg_ethernet       = False
     arg_queue_num      = 1234
+    arg_web_driven     = False
+    arg_bind_ip        = '127.0.0.1'
+    arg_bind_port      = 1234
     arg_proxy_ip       = '127.0.0.1'
     arg_proxy_port     = 8080
-    arg_server_ip      = '127.0.0.1'
-    arg_server_port    = 1234
     arg_capture_filter = ''
     arg_packet_filter  = ''
     arg_field_filter   = ''
+    arg_run            = False
+    arg_breakpoint     = ''
+    arg_action         = ''
+    arg_filename       = ''
+    # create various logging formatters
+    console_logging_formatter = ColorFormatter(
+        "%%(asctime)s %s "
+        "Proxyshark(%%(process)s): "
+        "%%(threadName)s: "
+        "$COLOR[%%(levelname)s] %%(message)s$RESET" %
+        socket.gethostname())
+    file_logging_formatter = logging.Formatter(
+        "%%(asctime)s %s "
+        "Proxyshark(%%(process)s): "
+        "%%(threadName)s: "
+        "[%%(levelname)s] %%(message)s" %
+        socket.gethostname())
+    syslog_logging_formatter = logging.Formatter(
+        "Proxyshark(%(process)s): "
+        "%(threadName)s: "
+        "[%(levelname)s] %(message)s")
     # configure the logging system
-    verbose_level = sys.argv.count('-v')
+    verbose_level = sys.argv.count('-v') + sys.argv.count('--verbose')
     logging_level = {
         0: logging.ERROR,
         1: logging.INFO,
         2: logging.DEBUG,
     }.get(verbose_level, logging.DEBUG)
     real_verbose_level = verbose_level
-    logging_fmt = ("%%(asctime)s %s "
-                   "Proxyshark(%%(process)s): "
-                   "%%(threadName)s: "
-                   "$COLOR[%%(levelname)s] %%(message)s$RESET"
-                   % socket.gethostname())
     logger = logging.getLogger()
     logger.setLevel(logging_level)
+    # create a default console handler
     handler = logging.StreamHandler()
-    handler.setFormatter(ColorFormatter(logging_fmt))
+    handler.setFormatter(console_logging_formatter)
     logger.addHandler(handler)
-    handler = logging.FileHandler('./proxyshark.log')
-    handler.setFormatter(ColorFormatter(logging_fmt))
-    logger.addHandler(handler)
-    # check if we have root permissions
+    # check if we have root permission
     if os.getuid() != 0:
         logging_error("permission denied")
         sys.exit(1)
     # parse the command line arguments
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hvq:t:w:')
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'hl:veq:t:w:c:p:f:rb:a:',
+                                   ['help',
+                                    'logging=',
+                                    'verbose',
+                                    'ethernet',
+                                    'queue-num=',
+                                    'tshark-path=',
+                                    'web-driven=',
+                                    'capture-filter=',
+                                    'packet-filter=',
+                                    'field-filter=',
+                                    'run',
+                                    'breakpoint=',
+                                    'action=',])
     except getopt.GetoptError:
         print_usage()
         sys.exit(1)
     for opt, arg in opts:
-        # -h
-        if opt == '-h':
+        # -h | --help
+        if opt in ['-h', '--help']:
             print_usage()
             sys.exit(0)
-        # -v
-        elif opt == '-v':
+        # -l | --logging [<handler>][,<handler>][...]
+        elif opt in ['-l', '--logging']:
+            handlers = []
+            parsing_success = True
+            nb_console_handlers = 0
+            for handler_arg in arg.split(','):
+                handler_type, _, handler_target = handler_arg.partition('=')
+                # create a new console handler
+                if handler_type == 'console':
+                    if nb_console_handlers > 0:
+                        continue
+                    if handler_target:
+                        logging_error("invalid logging handler argument %s"
+                                      % trunc_repr('=%s' % handler_target))
+                        parsing_success = False
+                        continue
+                    else:
+                        handler = logging.StreamHandler()
+                        handler.setFormatter(console_logging_formatter)
+                        handlers.append(handler)
+                        nb_console_handlers += 1
+                # create a new file handler
+                elif handler_type == 'file':
+                    # default filename
+                    if not handler_target:
+                        handler_target = './proxyshark.log'
+                    # check if the file can be opened
+                    try:
+                        open(handler_target, 'a').close()
+                    except IOError, error:
+                        logging_error("can't open log file %s: %s"
+                                      % (trunc_repr(handler_target),
+                                         error.strerror.lower()))
+                        parsing_success = False
+                        continue
+                    # create the new handler
+                    handler = logging.FileHandler(handler_target)
+                    handler.setFormatter(file_logging_formatter)
+                    handlers.append(handler)
+                # create a new syslog handler
+                elif handler_type == 'syslog':
+                    # default target host and ip address
+                    if not handler_target:
+                        handler_target = '127.0.0.1:514'
+                    target_host, _, target_port = handler_target.partition(':')
+                    if not target_port:
+                        target_port = '514'
+                    # check the target host
+                    try:
+                        values = resolver.query(target_host)
+                        if values:
+                            target_host = str(values[0])
+                        else:
+                            logging_error("can't resolve %s"
+                                          % trunc_repr(target_host))
+                            parsing_success = False
+                            continue
+                    except:
+                        logging_error("can't resolve %s" %
+                                      trunc_repr(target_host))
+                        continue
+                    # check the target port
+                    try:
+                        target_port = int(target_port)
+                    except:
+                        logging_error("invalid port number %s"
+                                      % trunc_repr(target_port))
+                        parsing_success = False
+                        continue
+                    if target_port <= 0 or target_port > 65535:
+                        logging_error("invalid port number %s"
+                                      % trunc_repr(target_port))
+                        parsing_success = False
+                        continue
+                    # create the new handler
+                    address = (target_host, target_port)
+                    handler = logging.handlers.SysLogHandler(address)
+                    handler.setFormatter(syslog_logging_formatter)
+                    handlers.append(handler)
+                else:
+                    logging_error("invalid logging handler %s"
+                                  % trunc_repr(handler_arg))
+                    parsing_success = False
+                    continue
+            # remove the old handlers and add the new ones
+            if parsing_success:
+                for handler in logger.handlers:
+                    logger.removeHandler(handler)
+                for handler in handlers:
+                    logger.addHandler(handler)
+            else:
+                sys.exit(1)
+        # -v | --verbose
+        elif opt in ['-v', '--verbose']:
+            # nothing to do here, already done above
             pass
-        # -q <queue-num>
-        elif opt == '-q':
+        # -e | --ethernet
+        elif opt in ['-e', '--ethernet']:
+            arg_ethernet = True
+        # -q | --queue-num <queue-num>
+        elif opt in ['-q', '--queue-num']:
             if arg.isdigit() and int(arg) >= 0 and int(arg) <= 65535:
                 arg_queue_num = int(arg)
             else:
                 logging_error("invalid queue number %s" % trunc_repr(arg))
                 sys.exit(1)
-        # -t <tshark-dir>
-        elif opt == '-t':
+        # -t | --tshark-path <tshark-path>
+        elif opt in ['-t', '--tshart-path']:
             tshark_path = os.path.join(arg, 'tshark')
             if os.path.isfile(tshark_path):
-                arg_tshark_dir = arg
+                arg_tshark_path = arg
             elif not os.path.isdir(arg):
                 logging_error("directory %s does not exist!"
                               % trunc_repr(tshark_path))
@@ -2256,7 +2424,8 @@ if __name__ == '__main__':
                 logging_error("directory %s does not contain a tshark binary!"
                               % trunc_repr(arg))
                 sys.exit(1)
-        # -w <proxy-ip>:<proxy-port>:<server-ip>:<server-port>
+        # -w | --web-driven [<bind-ip>]:[<bind-port>]:
+        #                   [<proxy-ip>]:[<proxy-port>]
         elif opt == '-w':
             split = arg.split(':')
             if len(split) == 4:
@@ -2278,7 +2447,7 @@ if __name__ == '__main__':
                 # server ip
                 try:
                     socket.inet_aton(split[2])
-                    arg_server_ip = split[2]
+                    arg_bind_ip = split[2]
                 except:
                     logging_error("invalid server ip")
                     sys.exit(1)
@@ -2286,13 +2455,31 @@ if __name__ == '__main__':
                 if (split[3].isdigit() and
                     int(split[3]) > 0 and int(split[3]) <= 65535
                 ):
-                    arg_server_port = int(split[3])
+                    arg_bind_port = int(split[3])
                 else:
                     logging_error("invalid server port")
                     sys.exit(1)
             else:
                 logging_error("invalid proxy and server specification")
                 sys.exit(1)
+        # -c | --capture-filter <capture-filter>
+        elif opt in ['-c', '--capture-filter']:
+            pass
+        # -p | --packet-filter <packet-filter>
+        elif opt in ['-p', '--packet-filter']:
+            pass
+        # -f | --field-filter <field-filter>
+        elif opt in ['-f', '--field-filter']:
+            pass
+        # -r | --run
+        elif opt in ['-r', '--run']:
+            pass
+        # -b | --breakpoint <packet-filter>
+        elif opt in ['-b', '--breakpoint']:
+            pass
+        # -a | --action <expression>
+        elif opt in ['-a', '--action']:
+            pass
         else:
             logging_error("unknown argument %s" % trunc_repr(opt))
             print_usage()
@@ -2310,17 +2497,18 @@ if __name__ == '__main__':
     # print current settings
     logging_info("current settings:")
     logging_info("- verbose level  = %s" % verbose_level)
-    logging_info("- tshark folder  = %s" % trunc_repr(arg_tshark_dir))
+    logging_info("- tshark folder  = %s" % trunc_repr(arg_tshark_path))
     logging_info("- queue number   = %s" % arg_queue_num)
     logging_info("- web proxy      = %s:%s" % (arg_proxy_ip, arg_proxy_port))
-    logging_info("- web server     = %s:%s" % (arg_server_ip, arg_server_port))
+    logging_info("- web server     = %s:%s" % (arg_bind_ip, arg_bind_port))
     logging_info("- capture filter = %s" % trunc_repr(arg_capture_filter))
     logging_info("- packet filter  = %s" % trunc_repr(arg_packet_filter))
     logging_info("- field filter   = %s" % trunc_repr(arg_field_filter))
+    print 
     # start the netfilter queue
     try:
-        nfqueue = NFQueue(arg_tshark_dir, arg_queue_num, arg_proxy_ip,
-                          arg_proxy_port, arg_server_ip, arg_server_port,
+        nfqueue = NFQueue(arg_tshark_path, arg_queue_num, arg_proxy_ip,
+                          arg_proxy_port, arg_bind_ip, arg_bind_port,
                           arg_capture_filter, arg_packet_filter,
                           arg_field_filter)
         nfqueue.start()
@@ -2329,7 +2517,7 @@ if __name__ == '__main__':
         sys.exit(1)
     # run the local web server
     try:
-        web_server = WebServer(arg_server_ip, arg_server_port)
+        web_server = WebServer(arg_bind_ip, arg_bind_port)
         web_server.start()
     except Exception, exception:
         logging_exception(exception)
@@ -2351,6 +2539,8 @@ if __name__ == '__main__':
             # initialize the interactive console
             load_history()
             readline.set_history_length(10*5)
+            readline.parse_and_bind('set editing-mode vi')
+            readline.parse_and_bind('set keymap vi-command')
             readline.parse_and_bind('"\vdraw": redraw-current-line')
             readline.parse_and_bind('"\vauto": complete')
             readline.parse_and_bind('"\veofl": end-of-line')
@@ -2368,7 +2558,6 @@ if __name__ == '__main__':
             # initialize auto completion
             default_completer = readline.get_completer()
             def completer(text, index):
-                print 1, text, index
                 # exclude completion if the text is too short, and avoid
                 # printing hundreads of proposals when we end Ctrl-R with TAB
                 if len(text) in (0, 1):
@@ -2381,10 +2570,9 @@ if __name__ == '__main__':
                 uppercase_char = r(r'[A-Z]').search(result)
                 if private_member or uppercase_char:
                     result = completer(text, index+1)
-                print 2, result
                 return result
                 #
-            readline.set_completer(completer)
+            #readline.set_completer(completer)
             # start within the console
             interactive_mode(__banner__)
             # enter the main loop
