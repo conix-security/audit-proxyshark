@@ -20,12 +20,6 @@ The following arguments are available (all optional):
 
  Print a short help describing the available command-line arguments.
 
-==== `-l | --logging [<handler>][,<handler>][...]` ====
-
- Enable the specified [#set_logging_%5B%3Chandler%3E%5D%5B%2C%3Chandler%3E%5D%5B...%5D logging handlers].
-
- Default is _console_.
-
 ==== `-v | --verbose` ====
 
  Can be specified several times to increase the [#set_verbosity_%3C0%7C1%7C2%7C3%3E verbosity level].
@@ -161,12 +155,6 @@ Several commands are available:
   * `breakpoints`
   * `actions`
   * `cache`
-
-==== `set logging [<handler>][,<handler>][...]` ====
-
- Set the current logging handlers.
-
- A handler can be either "_console_", "_file=`<`filename`>`_", "_syslog_" or "_syslog=`<`ip`>`:`<`port`>`_".
 
 ==== `set verbosity <0|1|2|3>` ====
 
