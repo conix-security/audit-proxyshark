@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# This file is part of proxyshark, a tool designed to dissect and alter IP
+# This file is part of Proxyshark, a tool designed to dissect and alter IP
 # packets on-the-fly.
 #
 # Copyright (c) 2011 by Nicolas Grandjean <ncgrandjean@gmail.com>
@@ -20,12 +20,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-__version__ = '1.0b'
-
-__banner__ = "Welcome to Proxyshark (%s)" % __version__
+__version__ = 'Proxyshark 1.0b'
 
 # ignore signals to let all the stuff load properly without user interrupt, we
-# will re-enable signal handling later to intercept Ctrl-C (SIGINT)
+# will re-enable signal handling later to intercept ctrl-c (sigint)
 import signal
 handler_sigint = signal.getsignal(signal.SIGINT)
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -36,20 +34,18 @@ import binascii
 import copy
 import cProfile
 import getopt
-import gzip
 import httplib
 import libnetfilter_queue as libnfq # need python-nfqueue
 import logging
-import logging.handlers
 import os
-import pstats
+import pprint # debug
+import pstats # debug
 import random
 import re
 import readline
 import rlcompleter
 import socket
 import string
-import StringIO
 import struct
 import sys
 import time
@@ -60,8 +56,11 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from code import InteractiveConsole
 try:
     from dns import resolver # need python-dnspython
+    resolver = resolver.Resolver()
+    resolver.lifetime = 3
 except ImportError:
-    pass
+    resolver = None
+from functools import wraps
 from pyparsing import (alphas, alphanums, Combine, Empty, Forward, Group,
                        Keyword, nestedExpr, NotAny, nums, oneOf, opAssoc,
                        operatorPrecedence, Optional, ParseException,
@@ -74,40 +73,55 @@ from threading import currentThread, Event, RLock, Thread
 from xml.etree.cElementTree import XMLParser
 
 logging.getLogger('scapy.runtime').setLevel(logging.ERROR)
-from scapy.all import conf as scapy_conf, L3RawSocket, IP, TCP, UDP, send
+from scapy.all import conf as scapy_conf, L3RawSocket, IP, TCP, UDP
+                      # need python-scapy
+
+# global variables shared between all threads
+shared = { 'logging': False,  # will be enabled below
+           'logger' : None,   # defined below
+           'stats'  : None, } # defined below
+
+# default settings
+settings = { 'real_verbose_level'     : 0,
+             'effective_verbose_level': 0,
+             'ethernet_layer'         : False,
+             'queue_number'           : 1234,
+             'tshark_directory'       : None, # defined below
+             'web_driven'             : False,
+             'web_server_host'        : '127.0.0.1',
+             'web_server_port'        : 1234,
+             'web_proxy'              : '127.0.0.1',
+             'web_proxy_port'         : 8080,
+             'capture_filter'         : 'any',
+             'packet_filter'          : 'any',
+             'field_filter'           : '.',
+             'run_at_start'           : False,
+             'default_breakpoint'     : None,
+             'default_action'         : None,
+             'default_script'         : None, }
+
+###############################################################################
+# Caching mechanism
+###############################################################################
 
 def cached(function):
-    """Implements a generic caching decorator."""
+    """Implement a generic caching decorator."""
     cache = {}
+    @wraps(function)
     def wrapper(*args):
-        key = args # note that the key must be hashable
+        key = args # this key must be hashable
         if key in cache:
             return cache[key]
         result = function(*args)
         cache[key] = result
         return result
+        #
     return wrapper
     #
-
-_not_concurrent_lock = RLock()
-def not_concurrent(function):
-    """Ensures that a given function can't be called concurrently."""
-    global _not_concurrent_lock
-    def wrapper(*args):
-        _not_concurrent_lock.acquire()
-        result = function(*args)
-        _not_concurrent_lock.release()
-        return result
-    return wrapper
-    #
-
-###############################################################################
-# Cached versions of usual functions
-###############################################################################
 
 @cached
 def re_compile(pattern, flags=0):
-    """Provides a cached version of 're.compile()'."""
+    """Provide a cached version of 're.compile()'."""
     return re.compile(pattern, flags)
     #
 
@@ -115,160 +129,149 @@ def re_compile(pattern, flags=0):
 r = re_compile
 
 ###############################################################################
-# Logging & History
+# Logging
 ###############################################################################
 
-BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-
-COLORS = {
-    'WARNING'  : YELLOW,
-    'INFO'     : WHITE,
-    'DEBUG'    : BLUE,
-    'CRITICAL' : YELLOW,
-    'ERROR'    : RED,
-    'RED'      : RED,
-    'GREEN'    : GREEN,
-    'YELLOW'   : YELLOW,
-    'BLUE'     : BLUE,
-    'MAGENTA'  : MAGENTA,
-    'CYAN'     : CYAN,
-    'WHITE'    : WHITE,
-}
-
-RESET_SEQ = "\033[0m"
-COLOR_SEQ = "\033[1;%dm"
-BOLD_SEQ  = "\033[1m"
-
-class ColorFormatter(logging.Formatter):
-    """Implements colored output for the logging module."""
-    def __init__(self, *args, **kwargs):
-        """Creates a new instance."""
-        # can't do super(...) here because Formatter is an old school class
-        logging.Formatter.__init__(self, *args, **kwargs)
+class LoggingFilter(logging.Filter):
+    """A filter that allows any record to be processed if logging is enabled
+    and only records from the main thread otherwise."""
+    # Default methods #########################################################
+    #
+    # Public methods ##########################################################
+    def filter(self, record):
+        """Determine if a given record has to be logged."""
+        return shared['logging'] or record.threadName == 'MainThread'
         #
-    def format(self, record):
-        """Formats a given record with the appropriate colors."""
-        levelname = record.levelname
-        color     = COLOR_SEQ % (30 + COLORS[levelname])
-        message   = logging.Formatter.format(self, record)
-        message   = message.replace("$RESET", RESET_SEQ)
-        message   = message.replace("$BOLD",  BOLD_SEQ)
-        message   = message.replace("$COLOR", color)
-        for k, v in COLORS.items():
-            message = message.replace("$" + k,    COLOR_SEQ % (v+30))
-            message = message.replace("$BG" + k,  COLOR_SEQ % (v+40))
-            message = message.replace("$BG-" + k, COLOR_SEQ % (v+40))
-        return message + RESET_SEQ
-        #
+    # Private methods #########################################################
     #
 
-@not_concurrent
-def _logging_exception(exception):
-    """Prints an exception."""
-    # retrieve information about the exception
-    exc_type, _, exc_tb = sys.exc_info()
-    exc_type = str(exc_type).partition('exceptions.')[2].rpartition('\'>')[0]
+class LoggingFormatter(logging.Formatter):
+    """A formatter that produces a colored output based on the record logging
+    level."""
+    # available colors and levels
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(30, 38)
+    COLORS = { 'ERROR'  : RED,
+               'WARNING': YELLOW,
+               'INFO'   : WHITE,
+               'DEBUG'  : BLUE, }
+    # special control sequences
+    COLOR_SEQ = "\033[1;%dm"
+    BOLD_SEQ = "\033[1m"
+    RESET_SEQ = "\033[0m"
+    # Default methods #########################################################
+    def __init__(self, *args, **kwargs):
+        """Create a new formatter."""
+        logging.Formatter.__init__(self, *args, **kwargs)
+        #
+    # Public methods ##########################################################
+    def format(self, record):
+        """Format a given record with the appropriate colors."""
+        colorvalue = LoggingFormatter.COLORS[record.levelname]
+        color = LoggingFormatter.COLOR_SEQ % colorvalue
+        message = logging.Formatter.format(self, record)
+        message = message.replace('$COLOR', color)
+        message = message.replace('$BOLD', LoggingFormatter.BOLD_SEQ)
+        message = message.replace('$RESET', LoggingFormatter.RESET_SEQ)
+        return message + LoggingFormatter.RESET_SEQ
+        #
+    # Private methods #########################################################
+    #
+
+def logging_state_on():
+    """Enable logging."""
+    logging_state_on.prev_logging_state = shared['logging']
+    shared['logging'] = True
+    #
+
+def logging_state_off():
+    """Disable logging."""
+    shared['logging'] = False
+    #
+
+def logging_state_restore():
+    """Restore the last logging level."""
+    shared['logging'] = logging_state_on.prev_logging_state
+    #
+
+def _logging_exception():
+    """Print the last exception and the associated stack traceback."""
+    # retrieve information about the last exception
+    exc_type, exc_msg, exc_tb = sys.exc_info()
+    findings = r(r"^<\w+\s'\w+\.(\w+)'>$").findall(str(exc_type))
+    exc_type = findings[0] if findings else 'Exception'
     stack = traceback.extract_tb(exc_tb)
     stack.reverse()
-    for filename, lineno, _, _ in stack:
+    for filename, lineno, function, _ in stack:
         if filename == __file__:
             break
     else:
-        filename, lineno, _, _ = stack[0]
-    logging_error("%s@%s:%s => %s"
-                  % (exc_type or 'Exception',
+        filename, lineno, function, _ = stack[0]
+    logging_error("%s in %s: %s() => %s at line %s"
+                  % (exc_type,
                      filename,
-                     lineno,
-                     str(exception)))
-    # print backtrace only in debug mode
-    if verbose_level > 1:
-        for filename, lineno, _, line in stack:
-            logging_error("- %s:%-4s => %s"
-                          % (filename,
-                             lineno,
-                             line))
+                     function,
+                     exc_msg,
+                     lineno))
+    # in debug mode, print the stack traceback
+    if settings['effective_verbose_level'] > 1:
+        # retrieve the column size for each item
+        max_length = {}
+        for items in stack:
+            for i, item in enumerate(items):
+                length = len(str(item))
+                if length > max_length.get(i, 0):
+                    max_length[i] = length
+        # print the stack traceback
+        for filename, lineno, function, line in stack:
+            logging.error(("- %%-%ss  %%-%ss: %%-%ss"
+                           % (max_length[0] + max_length[2] + 4,
+                              max_length[1],
+                              max_length[3]))
+                           % ("%s: %s()" % (filename, function),
+                              lineno,
+                              line))
     #
 
-@not_concurrent
 def _logging_print(string):
-    """Prints a raw string to stderr."""
-    sys.stderr.write("\033[37m%s\033[0m\n" % string)
+    """Print a raw string to "standard error" if logging is enabled."""
+    if shared['logging']:
+        _logging_raw(string)
+    #
+
+def _logging_raw(string):
+    """Print a raw string to "standard error"."""
+    sys.stderr.write("\001\033[37m\002%s\001\033[0m\002\n" % string)
+    sys.stderr.flush()
+    #
+
+def logging_by_lines(function):
+    """Implement a decorator that logs a given message line by line."""
+    @wraps(function)
+    def wrapper(message):
+        for line in str(message).split('\n'):
+            line = line.strip()
+            if len(line) > 0:
+                function(line)
+        #
+    return wrapper
     #
 
 # shortcuts
-logging_debug     = not_concurrent(logging.debug)
-logging_info      = not_concurrent(logging.info)
-logging_warning   = not_concurrent(logging.warning)
-logging_error     = not_concurrent(logging.error)
 logging_exception = _logging_exception
+logging_error     =  logging_by_lines(logging.error)
+logging_warning   =  logging_by_lines(logging.warning)
+logging_info      =  logging_by_lines(logging.info)
+logging_debug     =  logging_by_lines(logging.debug)
 logging_print     = _logging_print
-
-def cleanup_log_line(string):
-    """Removes unwanted parts of a log line."""
-    return r(r'\'_dc\': \'\d+\'').subn('', string)[0]
-    #
-
-def one_line(obj):
-    """Returns the 1-line string representation of an object."""
-    return r(r' *\r*\n+ *').sub(' ', str(obj)).strip()
-    #
-
-def trunc(string, max_length=50):
-    """Returns the truncated value of a string."""
-    default = str(string)
-    if len(default) > max_length:
-        result = '%s...' % default[:max_length-3].strip()
-    else:
-        result = default
-    return result
-    #
-
-def trunc_repr(string, max_length=50):
-    """Returns the truncated representation of a string."""
-    default = repr(string)
-    if len(default) > max_length:
-        result = '%s...\'' % default[:max_length-4].strip()
-    else:
-        result = default
-    return result
-    #
-
-def logging_disable():
-    """Temporarily disables logging."""
-    global verbose_level, real_verbose_level
-    real_verbose_level = verbose_level
-    logging.disable(logging.ERROR)
-    verbose_level = 0
-    #
-
-def logging_enable():
-    """Enables or re-enables logging."""
-    global verbose_level, real_verbose_level
-    verbose_level = real_verbose_level
-    logging.disable(logging.NOTSET)
-    #
-
-def save_history():
-    """Saves command-line history to disk."""
-    history_path = os.path.expanduser('~/.proxyshark_history')
-    readline.write_history_file(history_path)
-    #
-
-def load_history():
-    """Loads command-line history from disk."""
-    history_path = os.path.expanduser('~/.proxyshark_history')
-    if os.path.exists(history_path):
-        readline.read_history_file(history_path)
-    #
+logging_raw       = _logging_raw
 
 ###############################################################################
-# Utilities
+# Utility functions
 ###############################################################################
 
 #@cached
 def check_tokens(tokens, types_and_values):
-    """Checks if the given tokens are of a given type and value. Returns the
-    number of tokens that match."""
+    """Return the number of tokens that match the given types and values."""
     try:
         re_search = r(r'\bclass\b|\btype\b').search
         for token, types_and_values in zip(tokens, types_and_values):
@@ -285,8 +288,8 @@ def check_tokens(tokens, types_and_values):
 
 @cached
 def network_devices(n=None):
-    """Returns the name of the nth network interface."""
-    # get the device list from 'ip a'
+    """Return the name of the nth network interface."""
+    # retrieve devices from 'ip a'
     devices = ['-']
     ip_a = Popen(['ip', 'a'], bufsize=-1, stdin=None, stdout=PIPE, stderr=None)
     for line in ip_a.stdout.readlines():
@@ -304,112 +307,151 @@ def network_devices(n=None):
     return result
     #
 
-###############################################################################
-# Test cases & Performance profiling
-###############################################################################
-
-stats = None
-
-def profile(statement, env):
-    """Runs the given piece of code and prints profiling statistics."""
-    global stats
-    statement = '__profile__ = %s' % one_line(statement)
-    cProfile.runctx(statement, globals(), env, 'proxyshark.stats')
-    stats = pstats.Stats('proxyshark.stats')
-    stats.sort_stats('tottime')
-    stats.print_stats()
-    return env['__profile__']
+#@cached
+def resolv(hostname):
+    """Resolve a given hostname."""
+    if r(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').match(hostname):
+        return [hostname]
+    try:
+        logging_info("Querying name %s..." % trunc_repr(hostname))
+        ip_addresses = resolver.query(hostname)
+        if ip_addresses:
+            logging_debug("Name %s resolved:" % trunc_repr(hostname))
+            for ip_address in ip_addresses:
+                logging_debug("- %s" % trunc_repr(ip_address))
+            return [str(ip_address) for ip_address in ip_addresses]
+        else:
+            raise ValueError("Can't resolve %s" % trunc_repr(hostname))
+    except:
+        raise ValueError("Can't resolve %s" % trunc_repr(hostname))
     #
 
-def profile_add(statement, env):
-    """Runs the given piece of code and store profiling statistics."""
-    global stats
-    statement = '__profile__ = %s' % one_line(statement)
-    cProfile.runctx(statement, globals(), env, 'proxyshark.stats')
-    if stats:
-        for i in range(100):
-            stats.add('proxyshark.stats')
+def single_line_repr(obj):
+    """Return the single line representation of a given object."""
+    return r(r' *\r*\n+ *').sub(' ', str(obj)).strip()
+    #
+
+def trunc(string, max_length=50):
+    """Return the truncated value of a given string."""
+    default = str(string)
+    if len(default) > max_length:
+        result = '%s...' % default[:max_length-3].strip()
     else:
-        stats = pstats.Stats('proxyshark.stats')
+        result = default
+    return result
+    #
+
+def trunc_repr(string, max_length=50):
+    """Return the truncated representation of a given string."""
+    default = repr(string)
+    if len(default) > max_length:
+        result = '%s...%s' % (default[:max_length-4].strip(), default[0])
+    else:
+        result = default
+    return result
+    #
+
+###############################################################################
+# Performance profiling
+###############################################################################
+
+def profile(statements, env):
+    """Run a given piece of code and print profiling statistics."""
+    statements = '__profile__ = %s' % single_line_repr(statements)
+    cProfile.runctx(statements, globals(), env, 'proxyshark.stats')
+    shared['stats'] = pstats.Stats('proxyshark.stats')
+    shared['stats'].sort_stats('tottime')
+    shared['stats'].print_stats()
     return env['__profile__']
     #
 
-def profile_print(sig, frame):
-    """Prints profiling statistics stored with 'profile_add()'."""
-    global stats
-    stats.sort_stats('tottime')
-    stats.print_stats()
+def profile_add(statements, env, factor=100):
+    """Run the given piece of code and store profiling statistics."""
+    statements = '__profile__ = %s' % single_line_repr(statements)
+    cProfile.runctx(statements, globals(), env, 'proxyshark.stats')
+    if shared['stats']:
+        for i in xrange(factor):
+            shared['stats'].add('proxyshark.stats')
+    else:
+        shared['stats'] = pstats.Stats('proxyshark.stats')
+    return env['__profile__']
     #
 
-# print profiling statistics when receiving SIGPROF
+def profile_print(signum, frame):
+    """Print profiling statistics previously generated by 'profile_add()'."""
+    if shared['stats']:
+        shared['stats'].sort_stats('tottime')
+        shared['stats'].print_stats()
+    #
+
+# print profiling statistics when receiving sigprof signal
 signal.signal(signal.SIGPROF, profile_print)
 
 ###############################################################################
-# Classes (Netfilter rules)
+# Capture filtering
 ###############################################################################
 
 class Netfilter:
-    """Provides static methods to manage Netfilter rules."""
+    """A set of static methods to generate and manage Netfilter rules."""
     _chain_prefix = 'PROXYSHARK'
     _existing_chains = []
+    # Default methods #########################################################
+    #
     # Public methods ##########################################################
     @staticmethod
-    def apply_capture_filter(capture_filter, queue_num):
-        """Generates and applies Netfilter rules from a given BPF filter. A
-        rule is composed of a chain, a condition (iptables syntax) and a
-        target. Rules are added to the 3 main Netfilter chains INPUT, OUTPUT
-        and FORWARD with target 'NFQUEUE --queue-num <queue_num>'."""
-        # create rules from the bpf filter
-        logging_info("parsing capture filter %s" % trunc_repr(capture_filter))
+    def apply_capture_filter():
+        """Generate and apply Netfilter rules based on the current capture
+        filter. A rule is a tuple composed of a chain, a condition ('iptables'
+        syntax) and a target. Rules are added to the 3 main Netfilter chains
+        INPUT, OUTPUT and FORWARD with NFQUEUE as a target."""
+        # generate rules from the current capture filter
+        capture_filter = settings['capture_filter']
+        logging_info("Parsing capture filter %s" % trunc_repr(capture_filter))
         parser = Netfilter._capture_filter_parser()
         tokens = parser.parseString(capture_filter)
         rules = Netfilter._process_boolean(tokens, Netfilter._process_keyword)
-        # we must have at least one rule
-        if not rules:
-            chain = Netfilter._new_chain_id()
-            target = Netfilter._new_chain_id()
-            rules = [(chain, '', target)]
         # apply the rules
+        logging_info("Applying Netfilter rules")
         table = 'filter'
-        last_target = 'NFQUEUE --queue-num %s' % queue_num
-        for first_chain in ('INPUT', 'OUTPUT', 'FORWARD'):
-            Netfilter._apply_rules(table, first_chain, rules, last_target)
+        last_target = 'NFQUEUE --queue-num %s' % settings['queue_number']
+        insert_rules = True
+        for first_chain in ['INPUT', 'OUTPUT', 'FORWARD']:
+            Netfilter._apply_rules(table,
+                                   first_chain,
+                                   rules,
+                                   last_target,
+                                   insert_rules)
+            insert_rules = False # insert rules only once
         #
     @staticmethod
     def remove_rules():
-        """Removes all Netfilter rules and chains related to Proxyshark."""
-        logging_info("removing custom Netfilter rules")
-        # retrieve the proxyshark chains
-        iptables = Popen(['iptables', '-L', '-n'],
+        """Remove all Netfilter rules/chains in relation with Proxyshark."""
+        logging_info("Removing Netfilter rules")
+        # list all netfilter rules and chains
+        iptables = Popen(['iptables', '-S'],
                          bufsize=-1,
                          stdin=None,
                          stdout=PIPE,
                          stderr=None)
-        regex = r'\n(?:Chain )?(%s\d+) ' % Netfilter._chain_prefix
-        existing_chains = r(regex).findall(iptables.stdout.read())
-        if not existing_chains:
-            return
-        # for each existing proxyshark chain
-        for current_chain in tuple(set(existing_chains)):
-            # remove the rules that have the current chain as a target
-            Netfilter_raw_iptables = Netfilter._raw_iptables
-            for main_chain in ('INPUT', 'OUTPUT', 'FORWARD'):
-                args = '-t filter -D %s -j %s' % (main_chain, current_chain)
-                Netfilter_raw_iptables(args)
-            # flush the current chain
-            Netfilter._raw_iptables('-t filter -F %s' % current_chain)
-        # remove empty chains
-        Netfilter_raw_iptables = Netfilter._raw_iptables
-        for current_chain in existing_chains:
-            Netfilter_raw_iptables('-t filter -X %s' % current_chain)
+        iptables_output = iptables.stdout.read()
+        iptables.stdout.close()
+        # remove proxyshark rules
+        regex = (r'\n(-A.*(?:%s\d+|-j NFQUEUE --queue-num %s).*)'
+                 % (Netfilter._chain_prefix, settings['queue_number']))
+        proxyshark_rules = r(regex).findall(iptables_output)
+        for proxyshark_rule in proxyshark_rules:
+            Netfilter._raw_iptables(proxyshark_rule.replace('-A', '-D'))
+        # remove proxyshark chains
+        regex = r'\n(-N.*(?:%s\d+).*)' % Netfilter._chain_prefix
+        proxyshark_chains = r(regex).findall(iptables_output)
+        for proxyshark_chain in proxyshark_chains:
+            Netfilter._raw_iptables(proxyshark_chain.replace('-N', '-X'))
         #
-    # Built-in methods ########################################################
-    #
     # Private methods #########################################################
     @staticmethod
     @cached # the generator is cached, but not '_next_chain_id()' (see below)
     def __new_chain_id():
-        """Returns a generator of random Netfilter chain identifiers."""
+        """Return a generator of random Netfilter chain identifiers."""
         chain_id = None
         existing_chains = []
         while 1:
@@ -421,22 +463,15 @@ class Netfilter:
         #
     @staticmethod
     def _new_chain_id():
-        """Generates a new unique and random Netfilter chain identifier."""
+        """Generate a random and unique Netfilter chain identifier."""
         return Netfilter.__new_chain_id().next()
         #
     @staticmethod
     @cached
     def _capture_filter_parser():
-        """Creates a parser for the BPF language."""
-        # handle boolean expressions ('not', 'and', 'or')
-        def Boolean(clause, clause_can_be_a_keyword=False):
-            # we need the second argument to handle the case where a value
-            # begins like a reserved keyword (for example a hostname begining
-            # with the substring 'and')
-            if not clause_can_be_a_keyword:
-                keywords = ('not and or in out src dst '
-                            'dev host net port ip icmp tcp udp')
-                clause = NotAny(oneOf(keywords) + White()) + clause
+        """Return a parser for the capture filters."""
+        # implement boolean expressions ('not', 'and', 'or')
+        def Boolean(clause):
             parser = Forward()
             clause = Group(clause) | nestedExpr(content=parser)
             parser = operatorPrecedence(clause, [
@@ -444,7 +479,7 @@ class Netfilter:
                 (Keyword('and'), 2, opAssoc.LEFT ),
                 (Keyword('or' ), 2, opAssoc.LEFT ),])
             return parser
-        # handle custom keywords (a wrapper used below)
+        # implement custom keywords
         def _Keyword(prefix, keyword, value):
             parser = Empty()
             if prefix:
@@ -456,7 +491,9 @@ class Netfilter:
                 parser += value
             return parser
         # create custom values
-        name     = NotAny(oneOf('dev host'))
+        keywords = ('not and or in out src dst '
+                    'dev host net port ip icmp tcp udp')
+        name     = NotAny(oneOf(keywords) + (White() | StringEnd()))
         name    += Word(initChars=alphas, bodyChars=alphanums+'-._')
         ip       = Combine(Word(nums, max=3) + '.' +
                            Word(nums, max=3) + '.' +
@@ -470,55 +507,77 @@ class Netfilter:
         host     = _Keyword('src dst', 'host', Boolean(ip | name))
         net      = _Keyword('src dst', 'net' , Boolean(network))
         port     = _Keyword('src dst', 'port', Boolean(number))
-        proto    = _Keyword(None     , 'ip'  , None)
+        proto    = _Keyword(None     , 'any' , None)
+        proto   |= _Keyword(None     , 'ip'  , None)
         proto   |= _Keyword(None     , 'icmp', None)
         proto   |= _Keyword(None     , 'tcp' , Optional(port))
         proto   |= _Keyword(None     , 'udp' , Optional(port))
         keyword  = dev | host | net | port | proto
-        # the whole filter must be a boolean expression (possibly a single
-        # keyword or value) that can begin with a reserved keyword (because
-        # it's a clause that is part of a boolean expression, not a value)
-        parser = Optional('any' | Boolean(keyword, True))
+        parser = Optional(Boolean(keyword))
         return StringStart() + parser + StringEnd()
         #
     @staticmethod
     def _process_boolean(tokens, callback_func, callback_args=None):
-        """Handles tokens that describe a boolean expression. We must provide
-        a callback function that handles the operands (keywords or values)."""
-        # convert the token list into a tuple, remember that all the arguments
-        # of a cached function must be hashable! the tokens are used in such
-        # functions below (see 'chech_tokens()')
+        """Handle tokens describing a boolean expression. We must provide a
+        callback function to handle the operands (keywords or values)."""
         tokens = tuple(tokens)
         # shortcut for recursive calls
-        recurse = lambda tokens: (
-            Netfilter._process_boolean(tokens, callback_func, callback_args))
+        recurse = lambda tokens: Netfilter._process_boolean(tokens,
+                                                            callback_func,
+                                                            callback_args)
         # if we have a single list of tokens, process the elements recursively
         if check_tokens(tokens, (ParseResults,)) == 1:
             return recurse(tokens[0])
-        # if we have a 'not' operator, process the operand recursively and
-        # apply a negation to the result
+        # if we have a 'not' operator, apply a negation and process the result
+        # recursively
         if check_tokens(tokens, ('not', ParseResults)) == 2:
-            rules = []
-            operand = recurse(tokens[1])
-            # use the '!' syntax if we have a single result
-            if len(operand) == 1:
-                rule = operand[0]
-                rules.append((rule[0], '! %s' % rule[1], rule[2]))
-            # otherwise, build a dedicated netfilter chain where the original
-            # target was replaced by a RETURN target
+            tokens = tokens[1]
+            # not not x = x
+            if check_tokens(tokens, ('not', ParseResults)) == 2:
+                new_tokens = tokens[1]
+                rules = recurse(new_tokens)
+            # x and y = not x or not y
+            elif check_tokens(tokens, (ParseResults, 'and', ParseResults)) > 2:
+                new_tokens = []
+                for token in tokens:
+                    if token == 'and':
+                        new_tokens.append('or')
+                    else:
+                        new_tokens.append(ParseResults(['not', token]))
+                rules = recurse(new_tokens)
+            # x or y = not x and not y
+            elif check_tokens(tokens, (ParseResults, 'or', ParseResults)) > 2:
+                new_tokens = []
+                for token in tokens:
+                    if token == 'or':
+                        new_tokens.append('and')
+                    else:
+                        new_tokens.append(ParseResults(['not', token]))
+                rules = recurse(new_tokens)
+            # not <keyword> <value> = <keyword> not <value>
             else:
-                for chain, condition, target in operand:
-                    # replace the original target by a RETURN target
-                    if target == operand[-1][2]:
-                        target = 'RETURN'
-                    rules.append((chain, condition, target))
-                # add a last rule that points to the original target in case
-                # no of the other rules has matched
-                rules.append((operand[0][0], '', operand[-1][2]))
+                new_tokens = []
+                for token in tokens:
+                    if isinstance(token, basestring):
+                        new_tokens.append(token)
+                    else:
+                        new_tokens.append(ParseResults(['not', token]))
+                rules = recurse(new_tokens)
+                # if we have a single value, negate the obtained rule
+                if len(new_tokens) == 1:
+                    new_rules = []
+                    for chain, condition, target in rules:
+                        if ' -' in condition:
+                            prefix, _, suffix = condition.partition(' -')
+                            condition = '%s ! -%s' % (prefix, suffix)
+                        else:
+                            condition = '! %s' % condition
+                        new_rules.append((chain, condition, target))
+                    rules = new_rules
             return rules
         # if we have a 'and' operator, process each operand recursively and
         # connect the results by modifying chains and targets properly
-        if check_tokens(tokens, (ParseResults, 'and', ParseResults)) >= 3:
+        if check_tokens(tokens, (ParseResults, 'and', ParseResults)) > 2:
             operand1 = recurse(tokens[0])
             operand2 = recurse(tokens[2:]) # the slice handles the case where
                                            # we have more than 2 operands
@@ -533,7 +592,7 @@ class Netfilter:
             return rules
         # if we have a 'or' operator, process each operand recursively and
         # connect the results by modifying chains and targets properly
-        if check_tokens(tokens, (ParseResults, 'or', ParseResults)) >= 3:
+        if check_tokens(tokens, (ParseResults, 'or', ParseResults)) > 2:
             operand1 = recurse(tokens[0])
             operand2 = recurse(tokens[2:]) # the slice handles the case where
                                            # we have more than 2 operands
@@ -550,7 +609,7 @@ class Netfilter:
                 rules.append((chain, condition, target))
             rules = operand1 + rules
             return rules
-        # if we have a single operand, process it with the callback function,
+        # if we have a single operand, process it with the callback function
         # with or without arguments
         elif callback_args:
             return callback_func(tokens, callback_args)
@@ -559,9 +618,9 @@ class Netfilter:
         #
     @staticmethod
     def _process_keyword(tokens):
-        """Handles tokens that describe a custom keyword ('dev', 'host', 'net',
+        """Handle tokens that describe a custom keyword ('dev', 'host', 'net',
         'port', etc)."""
-        # if we have a single string, it should be a protocol, it works also if
+        # if we have a single string it should be a protocol, it works also if
         # we have no filter at all
         if check_tokens(tokens, (basestring,)) == 1:
             if tokens[0] in ('ip', 'any'):
@@ -591,50 +650,39 @@ class Netfilter:
         else:
             raise ParseException(trunc_repr(tokens))
         # now parse the value associated with the keyword, it can be a single
-        # value or a boolean expression so we use '_process_boolean()' with
+        # value or a boolean expression, so we use '_process_boolean()' with
         # '_process_value()' as a callback function
         callback_func = Netfilter._process_value
-        callback_args = {'protocol' : protocol,
-                         'direction': direction,
-                         'keyword'  : keyword,}
+        callback_args = { 'protocol' : protocol,
+                          'direction': direction,
+                          'keyword'  : keyword, }
         return Netfilter._process_boolean(value, callback_func, callback_args)
         #
     @staticmethod
     def _process_value(tokens, context):
-        """Handles tokens that describe a single value (IP, network, etc)."""
-        # get the context required to choose the right iptables options
+        """Handle tokens describing a single value (IP, network, etc)."""
+        # retrieve context information
         protocol = context['protocol']
         direction = context['direction']
         keyword = context['keyword']
-        # select the appropriate iptables options
-        options_by_direction = {'in' : 0,
-                                'out': 1,
-                                'src': 0,
-                                'dst': 1,}
-        options_by_keyword   = {'dev' : ['-i', '-o'],
-                                'host': ['-s', '-d'],
-                                'net' : ['-s', '-d'],
-                                'port': ['--sport', '--dport'],}
+        # select the appropriate 'iptables' options
+        options_by_direction = { 'in' : 0,
+                                 'out': 1,
+                                 'src': 0,
+                                 'dst': 1, }
+        options_by_keyword   = { 'dev' : ['-i', '-o'],
+                                 'host': ['-s', '-d'],
+                                 'net' : ['-s', '-d'],
+                                 'port': ['--sport', '--dport'], }
         options = options_by_keyword[keyword]
         if direction:
             options = [options[options_by_direction[direction]]]
-        # try to resolve hostnames
-        if keyword == 'host' and not r(r'^[0-9]{1,3}\.').match(tokens[0]):
-            hostname = tokens[0]
-            try:
-                logging_info("querying name %s..." % trunc_repr(hostname))
-                values = resolver.query(hostname)
-                if values:
-                    logging_debug("name %s resolved:" % trunc_repr(hostname))
-                    for value in values:
-                        logging_debug("- %s" % value)
-                else:
-                    raise ValueError("can't resolve %s" % trunc_repr(hostname))
-            except:
-                raise ValueError("can't resolve %s" % trunc_repr(hostname))
+        # if we have a host we try to resolve its name
+        if keyword == 'host':
+            ip_addresses = resolv(tokens[0])
         else:
-            values = [tokens[0]]
-        # if we have a port we need to specify for which protocol
+            ip_addresses = [tokens[0]]
+        # if we have a port we specify for which protocol(s)
         if keyword == 'port':
             new_options = []
             for option in options:
@@ -644,58 +692,99 @@ class Netfilter:
                     new_options.append('-p udp %s' % option)
             options = new_options
         # use the selected options to create netfilter rules, each rule is
-        # composed of a chain, a condition (iptables syntax) and a target
+        # composed of a chain, a condition ('iptables' syntax) and a target
         rules = []
         chain = Netfilter._new_chain_id()
         target = Netfilter._new_chain_id()
-        for value in values:
+        for ip_address in ip_addresses:
             for option in options:
-                condition = '%s %s' % (option, value)
+                condition = '%s %s' % (option, ip_address)
                 rules.append((chain, condition, target))
         return rules
         #
     @staticmethod
-    def _apply_rules(table, first_chain, rules, last_target):
-        """Applies a set of rules in a given Netfilter table. Rules must be
-        generated by '_process_*()' handlers (see above)."""
-        # create new proxyshark chains
-        new_chains = list(set([x[0] for x in rules] + [x[2] for x in rules]))
-        Netfilter_raw_iptables = Netfilter._raw_iptables
-        Netfilter_existing_chains = Netfilter._existing_chains
-        Netfilter_existing_chains_append = Netfilter._existing_chains.append
-        for new_chain in new_chains:
-            if new_chain not in Netfilter_existing_chains:
-                Netfilter_raw_iptables('-t %s -N %s' % (table, new_chain))
-                Netfilter_existing_chains_append(new_chain)
-        # remove doubles
-        Netfilter._existing_chains = list(set(Netfilter._existing_chains))
-        # now fill the chains with our rules!
-        reversed_rules = list(rules) # copy the rules
-        reversed_rules.reverse()
-        if reversed_rules[0][-1] == 'RETURN':
-            args = table, reversed_rules[0][0], last_target
-            Netfilter._raw_iptables('-t %s -A %s -j %s' % args)
-        else:
-            args = table, reversed_rules[0][-1], last_target
-            Netfilter._raw_iptables('-t %s -A %s -j %s' % args)
-        for chain, condition, target in reversed_rules:
-            if condition:
-                condition = ' %s' % condition
-            args = table, chain, condition, target
-            Netfilter._raw_iptables('-t %s -A %s%s -j %s' % args)
-        args = table, first_chain, reversed_rules[-1][0]
-        Netfilter._raw_iptables('-t %s -I %s 1 -j %s' % args)
-        # remember that '_raw_iptables()' is cached, so a rule can't be added
-        # twice even if the function is called several times (once for each of
-        # the 3 netfilter chains INPUT, OUTPUT and FORWARD)
+    def _chain_replace(src_chain, dst_chain, rules):
+        """Replace all occurrences of a given chain in a given ruleset."""
+        new_rules = []
+        for chain, condition, target in rules:
+            if chain == src_chain:
+                chain = dst_chain
+            if target == src_chain:
+                target = dst_chain
+            new_rules.append((chain, condition, target))
+        return new_rules
         #
     @staticmethod
-    @cached # can't run the same iptables command more than once!
+    def _apply_rules(table, first_chain, rules, last_target, insert_rules=True,
+                     insert_in_first_position=True, custom_condition=''):
+        """Insert a ruleset in the given table. Rules must be generated by
+        '_process_*()' handlers above."""
+        # start by inserting the custom condition in first position
+        if custom_condition:
+            chain = Netfilter._new_chain_id()
+            rule = (chain, custom_condition, rules[0][0])
+            rules.insert(0, rule)
+        # remove rules with empty conditions
+        while 1:
+            for chain, condition, target in rules:
+                # empty condition found, replace all occurrences of the current
+                # chain by the current target
+                if not condition:
+                    src_chain = chain
+                    dst_chain = target
+                    break
+            else:
+                # no more empty condition
+                break
+            if len(rules) > 1:
+                # remove the found condition
+                rules.remove((src_chain, '', dst_chain))
+                rules = Netfilter._chain_replace(src_chain, dst_chain, rules)
+            else:
+                break
+        # replace all occurrences of rules[0][0] by first_chain
+        nb_first_chain = [chain for chain, _, _ in rules].count(rules[0][0])
+        if nb_first_chain == 1:
+            rules = Netfilter._chain_replace(rules[0][0], first_chain, rules)
+        # replace all occurrences of rules[-1][-1] by last_target
+        rules = Netfilter._chain_replace(rules[-1][-1], last_target, rules)
+        # create needed proxyshark chains
+        new_chains = list(set([x[0] for x in rules] + [x[2] for x in rules]))
+        for new_chain in new_chains:
+            if new_chain not in Netfilter._existing_chains:
+                Netfilter._raw_iptables('-t %s -N %s' % (table, new_chain))
+                Netfilter._existing_chains.append(new_chain)
+        # remove doubles
+        Netfilter._existing_chains = list(set(Netfilter._existing_chains))
+        # fill the new chains if needed
+        if insert_rules:
+            for chain, condition, target in rules:
+                if condition:
+                    condition = ' %s' % condition
+                if (insert_in_first_position and
+                    nb_first_chain == 1 and
+                    chain == first_chain
+                ):
+                    args = table, chain, condition, target
+                    Netfilter._raw_iptables('-t %s -I %s 1%s -j %s' % args)
+                else:
+                    args = table, chain, condition, target
+                    Netfilter._raw_iptables('-t %s -A %s%s -j %s' % args)
+        # link the first chain (the entry point) with the new rules
+        if nb_first_chain > 1:
+            if insert_in_first_position:
+                args = table, first_chain, rules[0][0]
+                Netfilter._raw_iptables('-t %s -I %s 1 -j %s' % args)
+            else:
+                args = table, first_chain, rules[0][0]
+                Netfilter._raw_iptables('-t %s -A %s -j %s' % args)
+        #
+    @staticmethod
     def _raw_iptables(args):
-        """Runs iptables with the given command line arguments."""
-        # don't log -D, -F, -N and -X lines
+        """Run 'iptables' command with the given arguments."""
         no_stderr = ''
-        for no_display_arg in ('D', 'F', 'N', 'X'):
+        for no_display_arg in ['D', 'F', 'N', 'X']: # don't log commands
+                                                    # containing these flags
             if r(r'-\b%s\b' % no_display_arg).search(args):
                 no_stderr = ' 2> /dev/null'
                 break
@@ -706,28 +795,27 @@ class Netfilter:
     #
 
 ###############################################################################
-# Classes (packet filters)
+# Packet filtering
 ###############################################################################
 
 class PacketFilter:
-    """Provides static methods to handle packet filters."""
+    """A set of static methods to handle packet filters."""
+    # Default methods #########################################################
+    #
     # Public methods ##########################################################
     @staticmethod
-    def match(packet, packet_filter):
-        """Checks if the given packet matches the given filter."""
-        return bool(PacketFilter.evaluate(packet, packet_filter))
-        #
-    @staticmethod
     def evaluate(packet, packet_filter):
-        """Evaluates the given packet filter and returns the result."""
+        """Evaluate the given packet filter on the given packet. The result
+        could be either a boolean value, a field or a set of fields depending
+        on the filter passed in argument."""
         result = True
-        if verbose_level > 2:
+        if settings['effective_verbose_level'] > 2:
             if packet.identifier:
-                logging_debug("evaluating packet filter %s on packet #%s:"
+                logging_debug("Evaluating packet filter %s on packet #%s:"
                               % (trunc_repr(packet_filter),
                                  packet.identifier))
             else:
-                logging_debug("evaluating packet filter %s:"
+                logging_debug("Evaluating packet filter %s:"
                               % trunc_repr(packet_filter))
         packet_filter = packet_filter.strip()
         if packet_filter:
@@ -735,18 +823,21 @@ class PacketFilter:
             # won't be called each time we use 'evaluate()'
             tokens = PacketFilter._tokens_from_packet_filter(packet_filter)
             result = PacketFilter._process_boolean(tokens, packet)
-        if verbose_level > 2:
+        if settings['effective_verbose_level'] > 2:
             logging_debug("- result = %s" % result)
         return result
         #
-    # Built-in methods ########################################################
-    #
+    @staticmethod
+    def match(packet, packet_filter):
+        """Return True if the given packet matches the given packet filter."""
+        return bool(PacketFilter.evaluate(packet, packet_filter))
+        #
     # Private methods #########################################################
     @staticmethod
     @cached
     def _packet_filter_parser():
-        """Creates a parser to handle packet filters."""
-        # handle boolean expressions ('not', 'and', 'or')
+        """Return a parser for the packet filters."""
+        # implement boolean expressions ('not', 'and', 'or')
         def Boolean(clause):
             parser = Forward()
             clause = Group(clause) | nestedExpr(content=parser)
@@ -769,15 +860,12 @@ class PacketFilter:
         item_value  = quotedString(printable + ' ')
         item_value |= Word(printable, excludeChars=')')
         condition   = Combine(operand) + Optional(operator + item_value)
-        parser = Optional('any' | Boolean(condition))
+        parser = Optional(Boolean('any' | condition))
         return StringStart() + parser + StringEnd()
         #
     @staticmethod
     def _process_boolean(tokens, packet):
-        """Handles tokens that describe a boolean expression."""
-        # convert the token list into a tuple, remember that all the arguments
-        # of a cached function must be hashable! the tokens are used in such
-        # functions below (see 'chech_tokens()')
+        """Handle tokens describing a boolean expression."""
         tokens = tuple(tokens)
          # shortcut for recursive calls
         recurse = PacketFilter._process_boolean
@@ -789,11 +877,11 @@ class PacketFilter:
         if check_tokens(tokens, ('not', ParseResults)) == 2:
             return not recurse(tokens[1], packet)
         # if we have a 'and' operator, process each operand recursively
-        if check_tokens(tokens, (ParseResults, 'and', ParseResults)) >= 3:
+        if check_tokens(tokens, (ParseResults, 'and', ParseResults)) > 2:
             # the slice handles the case where we have more than 2 operands
             return recurse(tokens[0], packet) and recurse(tokens[2:], packet)
         # if we have a 'or' operator, process each operand recursively
-        if check_tokens(tokens, (ParseResults, 'or', ParseResults)) >= 3:
+        if check_tokens(tokens, (ParseResults, 'or', ParseResults)) > 2:
             # the slice handles the case where we have more than 2 operands
             return recurse(tokens[0], packet) or recurse(tokens[2:], packet)
         # if we have a single operand, process it with '_process_condition()'
@@ -801,34 +889,33 @@ class PacketFilter:
         #
     @staticmethod
     def _process_condition(tokens, packet):
-        """Handles tokens that describe a condition (an item and an optional
-        operator and value)."""
-         # shortcut for recursive calls
+        """Handle tokens describing a condition (an item, an optional operator
+        and an optional value)."""
+        tokens = tuple(tokens)
+        # shortcut for recursive calls
         recurse = PacketFilter._process_condition
-        # associate a python function to each available operator
-        operators = {
-            '==' : '__eq__',
-            '='  : '__eq__',
-            '!=' : '__ne__',
-            '^=' : 'startswith',
-            '*=' : '__contains__',
-            '$=' : 'endswith',
-            '<=' : '__le__',
-            '<'  : '__lt__',
-            '>=' : '__ge__',
-            '>'  : '__gt__',}
+        # associate a function to each available operator
+        operators = { '==': '__eq__',
+                      '=' : '__eq__',
+                      '!=': '__ne__',
+                      '^=': 'startswith',
+                      '*=': '__contains__',
+                      '$=': 'endswith',
+                      '<=': '__le__',
+                      '<' : '__lt__',
+                      '>=': '__ge__',
+                      '>' : '__gt__', }
         # if we have a single list of tokens, process the elements recursively
         if check_tokens(tokens, (ParseResults,)) == 1:
             return recurse(tokens[0], packet)
-        # extract the elements in case we have a left-operand without operator
+        # extract the left operand, operator and value
         if check_tokens(tokens, (basestring,)) == 1:
             left_operand, operator, value = tokens[0], None, None
-        # extract the elements in case we have a left-operand with an operator
         elif check_tokens(tokens, (basestring,)) == 3:
             left_operand, operator, value = tokens
         else:
             raise ParseException(trunc_repr(tokens))
-        # now extract the details from the left-operand
+        # extract details from the left operand
         findings = r(r'^(?:(len|nb)\()?'    # function name
                      r'([a-z-._]+)'         # item name
                      r'(?:\[([a-z]+)\])?'   # attribute name
@@ -837,8 +924,10 @@ class PacketFilter:
         if not findings:
             raise ParseException(trunc_repr(left_operand))
         func_name, item_name, attr_name, slice_key = findings[0]
-        # retrieve the items from the packet
-        if item_name == 'raw':
+        # retrieve needed items from the packet
+        if item_name == 'any':
+            return True
+        elif item_name == 'raw':
             item_values = [packet.data]
         elif attr_name:
             key = '%s[%s]' % (item_name, attr_name)
@@ -849,14 +938,14 @@ class PacketFilter:
         else:
             key = '%s' % item_name
             item_values = packet.lookup(key)
-        # apply the slices and remove O and None values from the results
+        # apply slices and remove None and 0 from the results
         operand_values = []
         for item_value in item_values:
             if slice_key:
                 item_value = eval('item_value[%s]' % slice_key)
             if bool(item_value):
                 operand_values.append(item_value)
-        # return either the items themselves or the result of the function
+        # handle special keywords
         if item_name == 'raw':
             if func_name == 'len':
                 operand_values = [packet.data_length]
@@ -876,70 +965,70 @@ class PacketFilter:
                     operand_values = []
             elif func_name == 'nb':
                 operand_values = [len(operand_values)]
-        # if there is no operator, just return the result
+        # if there is no operator, return the result
         if not operator:
             return operand_values
-        # otherwise, check each operand
+        # otherwise, check/evaluate each operand with the appropriate function
         for operand_value in operand_values:
-            # don't process None values, however it can be 0!
+            # don't process None values (but 0 is allowed!)
             if operand_value is None:
                 continue
-            # check if the left-operand is a number
             try:
+                # check if the left operand is a decimal
                 operand_value = repr(float(operand_value))
-            # check if it's an hexa number
             except:
+                # check if the left operand is an hexa
                 try:
                     operand_value = str(operand_value)
                     if operand_value.startswith('0x'):
                         operand_value = float(int(operand_value, 16))
                 except ValueError:
                     pass
-                # in all cases, get its representation
+                # in all cases, get the representation of the left operand
                 operand_value = repr(operand_value)
-            # jump directly here if the left-operand is a number
             finally:
-                # evaluate the right-operand if it's protected between quotes
+                # handle the case where the right operand is protected between
+                # quotes (double or single)
                 if value.startswith('"') and value.endswith('"'):
                     value = eval(value)
                 elif value.startswith('\'') and value.endswith('\''):
                     value = eval(value)
-                # check if the right-operand is a number
                 try:
+                    # check if the right operand is a decimal
                     value = float(value)
-                # check if it's an hexa number
                 except:
+                    # check if the right operand is an hexa
                     try:
                         value = str(value)
                         if value.startswith('0x'):
                             value = float(int(value, 16))
                     except ValueError:
                         pass
-                # in all cases, get its representation
+                # in all cases, get the representation of the right operand
                 value = repr(value)
-                # finally, compare both values with the appropriate operator
+                # finally, compare both values with the appropriate function
                 try:
                     function = operators[operator]
                     cmdline = ('%s.%s(%s)' % (operand_value, function, value))
                     result = eval(cmdline)
                     if result is NotImplemented:
                         result = False
-                except Exception, exception:
-                    logging_exception(exception)
+                except:
+                    logging_exception()
                     result = None
                 finally:
-                    if verbose_level > 2:
+                    if settings['effective_verbose_level'] > 2:
                         logging_debug("- eval(%s) = %s" % (cmdline, result))
-            # accept the packet at the first match
+            # if we have a valid result, the condition is True
             if result:
                 return True
-        # otherwise, reject it
+        # otherwise, the condition is False
         return False
         #
     @staticmethod
     @cached
     def _tokens_from_packet_filter(packet_filter):
-        """Generates tokens from a given packet filter (see 'evaluate()')."""
+        """Generate tokens from a given packet filter (see 'evaluate()')."""
         parser = PacketFilter._packet_filter_parser()
         tokens = parser.parseString(packet_filter)
         return tokens
@@ -947,134 +1036,441 @@ class PacketFilter:
     #
 
 ###############################################################################
-# Classes (packet dissection)
+# Packet dissection
 ###############################################################################
 
 class DissectionException(Exception):
+    """A generic exception that occurs when a dissection fails."""
     pass
     #
 
 class DissectedPacket:
     """A dissected packet as seen by Wireshark and tshark (a tree structure of
     protocols and fields)."""
-    _last_real_identifier = 1
-    _last_identifier = 1
-    # Public methods ##########################################################
+    next_real_identifier = 1 # directly from tshark
+    next_identifier = 1      # after packet filtering
+    # Default methods #########################################################
     def __init__(self, nfq_handle, nfq_data, description, xml_data,
-                 etree_packet, field_filter):
-        """
-        Create a new dissected packet from raw data coming from the queue.
-
-        nfq_handle   -- connection handle from the Netfilter queue
-        nfq_data     -- Netlink data from the Netfilter queue
-        description  -- packet descrition from tshark in text mode
-        xml_data     -- raw XML data received from tshark
-        etree_packet -- etree.Element instance from a PDML <packet/> tag
-        field_filter -- regular expression to select protocols and fields
-
-        """
+                 etree_packet):
+        """Create a new dissected packet from tshark data."""
         # initialization
         self.nfq_handle = nfq_handle
         self.nfq_data = nfq_data
         self.description = r(r' +').sub(' ', description).strip()
         self.xml_data = xml_data
         self.etree_packet = etree_packet
-        self.field_filter = field_filter
         full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
         self.nfq_packet_id = full_msg_packet_hdr['packet_id']
         self.indev = network_devices(libnfq.get_indev(nfq_data))
         self.outdev = network_devices(libnfq.get_outdev(nfq_data))
         self.verdict = None
-        # define a dictionary of committed fields, and a dictionary of fields
-        # to commit, fields are written to the packet with 'self.__setitem__()'
-        # and 'self.commit()'
-        self._committed_items = {}
-        self._new_items = copy.deepcopy(self.read_items())
+        # create a dictionary of committed fields and a dictionary of fields
+        # to commit, fields are written with 'self.__setitem__()' and
+        # 'self.commit()'
+        self._items_committed = {}
+        self._items_to_commit = copy.deepcopy(self.read_items())
         # get raw data and packet length
         self.data_length, self.data = libnfq.get_full_payload(nfq_data)
-        # get the packet identifier
-        self.real_identifier = DissectedPacket._last_real_identifier
-        DissectedPacket._last_real_identifier += 1
+        # get real packet identifier
+        self.real_identifier = DissectedPacket.next_real_identifier
+        DissectedPacket.next_real_identifier += 1
         self.identifier = None
-        # retrieve the packet stream identifier
+        # retrieve packet stream identifier
         try:
             self.stream = int(self.__getitem__('tcp.stream[show]')[0])
         except:
+            # this exception can be caused by 'int()' or '[0]'
             self.stream = None
-        # retrieve the packet attributes from its description
+        # retrieve packet attributes from the description
         regex = r'^ *(\d+\.\d+) +([^ ]+) +-> +([^ ]+) +([^ ]+) +[^ ]+ +(.*)$'
         findings = r(regex).findall(description)
         if not findings or len(findings[0]) != 5:
-            raise ValueError("invalid packet description %s"
+            raise ValueError("Invalid packet description %s"
                              % trunc_repr(description))
         try:
             self.timestamp = float(findings[0][0])
+        except:
+            raise ValueError("Invalid timestamp in packet description %s"
+                             % trunc_repr(description))
+        else:
             self.source = findings[0][1]
             self.destination = findings[0][2]
             self.protocol = findings[0][3]
             self.info = findings[0][4]
-        except:
-            raise ValueError("can't parse packet description %s"
-                             % trunc_repr(description))
         #
-    @cached
+    def __getitem__(self, packet_filter):
+        """Evaluate the given packet filter on the current packet (see
+        'PacketFilter.evaluate()'). This method is equivalent to
+        'evaluate()'."""
+        return PacketFilter.evaluate(self, packet_filter)
+        #
+    def __iter__(self):
+        """Return an iterator over the packet's protocols and fields."""
+        return self.etree_packet.iter()
+        #
+    def __repr__(self):
+        """Return a short packet description."""
+        result = "Packet #%s/%s" % (self.identifier, self.real_identifier)
+        if self.stream is not None: # can be 0
+            result += " (stream %s)" % self.stream
+        result += ", %s" % self.description
+        return result
+        #
+    def __setitem__(self, field_name, new_value):
+        """Set the value of a given field (the new value must be a raw string).
+        The modifications must be committed with 'commit()' before setting the
+        verdict or replaying the packet."""
+        # ensure that we have a valid field name (without space or bracket)
+        field_name = field_name.strip()
+        if ' ' in field_name or field_name.endswith(']'):
+            raise KeyError("Key %s must be a valid field name!"
+                           % trunc_repr(field_name))
+        # search items with the given name
+        modified = False
+        for item in self._items_to_commit:
+            # get item name
+            item_name = item.get('name')
+            if not item_name:
+                continue
+            # ensure that we have a field name
+            if '.' not in item_name:
+                continue
+            # if the name matches, set the value
+            if item_name == field_name:
+                modified = True
+                item['value'] = binascii.b2a_hex(new_value)
+        if not modified:
+            KeyError("Field %s was not found!" % trunc_repr(field_name))
+        #
+    def __str__(self):
+        """Return a detailed packet description."""
+        # commit pending items to reflect possible modifications
+        self.commit()
+        # retrieve the column size for each item
+        items = self.read_items()
+        max_length = { 'name'    : 0,
+                       'value'   : 0,
+                       'show'    : 0,
+                       'showname': 0, }
+        for item in items:
+            # get item name
+            item_name = item.get('name')
+            if item_name:
+                length = len(item_name)
+                if length > max_length['name']:
+                    max_length['name'] = length
+            # get item value
+            item_value = item.get('value')
+            if item_value:
+                length = len(trunc(urllib.unquote(item_value), 32))
+                if length > max_length['value']:
+                    max_length['value'] = length
+            # get the pretty value
+            item_show = item.get('show')
+            if item_show:
+                length = len(trunc(urllib.unquote(item_show), 64))
+                if length > max_length['show']:
+                    max_length['show'] = length
+            # get the alternative pretty value
+            item_showname = item.get('showname')
+            if '.' not in item_name and item_showname:
+                length = 4
+                length += len(item_name)
+                length += len(urllib.unquote(item_showname))
+                if length > max_length['showname']:
+                    max_length['showname'] = length
+        # retrieve the length of the separator composed of '=' and '-'
+        separator_length = 24
+        separator_length += max_length['name']
+        separator_length += max_length['value']
+        separator_length += max_length['show']
+        separator_length = max(separator_length, max_length['showname'])
+        # build the result string
+        result = self.__repr__()
+        for item in items:
+            # is it a field?
+            if 'show' in item:
+                pos = item.get('pos', '!ERROR!')
+                size = item.get('size', '!ERROR!')
+                name = item.get('name', '!ERROR!')
+                show = trunc(urllib.unquote(item.get('show', '!ERROR!')), 64)
+                value = trunc(urllib.unquote(item.get('value', '!ERROR!')), 32)
+                result += (('\n    |   %s%%-12s %%-%ss : %%-%ss (%%s)\033[0m'
+                           % ("\033[1;33m" if 'modified' in item else '',
+                              max_length['name'],
+                              max_length['show']))
+                           % ('[%s:%s]' % (pos, pos+size),
+                              name,
+                              show,
+                              value))
+            # is it a protocol?
+            else:
+                name = item.get('name', '!ERROR!')
+                showname = urllib.unquote(item.get('showname', '!ERROR!'))
+                result += '\n    ' + '=' * separator_length
+                result += '\n   + %s: %s' % (name, showname)
+                result += '\n   \\' + '-' * separator_length
+        result += '\n====' + '=' * separator_length
+        return result
+        #
+    # Public methods ##########################################################
     def lookup(self, key):
-        """Uses the given key to search items in the current packet. The key
-        can be a protocol name or a field name."""
+        """Search items in the current packet. The key can be either a protocol
+        name or a field name. It can be followed by an optional attribute name
+        between brackets."""
         item_name, _, attr_name = key.partition('[')
         attr_name = attr_name.rstrip(']')
+        # is it a field?
         if '.' in item_name:
             xpath = 'proto//field[@name="%s"]' % item_name
             items = self.etree_packet.findall(xpath)
+        # is it a protocol?
         else:
             xpath = 'proto[@name="%s"]' % item_name
             items = self.etree_packet.findall(xpath)
             if items:
                 attr_name = r(r'\bshow\b').sub('showname', attr_name)
+        # return all the items or only the needed attribute
         if attr_name:
             result = [x.attrib.get(attr_name) for x in items]
         else:
             result = [x.attrib for x in items]
         return result
         #
-    @cached
+    def evaluate(self, packet_filter):
+        """Evaluate the given packet filter on the current packet (see
+        'PacketFilter.evaluate()'). This method is equivalent to
+        '__getitem__()'."""
+        return PacketFilter.evaluate(self, packet_filter)
+        #
     def match(self, packet_filter):
-        """Checks if the current packet matches the given filter."""
+        """Return True if the current packet matches the given packet filter
+        see ('PacketFilter.match()')."""
         result = PacketFilter.match(self, packet_filter)
         # set a new identifier if needed
         if result and not self.identifier:
-            self.identifier = DissectedPacket._last_identifier
-            DissectedPacket._last_identifier += 1
+            self.identifier = DissectedPacket.next_identifier
+            DissectedPacket.next_identifier += 1
         return result
         #
-    @cached
-    def evaluate(self, packet_filter):
-        """Evaluates the given packet filter and returns the result."""
-        return PacketFilter.evaluate(self, packet_filter)
-        #
     def read_items(self):
-        """Returns a list of dictionaries representing all the protocols and
-        fields of the current packet. Items are taken either from the XML tree
-        or from the last committed items (the modified items, if the packet was
-        modified)."""
-        items = self._committed_items
+        """Return a list of dictionaries representing all the protocols and
+        fields. Items are taken either from the XML tree or from the last
+        committed items."""
+        items = self._items_committed
         return items if items else self._read_items()
         #
-    @cached # these items won't be updated even if the packet is modified
+    def commit(self, items_to_commit=None):
+        """Apply modifications to the current packet. The optional argument can
+        be a list of dictionaries representing the fields to modify. If no
+        argument is provided, 'self._items_to_commit' is used instead. Finally,
+        return True if the packet is successfully modified."""
+        # retrieve the current items (the last committed ones)
+        current_items = self.read_items()
+        # retrieve the items to commit
+        if not items_to_commit:
+            items_to_commit = self._items_to_commit
+        # skip if the packet wasn't modified
+        if current_items == items_to_commit:
+            #logging_debug("The packet wasn't modified, nothing to commit")
+            return False
+        if len(current_items) != len(items_to_commit):
+            logging_error("Items have inconsistent sizes (%s != %s)"
+                          % (len(current_items),
+                             len(items_to_commit)))
+            return False
+        # process each item one by one
+        logging_debug("Committing new items")
+        if settings['effective_verbose_level'] > 2:
+            logging_print("Current items:")
+            logging_print(repr(current_items))
+            logging_print("New items:")
+            logging_print(repr(items_to_commit))
+        offset = 0 # global offset (in case of field size variation)
+        updated_data = self.data
+        packet_was_modified = False
+        for current_item, item_to_commit in zip(current_items,
+                                                items_to_commit):
+            # get item name
+            item_name = item_to_commit.get('name')
+            if not item_name:
+                logging_error("Commit failed, item %s has no name"
+                              % trunc_repr(item_to_commit))
+                return False
+            if item_name != current_item.get('name'):
+                logging_error("Commit failed, corrupted name (%s != %s)"
+                              % (trunc_repr(item_name),
+                                 trunc_repr(current_item.get('name'))))
+                return False
+            # ensure that we have a packet field and not a protocol (protocols
+            # are not editable, they don't really contain data)
+            if '.' not in item_name:
+                continue
+            # get item position
+            item_pos = item_to_commit.get('pos')
+            if not item_pos:
+                logging_error("Commit failed, item %s has no position"
+                              % trunc_repr(item_name))
+                return False
+            if item_pos != current_item.get('pos'):
+                logging_error("Commit failed, corrupted position (%s != %s)"
+                              % (trunc_repr(item_pos),
+                                 trunc_repr(current_item.get('pos'))))
+                return False
+            try:
+                item_pos = int(item_pos)
+            except:
+                logging_error("Commit failed, invalid position %s"
+                              % trunc_repr(item_pos))
+                return False
+            # get item size
+            item_size = item_to_commit.get('size')
+            if not item_size:
+                logging_error("Commit failed, item %s has no size"
+                              % trunc_repr(item_name))
+                return False
+            if item_size != current_item.get('size'):
+                logging_error("Commit failed, corrupted size (%s != %s)"
+                              % (trunc_repr(item_size),
+                                 trunc_repr(current_item.get('size'))))
+                return False
+            try:
+                item_size = int(item_size)
+            except:
+                logging_error("Commit failed, invalid size %s"
+                              % trunc_repr(item_size))
+                return False
+            # get item value
+            item_value = item_to_commit.get('value')
+            if not item_value:
+                logging_error("Commit failed, item %s has no value"
+                              % trunc_repr(item_name))
+                return False
+            try:
+                item_value_ascii = binascii.a2b_hex(item_value)
+            except:
+                logging_error("Commit failed, can't unhex value %s"
+                              % trunc_repr(item_value))
+                return False
+            # get pretty value
+            item_show = item_to_commit.get('show')
+            if not item_show:
+                logging_error("Commit failed, item %s has no pretty value"
+                              % trunc_repr(item_name))
+                return False
+            if item_show != current_item.get('show'):
+                logging_error("Commit failed, corrupted pretty value "
+                              "(%s != %s)"
+                              % (trunc_repr(item_show),
+                                 trunc_repr(current_item.get('show'))))
+                return False
+            # get alternative pretty value (optional)
+            item_showname = item_to_commit.get('showname')
+            if item_showname and item_showname != current_item.get('showname'):
+                logging_error("Commit failed, corrupted alternative pretty "
+                              "value (%s != %s)"
+                              % (trunc_repr(item_showname),
+                                 trunc_repr(current_item.get('showname'))))
+                return False
+            # define a new value for each attribute of the current item. if the
+            # current item was modified, update its position, size, value,
+            # pretty value, alternative pretty value and raw data in committed
+            # items and xml tree. otherwise, update only its position and size
+            # to reflect the potential shift due to other field size variations
+            attr_pos = str(item_pos+offset)
+            attr_size = str(len(item_value_ascii))
+            packet_was_modified = (item_value != current_item.get('value'))
+            if packet_was_modified:
+                attr_value = item_value
+                attr_show = '<<%s>>' % trunc_repr(item_value_ascii)[1:-1]
+                attr_showname = ('<<%s: %s>>' # ex: '<<Src: 1.2.3.4>>'
+                                 % (item_name.rpartition('.')[2].title(),
+                                    trunc_repr(item_value_ascii)[1:-1]))
+                # update the committed item
+                item_to_commit['pos'] = attr_pos
+                item_to_commit['size'] = attr_size
+                #item_to_commit['value'] = attr_value # already set
+                item_to_commit['show'] = attr_show
+                item_to_commit['showname'] = attr_showname
+                item_to_commit['modified'] = '1'
+                # update the xml tree
+                xpath = 'proto//field[@name=%s]' % repr(item_name)
+                items = self.etree_packet.findall(xpath)
+                for item in items:
+                    item.set('pos', attr_pos)
+                    item.set('size', attr_size)
+                    item.set('value', attr_value)
+                    item.set('show', attr_show)
+                    if item_showname:
+                        item.set('showname', attr_showname)
+                    item.set('modified', '1')
+            else:
+                # update the committed item
+                item_to_commit['pos'] = attr_pos
+                item_to_commit['size'] = attr_size
+                # update the xml tree
+                xpath = 'proto//field[@name=%s]' % repr(item_name)
+                items = self.etree_packet.findall(xpath)
+                for item in items:
+                    item.set('pos', attr_pos)
+                    item.set('size', attr_size)
+            # build the new payload
+            updated_data = (updated_data[:item_pos+offset] +
+                            item_value_ascii +
+                            updated_data[item_pos+item_size+offset:])
+            offset += len(item_value_ascii) - item_size
+        # calculate the checksums of the new payload
+        scapy_packet = IP(updated_data)
+        scapy_packet[IP].len += offset
+        del scapy_packet[IP].chksum
+        scapy_packet = IP(str(scapy_packet))
+        if TCP in scapy_packet:
+            del scapy_packet[TCP].chksum
+        if UDP in scapy_packet:
+            del scapy_packet[UDP].chksum
+        updated_data = str(scapy_packet)
+        if settings['effective_verbose_level'] > 2:
+            logging_print("Current payload:")
+            logging_print(repr(self.data))
+            logging_print("New payload:")
+            logging_print(repr(updated_data))
+        # save the new payload
+        self.data = updated_data
+        self.data_length += offset
+        # save the committed items
+        self._committed_items = items_to_commit
+        self._items_to_commit = copy.deepcopy(self._committed_items)
+        # return the modification state
+        return packet_was_modified
+        #
+    def accept(self):
+        """Accept the packet."""
+        self._set_verdict(libnfq.NF_ACCEPT)
+        #
+    def drop(self):
+        """Drop the packet."""
+        self._set_verdict(libnfq.NF_DROP)
+        #
+    # Private methods #########################################################
+    @cached # these items won't be updated, even if the packet is modified
     def _read_items(self):
-        """Reads items from the XML tree."""
-        last_proto_name = None
+        """Read the items from the XML tree."""
+        last_proto_name = None # keep the last encountered protocol
         items = [] # [{name='...', pos='', size='', value='', show=''}, ...]
         for item in self.__iter__():
             # get item name
             item_name = item.get('name')
             # apply the field filter
-            if self.field_filter:
-                start = '' if '^' in self.field_filter else '.*'
-                end   = '' if '$' in self.field_filter else '.*'
-                regex = r'%s(%s)%s' % (start, self.field_filter, end)
-                if not r(regex).match(item_name):
-                    continue
+            field_filter = settings['field_filter']
+            if field_filter:
+                if item_name:
+                    start = '' if '^' in field_filter else '.*'
+                    end   = '' if '$' in field_filter else '.*'
+                    regex = r'%s(%s)%s' % (start, field_filter, end)
+                    if not r(regex).match(item_name):
+                        continue
+                else:
+                    
             # skip hidden items
             item_hide = item.get('hide')
             if item_hide and item_hide == 'yes':
@@ -1087,9 +1483,9 @@ class DissectedPacket:
             item_size = item.get('size')
             if not item_size:
                 continue
-            # check the item tag
+            # is it a field?
             if item.tag == 'field':
-                # if the name is empty, use '<proto>.data'
+                # if the name is empty, use '<proto>.data' instead
                 if not item_name:
                     if last_proto_name:
                         item_name = '%s.data' % last_proto_name
@@ -1113,21 +1509,20 @@ class DissectedPacket:
                 item_showname = item.get('showname')
                 # add a new field to the list
                 if item_showname:
-                    attributes = {
-                        'name'    : item_name,
-                        'pos'     : item_pos,
-                        'size'    : item_size,
-                        'value'   : urllib.quote(item_value),
-                        'show'    : urllib.quote(item_show),
-                        'showname': urllib.quote(item_showname),}
+                    attributes = { 'name'    : item_name,
+                                   'pos'     : item_pos,
+                                   'size'    : item_size,
+                                   'value'   : urllib.quote(item_value),
+                                   'show'    : urllib.quote(item_show),
+                                   'showname': urllib.quote(item_showname), }
                 else:
-                    attributes = {
-                        'name' : item_name,
-                        'pos'  : item_pos,
-                        'size' : item_size,
-                        'value': urllib.quote(item_value),
-                        'show' : urllib.quote(item_show),}
+                    attributes = { 'name' : item_name,
+                                   'pos'  : item_pos,
+                                   'size' : item_size,
+                                   'value': urllib.quote(item_value),
+                                   'show' : urllib.quote(item_show), }
                 items.append(attributes)
+            # is it a protocol?
             elif item.tag == 'proto':
                 # a protocol must have a name
                 if not item_name:
@@ -1137,326 +1532,16 @@ class DissectedPacket:
                 if not item_showname:
                     continue
                 # add a new protocol to the list
-                attributes = {
-                    'name'    : item_name,
-                    'pos'     : item_pos,
-                    'size'    : item_size,
-                    'showname': urllib.quote(item_showname),}
+                attributes = { 'name'    : item_name,
+                               'pos'     : item_pos,
+                               'size'    : item_size,
+                               'showname': urllib.quote(item_showname), }
                 items.append(attributes)
                 last_proto_name = item_name
             else:
                 continue
         return items
         #
-    def commit(self, new_items=None):
-        """Writes the given set of items. The argument must be a list of
-        dictionaries representing the fields to modify. If no argument is
-        given, use 'self._new_items' instead. Returns True if the packet was
-        modified."""
-        # retrieve old and new items
-        old_items = self.read_items()
-        if not new_items:
-            new_items = self._new_items
-        # skip if the packet wasn't modified
-        if old_items == new_items:
-            logging_debug("packet wasn't modified, nothing to commit")
-            return False
-        if len(old_items) != len(new_items):
-            logging_error("items have inconsistent sizes! (%s != %s)"
-                          % (len(old_items),
-                             len(new_items)))
-            return False
-        # process each item one by one
-        logging_debug("committing new items...")
-        if verbose_level > 2:
-            logging_print("Old items was:")
-            logging_print(repr(old_items))
-            logging_print("New items are:")
-            logging_print(repr(new_items))
-        offset = 0 # offset in case of increase/decrease of a field size
-        new_data = self.data
-        packet_modified = False
-        for old_item, new_item in zip(old_items, new_items):
-            # get item name
-            item_name = new_item.get('name')
-            if not item_name:
-                logging_error("commit failed, no name in item %s"
-                              % trunc_repr(new_item))
-                return False
-            if item_name != old_item.get('name'):
-                logging_error("commit failed, corrupted item name! (%s != %s)"
-                              % (trunc_repr(item_name),
-                                 trunc_repr(old_item.get('name'))))
-                return False
-            # ensure that we have a packet field and not a protocol (protocols
-            # are not editable as they don't really contain data)
-            if '.' not in item_name:
-                continue
-            # get item position
-            item_pos = new_item.get('pos')
-            if not item_pos:
-                logging_error("commit failed, no position in item %s"
-                              % trunc_repr(item_name))
-                return False
-            if item_pos != old_item.get('pos'):
-                logging_error("commit failed, corrupted position! (%s != %s)"
-                              % (trunc_repr(item_pos),
-                                 trunc_repr(old_item.get('pos'))))
-                return False
-            try:
-                item_pos = int(item_pos)
-            except:
-                logging_error("commit failed, invalid position %s"
-                              % trunc_repr(item_pos))
-                return False
-            # get item size
-            item_size = new_item.get('size')
-            if not item_size:
-                logging_error("commit failed, no size in item %s"
-                              % trunc_repr(item_name))
-                return False
-            if item_size != old_item.get('size'):
-                logging_error("commit failed, corrupted size! (%s != %s)"
-                              % (trunc_repr(item_size),
-                                 trunc_repr(old_item.get('size'))))
-                return False
-            try:
-                item_size = int(item_size)
-            except:
-                logging_error("commit failed, invalid size %s"
-                              % trunc_repr(item_size))
-                return False
-            # get item value
-            item_value = new_item.get('value')
-            if not item_value:
-                logging_error("commit failed, no value in item %s"
-                              % trunc_repr(item_name))
-                return False
-            try:
-                item_value_ascii = binascii.a2b_hex(item_value)
-            except:
-                logging_error("commit failed, unable to unhex value %s"
-                              % trunc_repr(item_value))
-                return False
-            # get pretty value
-            item_show = new_item.get('show')
-            if not item_show:
-                logging_error("commit failed, no pretty value in item %s"
-                              % trunc_repr(item_name))
-                return False
-            if item_show != old_item.get('show'):
-                logging_error("commit failed, corrupted pretty value! "
-                              "(%s != %s)"
-                              % (trunc_repr(item_show),
-                                 trunc_repr(old_item.get('show'))))
-                return False
-            # get alternative pretty value (optional)
-            item_showname = new_item.get('showname')
-            if item_showname and item_showname != old_item.get('showname'):
-                logging_error("commit failed, corrupted alt pretty value! "
-                              "(%s != %s)"
-                              % (trunc_repr(item_showname),
-                                 trunc_repr(old_item.get('showname'))))
-                return False
-            # define new attribute values
-            attr_pos = str(item_pos+offset)
-            attr_size = str(len(item_value_ascii))
-            # if the current item was modified, update its position, size,
-            # value, pretty value, alternative pretty value and raw data in
-            # both items and xml tree, otherwise, update only its position and
-            # size to reflect the new offset
-            if item_value != old_item.get('value'):
-                packet_modified = True
-                # define missing attribute values
-                attr_value = item_value
-                attr_show = '<<%s>>' % trunc_repr(item_value_ascii)[1:-1]
-                attr_showname = ('<<%s: %s>>' # ex: '<<Src: 1.2.3.4>>"
-                                 % (item_name.rpartition('.')[2].title(),
-                                    trunc_repr(item_value_ascii)[1:-1]))
-                # update the current item
-                new_item['pos'] = attr_pos
-                new_item['size'] = attr_size
-                #new_item['value'] = attr_value # this value is already set
-                new_item['show'] = attr_show
-                new_item['showname'] = attr_showname
-                new_item['modified'] = '1'
-                # update the xml tree
-                xpath = 'proto//field[@name=%s]' % repr(item_name)
-                items = self.etree_packet.findall(xpath)
-                for item in items:
-                    item.set('pos', attr_pos)
-                    item.set('size', attr_size)
-                    item.set('value', attr_value)
-                    item.set('show', attr_show)
-                    if item_showname: # only if we have an alt pretty name
-                        item.set('showname', attr_showname)
-                    item.set('modified', '1')
-            else:
-                # update the current item
-                new_item['pos'] = attr_pos
-                new_item['size'] = attr_size
-                # update the xml tree
-                xpath = 'proto//field[@name=%s]' % repr(item_name)
-                items = self.etree_packet.findall(xpath)
-                for item in items:
-                    item.set('pos', attr_pos)
-                    item.set('size', attr_size)
-            # build the new payload
-            new_data = (new_data[:item_pos+offset] +
-                        item_value_ascii +
-                        new_data[item_pos+item_size+offset:])
-            offset += len(item_value_ascii) - item_size
-        # recalculate the checksums
-        scapy_packet = IP(new_data)
-        scapy_packet[IP].len += offset
-        del scapy_packet[IP].chksum
-        scapy_packet = IP(str(scapy_packet))
-        if TCP in scapy_packet:
-            del scapy_packet[TCP].chksum
-        if UDP in scapy_packet:
-            del scapy_packet[UDP].chksum
-        new_data = str(scapy_packet)
-        # save the new payload
-        self.data = new_data
-        self.data_length += offset
-        if verbose_level > 2:
-            logging_print("Old payload was:")
-            logging_print(repr(self.data))
-            logging_print("New payload is:")
-            logging_print(repr(new_data))
-        # save the committed items
-        self._committed_items = new_items
-        self._new_items = copy.deepcopy(self._committed_items)
-        # return the modification state
-        return packet_modified
-        #
-    def accept(self):
-        """Accepts the packet."""
-        self._set_verdict(libnfq.NF_ACCEPT)
-        #
-    def drop(self):
-        """Drops the packet."""
-        self._set_verdict(libnfq.NF_DROP)
-        #
-    # Built-in methods ########################################################
-    def __getitem__(self, packet_filter):
-        """Evaluates the given packet filter and returns the result."""
-        return PacketFilter.evaluate(self, packet_filter)
-        #
-    def __setitem__(self, field_name, new_value):
-        """Puts a new value in the field given in argument. The new value must
-        be a raw string NOT in ASCII-HEX representation."""
-        # ensure that we have a field name (without space or bracket)
-        field_name = field_name.strip()
-        if ' ' in field_name or field_name.endswith(']'):
-            raise KeyError("argument %s must be a valid field name!"
-                           % trunc_repr(field_name))
-        # search items with the right name
-        modified = False
-        for item in self._new_items:
-            # get item name
-            item_name = item.get('name')
-            if not item_name:
-                continue
-            # ensure that we have a field name
-            if '.' not in item_name:
-                continue
-            # if the name matches, set the value
-            if item_name == field_name:
-                modified = True
-                item['value'] = binascii.b2a_hex(new_value)
-        if not modified:
-            KeyError("field %s was not found!" % trunc_repr(field_name))
-        #
-    def __iter__(self):
-        """Iterates the protocols and fields."""
-        return self.etree_packet.iter()
-        #
-    def __str__(self):
-        """Returns the packet description and items."""
-        # commit pending items to reflect possible modifications
-        self.commit()
-        # get items and max length for each attribute
-        items = self.read_items()
-        max_length = {
-            'name'    : 0,
-            'value'   : 0,
-            'show'    : 0,
-            'showname': 0,}
-        for item in items:
-            item_name = item.get('name')
-            if item_name:
-                length = len(item_name)
-                if length > max_length['name']:
-                    max_length['name'] = length
-            item_value = item.get('value')
-            if item_value:
-                length = len(trunc(urllib.unquote(item_value), 32))
-                if length > max_length['value']:
-                    max_length['value'] = length
-            item_show = item.get('show')
-            if item_show:
-                length = len(trunc(urllib.unquote(item_show), 64))
-                if length > max_length['show']:
-                    max_length['show'] = length
-            item_showname = item.get('showname')
-            if '.' not in item_name and item_showname:
-                length = 4
-                length += len(item_name)
-                length += len(urllib.unquote(item_showname))
-                if length > max_length['showname']:
-                    max_length['showname'] = length
-        # length of the protocol separator composed of '=' and '-'
-        separator_length = 24
-        separator_length += max_length['name']
-        separator_length += max_length['value']
-        separator_length += max_length['show']
-        separator_length = max(separator_length, max_length['showname'])
-        # build the result string
-        result = self.__repr__()
-        for item in items:
-            # is it a field?
-            if 'show' in item:
-                try:
-                    pos = int(item.get('pos'))
-                except:
-                    pos = '!ERROR!'
-                try:
-                    size = int(item.get('size'))
-                except:
-                    size = '!ERROR!'
-                name = item.get('name', '!ERROR!')
-                show = trunc(urllib.unquote(item.get('show', '!ERROR!')), 64)
-                value = trunc(urllib.unquote(item.get('value', '!ERROR!')), 32)
-                fmt = ("\n    |   %s%%-12s %%-%ss : %%-%ss (%%s)\033[0m"
-                       % ("\033[1;33m" if 'modified' in item else "",
-                          max_length['name'],
-                          max_length['show']))
-                result += (fmt
-                           % ("[%s:%s]" % (pos, pos+size),
-                              name,
-                              show,
-                              value))
-            # is it a protocol?
-            else:
-                name = item.get('name', '!ERROR!')
-                showname = urllib.unquote(item.get('showname', '!ERROR!'))
-                result += "\n    " + "=" * separator_length
-                result += "\n   + %s: %s" % (name, showname)
-                result += "\n   \\" + "-" * separator_length
-        result += "\n====" + "=" * separator_length
-        return result
-        #
-    def __repr__(self):
-        """Returns the packet description."""
-        global real_verbose_level
-        result = "Packet #%s/%s" % (self.identifier, self.real_identifier)
-        if self.stream is not None:
-            result += " (stream %s)" % self.stream
-        result += ", %s" % self.description
-        return result
-        #
-    # Private methods #########################################################
     def _set_verdict(self, verdict):
         """Sets the verdict (NF_ACCEPT or NF_DROP)."""
         if self.verdict:
@@ -1473,7 +1558,7 @@ class DissectedPacket:
 
 class DissectedPacketList(list):
     """A list of dissected packet."""
-    # Public methods ##########################################################
+    # Default methods #########################################################
     def __init__(self, *args):
         """Creates a new instance."""
         super(DissectedPacketList, self).__init__(*args)
@@ -1481,7 +1566,6 @@ class DissectedPacketList(list):
         # element in position 0
         self.append(NotImplemented)
         #
-    # Built-in methods ########################################################
     def __iter__(self):
         """Implements a custom iterator that skips the first element."""
         iteraror = super(DissectedPacketList, self).__iter__()
@@ -1533,16 +1617,16 @@ class DissectedPacketList(list):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([repr(x) for x in self[1:]])
         #
+    # Public methods ##########################################################
+    #
     # Private methods #########################################################
     #
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
-    dissected list is that '__getitem__()' returns the item values and not the
+    packet list is that '__getitem__()' returns the item values and not the
     entire packets."""
-    # Public methods ##########################################################
-    #
-    # Built-in methods ########################################################
+    # Default methods #########################################################
     def __getitem__(self, key):
         """Evaluates 'self[key]'. The key can be only a field name. Otherwise,
         the default method is used."""
@@ -1568,32 +1652,149 @@ class DissectedPacketSubList(DissectedPacketList):
         else:
             return super(DissectedPacketSubList, self).__getitem__(key)
         #
+    # Public methods ##########################################################
+    #
     # Private methods #########################################################
     #
 
 class Dissector:
     """A packet dissector based on tshark."""
-    # Public methods ##########################################################
-    def __init__(self, tshark_dir, quiet):
-        """
-        Runs 2 instances of tshark: one in text mode ('-T text') to get general
-        packet descriptions and one in PDML mode ('-T pdml') to get detailed
-        XML dissections.
-
-        tshark_dir -- location of the tshark binary
-        quiet      -- if True, don't print any information about the dissector
-                      state
-
-        """
+    # Default methods #########################################################
+    def __init__(self):
+        """Creates a new dissector."""
         # initialization
-        self.tshark_dir = tshark_dir
-        self.quiet = quiet
+        self._timeout = 2
+        self._tshark = {}
+        # interesting events
+        self._started = Event()
         self._stopping = Event()
-        # get the full path of tshark
-        tshark_path = os.path.join(os.getcwd(), tshark_dir, 'tshark')
-        if not os.path.isfile(tshark_path):
-            tshark_path = 'tshark'
-        # provide tshark with a global pcap header
+        self._stopped = Event()
+        #
+    # Public methods ##########################################################
+    def start(self):
+        """Runs 2 instances of tshark: one in text mode ('-T text') to get
+        general packet descriptions and another one in PDML mode ('-T pdml') to
+        get detailed XML dissections."""
+        if self.isAlive():
+            return False
+        try:
+            self.__init__()
+            self._start()
+            return True
+        except:
+            logging_state_on()
+            logging_exception()
+            logging_state_restore()
+            return False
+        #
+    def isAlive(self):
+        """Returns True if the tshark instances are running."""
+        if not self._started.isSet():
+            return False
+        if self._stopping.isSet():
+            return False
+        if self._stopped.isSet():
+            return False
+        for mode in ['text', 'pdml']:
+            tshark = self._tshark[mode]
+            tshark.poll()
+            if tshark.returncode >= 0:
+                return False
+        return True
+        #
+    def stop(self):
+        """Stops the tshark instances properly."""
+        if not self.isAlive():
+            return False
+        self._stopping.set()
+        for mode in ['text', 'pdml']:
+            tshark = self._tshark[mode]
+            for send_signal in (tshark.terminate, tshark.kill):
+                tshark.poll()
+                if tshark.returncode >= 0:
+                    break
+                try:
+                    send_signal()
+                except OSError:
+                    break
+                else:
+                    time.sleep(0.1)
+        logging_state_on()
+        logging_info("dissector stopped")
+        logging_state_restore()
+        self._started.clear()
+        self._stopping.clear()
+        self._stopped.set()
+        return True
+        #
+    def dissect(self, nfq_handle, nfq_data):
+        """Returns a tuple composed of a short description and a 'etree
+        .Element' describing the given packet."""
+        if not self.isAlive():
+            return None
+        # get raw data and packet length
+        data_length, data = libnfq.get_full_payload(nfq_data)
+        # create a pcap header
+        current_time = time.time()
+        sec = int(current_time)
+        usec = int((current_time - sec) * 1000000)
+        packed_data_length = struct.pack('I', data_length)
+        pcap_data = ''.join([struct.pack('I', sec),
+                             struct.pack('I', usec),
+                             packed_data_length,
+                             packed_data_length,
+                             data])
+        # send the packet to tshark
+        for mode in ['text', 'pdml']:
+            self._tshark[mode].stdin.write(pcap_data)
+            self._tshark[mode].stdin.flush()
+        # retrieve packet description and xml dissection from tshark
+        parser = XMLParser()
+        description = self._tshark['text'].stdout.readline().rstrip('\n')
+        readline = self._tshark['pdml'].stdout.readline
+        xml_lines = []
+        xml_lines_append = xml_lines.append
+        parser_feed = xml_lines_append
+        # wait for a starting tag
+        while 1:
+            line = readline()
+            if line is None:
+                raise DissectionException("unexpected end of file")
+            if line == '<packet>\n':
+                break
+        # wait for an ip layer
+        while 1:
+            line = readline()
+            if line is None:
+                raise DissectionException("unexpected end of file")
+            if '<proto name="ip"' in line:
+                parser_feed('<packet>\n')
+                parser_feed(line)
+                break
+        # wait for an ending tag
+        while 1:
+            line = readline()
+            if line is None:
+                raise DissectionException("unexpected end of file")
+            parser_feed(line)
+            if line == '</packet>\n':
+                xml_data = ''.join(xml_lines)
+                parser.feed(xml_data)
+                break
+        # return a new dissected packet
+        return DissectedPacket(nfq_handle,
+                               nfq_data,
+                               description,
+                               xml_data,
+                               parser.close())
+        #
+    # Private methods #########################################################
+    def _start(self):
+        """A wrapper that runs the tshark instances effectively."""
+        # path to the tshark binary
+        tshark_dir = settings['tshark_directory']
+        tshark_bin = os.path.join(os.getcwd(), tshark_dir, 'tshark')
+        # global pcap header
         pcap_global_header = (
             '\xd4\xc3\xb2\xa1'  # magic number
             '\x02\x00'          # major version
@@ -1602,8 +1803,8 @@ class Dissector:
             '\x00\x00\x00\x00'  # accuracy of timestamps
             '\xff\xff\x00\x00'  # snaplen
             '\x65\x00\x00\x00') # data link type
-        # define tshark settings
-        settings = ' '.join(['-o %s:%s' % (k, str(v).upper()) for k, v in [
+        # tshark preferences
+        preferences = ' '.join(['-o %s:%s' % (k, str(v).upper()) for k, v in [
             ('tcp.analyze_sequence_numbers' , True ),
             ('tcp.calculate_timestamps'     , True ),
             ('tcp.check_checksum'           , True ),
@@ -1615,353 +1816,157 @@ class Dissector:
             ('udp.check_checksum'           , True ),
             ('udp.process_info'             , True ),
             ('udp.summary_in_tree'          , True ),
-            ('udp.try_heuristic_first'      , True ),
-        ]])
-        # run tshark instances
-        self._tshark = {}
-        for mode in ('text', 'pdml'):
-            cmdline = ('%s -i - -s0 -n -l -T %s %s'
-                       % (tshark_path,
-                          mode,
-                          settings))
-            self._tshark[mode] = Popen(cmdline.split(' '),
-                                       preexec_fn=os.setpgrp, # don't forward
-                                                              # signals to
-                                                              # tshark
-                                       bufsize=-1,
-                                       stdin=PIPE,
-                                       stdout=PIPE,
-                                       stderr=PIPE)
-            self._tshark[mode].stdin.write(pcap_global_header)
-            self._tshark[mode].stdin.flush()
-            time.sleep(0.5)
-            self._tshark[mode].poll()
-            if self._tshark[mode].returncode >= 0:
-                raise RuntimeError("running tshark in %s mode failed" % mode)
-            self._tshark[mode].stderr.close()
-        if not self.quiet:
-            logging_info("dissector started")
-        #
-    def dissect(self, nfq_handle, nfq_data, field_filter):
-        """
-        Returns a tuple composed of a short description and an 'etree.Element'
-        describing the packet given in argument.
-
-        nfq_handle   -- connection handle from the Netfilter queue
-        nfq_data     -- Netlink packet data from the Netfilter queue
-        field_filter -- regular expression used to select protocols and fields
-
-        """
-        try:
-            # get raw data and packet length
-            data_length, data = libnfq.get_full_payload(nfq_data)
-            # get the current timestamp
-            current_time = time.time()
-            try:
-                sec = int(current_time)
-            except:
-                logging_error("cant't get the current time! (sec)")
-                return None
-            try:
-                usec = int((current_time - sec) * 1000000)
-            except:
-                logging_error("cant't get the current time! (usec)")
-                return None
-            # create a valid pcap header
-            packed_data_length = struct.pack('I', data_length)
-            pcap_data = ''.join((struct.pack('I', sec),
-                                 struct.pack('I', usec),
-                                 packed_data_length,
-                                 packed_data_length,
-                                 data))
-            # send the packet to tshark
-            for mode in ('text', 'pdml'):
-                self._tshark[mode].stdin.write(pcap_data)
-                self._tshark[mode].stdin.flush()
-            # retrieve packet description and xml dissection
-            parser = XMLParser()
-            description = self._tshark['text'].stdout.readline().rstrip('\n')
-            readline = self._tshark['pdml'].stdout.readline
-            xml_lines = []
-            xml_lines_append = xml_lines.append
-            parser_feed = xml_lines_append
-            # wait for a packet start
+            ('udp.try_heuristic_first'      , True ), ]])
+        # run the tshark instances
+        for mode in ['text', 'pdml']:
+            tshark = Popen(('%s -i - -s0 -n -l -Ta %s %s'
+                            % (tshark_bin,
+                               mode,
+                               preferences)).split(' '),
+                           preexec_fn=os.setpgrp, # don't forward signals to
+                                                  # tshark instances
+                           bufsize=-1,
+                           stdin=PIPE,
+                           stdout=PIPE,
+                           stderr=PIPE)
+            tshark.stdin.write(pcap_global_header)
+            tshark.stdin.flush()
+            # try to determine if tshark is running properly
+            last_line = ''
+            signal.alarm(self._timeout)
             while 1:
-                line = readline()
-                if line is None:
-                    raise DissectionException("unexpected end of file!")
-                if line == '<packet>\n':
-                    break
-            # wait for an ip layer
-            while 1:
-                line = readline()
-                if line is None:
-                    raise DissectionException("unexpected end of file!")
-                if '<proto name="ip"' in line:
-                    parser_feed('<packet>\n')
-                    parser_feed(line)
-                    break
-            # wait for a packet end
-            while 1:
-                line = readline()
-                if line is None:
-                    raise DissectionException("unexpected end of file!")
-                parser_feed(line)
-                if line == '</packet>\n':
-                    xml_data = ''.join(xml_lines)
-                    parser.feed(xml_data)
-                    break
-            # create a new dissected packet
-            return DissectedPacket(nfq_handle,
-                                   nfq_data,
-                                   description,
-                                   xml_data,
-                                   parser.close(),
-                                   field_filter)
-        except IOError:
-            return None
-        #
-    def stop(self):
-        """Stops tshark instances properly."""
-        if self._stopping.isSet():
-            return
-        self._stopping.set()
-        for mode in ('text', 'pdml'):
-            tshark = self._tshark[mode]
-            for send_signal in (tshark.terminate, tshark.kill):
-                tshark.poll()
-                if tshark.returncode >= 0:
-                    break
-                try:
-                    send_signal()
-                except OSError:
-                    break
+                line = tshark.stderr.readline().strip()
+                if line:
+                    last_line = line
                 else:
-                    time.sleep(0.5)
-        if not self.quiet:
-            logging_info("dissector stopped")
-        #
-    # Built-in methods ########################################################
-    #
-    # Private methods #########################################################
-    #
-
-###############################################################################
-# Classes (nfqueue)
-###############################################################################
-
-class NFQueue(Thread):
-    """A Netfilter queue to receive packets, dissect them and make them
-    available to the user."""
-    # Public methods ##########################################################
-    def __init__(self, tshark_dir, queue_num, proxy_ip, proxy_port, server_ip,
-                 server_port, capture_filter, packet_filter, field_filter):
-        """
-        Creates a new Netfilter queue.
-
-        tshark_dir     -- location of the tshark binary
-        queue_num      -- number of the Netfilter queue to use
-        proxy_ip       -- IP address of the web proxy to use
-        proxy_port     -- port number of the web proxy to use
-        server_ip      -- IP address of the web server to use
-        server_port    -- port number of the web server to use
-        capture_filter -- bpf-filter describing the packets to capture
-        packet_filter  -- filter describing the packets to process
-        field_filter   -- filter describing the fields to process
-
-        """
-        # initialization
-        Thread.__init__(self, name='NFQueueThread')
-        self.tshark_dir = tshark_dir
-        self.queue_num = queue_num
-        self.proxy_ip = proxy_ip
-        self.proxy_port = proxy_port
-        self.server_ip = server_ip
-        self.server_port = server_port
-        self.capture_filter = capture_filter
-        self.packet_filter = packet_filter
-        self.field_filter = field_filter
-        self.packets = DissectedPacketList()
-        self.streams = {}
-        self._stopping = Event()
-        self._dissector_stopping = Event()
-        self._dissector = Dissector(tshark_dir, False)
-        # apply the capture filter
-        Netfilter.remove_rules()
-        Netfilter.apply_capture_filter(capture_filter, queue_num)
-        # nfqueue settings
-        self._snaplen = 65535
-        self._sock_family = socket.AF_INET
-        self._sock_type = 0
-        # create the queue itself
-        self._nfq_handle = libnfq.open_queue()
-        libnfq.unbind_pf(self._nfq_handle, self._sock_family)
-        libnfq.bind_pf(self._nfq_handle, self._sock_family)
-        self._c_handler = libnfq.HANDLER(self._callback)
-        self._nfq_connection_handle = {}
-        self._nfq_connection_handle['queue'] = libnfq.create_queue(
-            self._nfq_handle,
-            queue_num,
-            self._c_handler,
-            None)
-        libnfq.set_mode(self._nfq_connection_handle['queue'],
-                        libnfq.NFQNL_COPY_PACKET,
-                        self._snaplen)
-        #
-    def run(self):
-        """Waits for packets from Netfilter."""
-        # create a socket to receive packets
-        s = socket.fromfd(libnfq.nfq_fd(libnfq.nfnlh(self._nfq_handle)),
-                          self._sock_family,
-                          self._sock_type)
-        s.settimeout(0.1)
-        logging_info("nfqueue started")
-        while not self._stopping.isSet():
-            try:
-                data = s.recv(self._snaplen)
-            except:
-                continue
-            else:
-                libnfq.handle_packet(self._nfq_handle, data, len(data))
-        # if we go there then the queue is stopping, destroy it properly
-        libnfq.destroy_queue(self._nfq_connection_handle['queue'])
-        libnfq.close_queue(self._nfq_handle)
-        self._dissector_stopping.set()
-        logging_info("nfqueue stopped")
-        #
-    def stop(self):
-        """Stops the queue properly."""
-        Netfilter.remove_rules()
-        self._stopping.set()
-        if not self._dissector_stopping.wait(5):
-            if real_verbose_level > 0:
-                logging_print("Waiting for nfqueue to stop...")
-            self._dissector_stopping.wait()
-        self._dissector.stop()
-        #
-    # Built-in methods ########################################################
-    #
-    # Private methods #########################################################
-    def _callback(self, dummy1, dummy2, nfq_data, dummy3):
-        """Handles the packets received from Netfilter."""
-        try:
-            # dissect the packet
-            packet = self._dissector.dissect(
-                self._nfq_connection_handle['queue'],
-                nfq_data,
-                self.field_filter)
-            if not packet:
-                return
-            # apply the packet filter
-            if not packet.match(self.packet_filter):
-                packet.accept()
-                return
-            # store the packet
-            logging_info("nfqueue received packet #%s" % packet.identifier)
-            self.packets.append(packet)
-            # print the packet if needed
-            if verbose_level > 1:
-                logging_print(packet)
-            elif verbose_level > 0:
-                logging_print(repr(packet))
-            # build a list of items
-            items = packet.read_items()
-            if not items:
-                packet.accept()
-                return
-            # prepare http headers
-            post_headers = {
-                'Host'            : ('%s:%s'
-                                     % (self.server_ip,
-                                        self.server_port)),
-                'User-Agent'      : ('Proxyshark (Python/%s)'
-                                     % sys.version.partition(' ')[0]),
-                'Accept-Encoding' : 'identity',}
-            # send a post request to the local server through the web proxy
-            connection = httplib.HTTPConnection(self.proxy_ip,
-                                                self.proxy_port,
-                                                False,
-                                                1)
-            connection.request('POST',
-                               '/edit-packet/%s' % packet.identifier,
-                               r(r' +').sub('', repr(items)),
-                               post_headers)
-            try:
-                # send the packet, but we don't need the response
-                connection.getresponse()
-            except:
-                pass
-        # accept the packet in case of error
-        except Exception, exception:            
-            logging_exception(exception)
-            full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
-            nfq_packet_id = full_msg_packet_hdr['packet_id']
-            data_length, data = libnfq.get_full_payload(nfq_data)
-            libnfq.set_pyverdict(self._nfq_connection_handle['queue'],
-                                 nfq_packet_id,
-                                 libnfq.NF_ACCEPT,
-                                 data_length,
-                                 data)
-        # flush buffers
-        finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
+                    msg = "An error occurred while running tshark in %s mode"
+                    if last_line:
+                        msg += "\ntshark said: %s" % trunc_repr(last_line)
+                    raise RuntimeError(msg % mode)
+                if 'capturing' in line.lower():
+                    break
+            self._tshark[mode] = tshark
+        self._started.set()
+        logging_state_on()
+        logging_info("dissector started")
+        logging_state_restore()
         #
     #
 
 ###############################################################################
-# Classes (local web server)
+# Web server
 ###############################################################################
 
 class ThreadingWebServer(ThreadingMixIn, HTTPServer):
     """A web server with multi-threading support for incoming connections."""
-    pass
+    # Default methods #########################################################
+    def __init__(self, server_address, RequestHandlerClass, nfqueue):
+        """"""
+        HTTPServer.__init__(self, server_address, RequestHandlerClass)
+        self._nfqueue = nfqueue
+        #
+    # Public methods ##########################################################
+    def finish_request(self, request, client_address):
+        """Finish one request by instantiating RequestHandlerClass."""
+        self.RequestHandlerClass(request, client_address, self, self._nfqueue)
+        #
+    # Private methods #########################################################
     #
 
 class WebServer(Thread):
-    """A local web server that receives POST requests from proxyshark."""
-    # Public methods ##########################################################
-    def __init__(self, server_ip, server_port):
-        """Creates a new instance."""
+    """A web server to receive and alter packets from NFQueue."""
+    # Default methods #########################################################
+    def __init__(self, nfqueue):
+        """Creates a new web server."""
         # initialization
         Thread.__init__(self, name='WebServerThread')
-        self.server_ip = server_ip
-        self.server_port = server_port
-        self._server = None
+        self._nfqueue = nfqueue
+        self._web_server = None
+        self._timeout = 2
+        # interesting events
+        self._started = Event()
+        self._stopping = Event()
+        self._stopped = Event()
+        #
+    # Public methods ##########################################################
+    def start(self):
+        """Starts the web server (main thread)."""
+        if self.isAlive():
+            return False
+        self.__init__(self._nfqueue)
+        Thread.start(self)
+        self._started.wait(self._timeout)
+        if self.isAlive():
+            return True
+        else:
+            self._started.clear()
+            self._stopping.clear()
+            self._stopped.set()
+            return False
         #
     def run(self):
-        """Starts the web server."""
+        """Starts the web server (new thread)."""
         try:
-            self._server = ThreadingWebServer(
-                (self.server_ip, self.server_port),
-                WebRequestHandler)
-            logging_info("local server listening on %s:%s"
-                         % (self.server_ip,
-                            self.server_port))
-            self._server.serve_forever()
-            self._server.socket.close()
-        except Exception, exception:
-            logging_exception(exception)
+            self._run()
+        except:
+            logging_state_on()
+            logging_exception()
+            logging_state_restore()
         finally:
-            logging_info("server stopped")
+            logging_state_on()
+            logging_info("web server stopped")
+            logging_state_restore()
+            self._started.clear()
+            self._stopping.clear()
+            self._stopped.set()
+        #
+    def isAlive(self):
+        """Returns True if the web server is running."""
+        if not self._started.isSet():
+            return False
+        if self._stopping.isSet():
+            return False
+        if self._stopped.isSet():
+            return False
+        return True
         #
     def stop(self):
         """Stops the web server properly."""
-        try:
-            if self._server:
-                self._server.shutdown()
-        except AttributeError:
-            pass
+        if not self.isAlive():
+            return False
+        self._stopping.set()
+        self._web_server.shutdown()
+        return self._stopped.wait(self._timeout)
         #
-    # Built-in methods ########################################################
-    #
     # Private methods #########################################################
+    def _run(self):
+        """A wrapper that runs the web server effectively."""
+        bind_address = (resolv(settings['web_server_host'])[0],
+                        settings['web_server_port'])
+        self._web_server = ThreadingWebServer(bind_address,
+                                              WebRequestHandler,
+                                              self._nfqueue)
+        logging_state_on()
+        logging_info("web server listening on %s:%s" % bind_address)
+        logging_state_restore()
+        self._started.set()
+        self._web_server.serve_forever()
+        self._stopping.set()
+        self._web_server.socket.close()
+        #
     #
 
 class WebRequestHandler(BaseHTTPRequestHandler):
     """Handles incoming HTTP requests from the web server."""
     # store the last log line to avoid flooding the standard output
     _last_log = {'line': '', 'nb': 0}
+    # Default methods #########################################################
+    def __init__(self, request, client_address, server, nfqueue):
+        """"""
+        self._nfqueue = nfqueue # must be in first position because the
+                                # original __init__() function never returns
+        BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+        #
     # Public methods ##########################################################
     def address_string(self):
         """Bypasses default address resolution to avoid unwanted delays."""
@@ -1970,7 +1975,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     def log_request(self, code=None, size=None):
         """Logs the current request."""
         # only in verbose mode
-        if verbose_level < 3:
+        if not settings['effective_verbose_level'] > 2:
+            return
+        # only if nfqueue is running
+        if not self._nfqueue.isAlive():
+            logging_warning("ignoring request (queue is not started)")
             return
         # at this point we should have request parameters
         if not hasattr(self, 'params'):
@@ -1981,10 +1990,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
                        self.method,
                        self.path,
                        code))
+        log_line = r(r'\'_dc\': \'\d+\'').subn('', log_line)[0]
         # get the last log line
         last_log = WebRequestHandler._last_log
         # is it again the same line?
-        if cleanup_log_line(log_line) == cleanup_log_line(last_log['line']):
+        if log_line == last_log['line']:
             last_log['nb'] += 1
         # it not, print the new line
         else:
@@ -2039,6 +2049,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         ):
             self.send_not_found()
             return
+        #TODO: use try/catch instead
         length = int(self.headers['Content-Length'])
         params = self.rfile.read(length)
         self.params = {}
@@ -2058,22 +2069,23 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         if not findings:
             self.send_not_found()
             return
+        #TODO: use try/catch instead
         identifier = int(findings[0])
         logging_info("local server received packet #%s" % identifier)
-        if identifier >= len(nfqueue.packets):
-            logging_error("packet #%s was not found!" % identifier)
+        if identifier >= len(self._nfqueue.packets):
+            logging_error("packet #%s was not found" % identifier)
             self.send_not_found()
             return
         # retrieve the packet from cache
-        packet = nfqueue.packets[identifier]
+        packet = self._nfqueue.packets[identifier]
         # modify the packet if needed
         modified = packet.commit(eval(self.params.keys()[0]))
         # print the packet if needed
         if modified:
             logging_info("packet #%s was modified" % packet.identifier)
-            if verbose_level > 1:
+            if settings['effective_verbose_level'] > 1:
                 logging_print(packet)
-            elif verbose_level > 0:
+            elif settings['effective_verbose_level'] > 0:
                 logging_print(repr(packet))
         # accept the packet
         packet.accept()
@@ -2081,97 +2093,369 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
         #
-    # Built-in methods ########################################################
-    #
     # Private methods #########################################################
     #
 
 ###############################################################################
-# Classes (interactive console)
+# Nfqueue
 ###############################################################################
 
-class Console(InteractiveConsole):
-    """ TODO """
-    def __init__(self, nfqueue):
-        """ TODO """
-        InteractiveConsole.__init__(self, locals={
-            'nfqueue': nfqueue,
-            'exit'   : nfqueue.stop,
-            'q'      : nfqueue.packets,
-            'queue'  : nfqueue.packets,})
-        self._nfqueue = nfqueue
+class NFQueue(Thread):
+    """A Netfilter queue that receives packets, dissects them and makes them
+    available to the user."""
+    # Default methods #########################################################
+    def __init__(self):
+        """Creates a new Netfilter queue."""
+        # initialization
+        Thread.__init__(self, name='NFQueueThread')
+        self.dissector = None
+        self.web_server = None
+        self.packets = DissectedPacketList()
+        self._timeout = 2
+        # interesting events
+        self._started = Event()
+        self._stopping = Event()
+        self._stopped = Event()
+        self._paused = Event()
+        # nfqueue settings
+        self._snaplen = 65535
+        self._sock_family = socket.AF_INET
+        self._sock_type = 0
+        # nfqueue handlers
+        self._nfq_handle = None
+        self._c_handler = None
+        self._nfq_connection_handle = None
+        # re-initialize the packet identifiers
+        DissectedPacket.next_real_identifier = 1
+        DissectedPacket.next_identifier = 1
         #
-    def interact(self, banner=None):
-        """"""
-        # 
+    # Public methods ##########################################################
+    def start(self):
+        """Starts the capture (main thread)."""
+        if self.isAlive():
+            return False
+        self.__init__()
+        Thread.start(self)
+        self._started.wait(self._timeout)
+        if self.isAlive():
+            return True
+        else:
+            self._started.clear()
+            self._stopping.clear()
+            self._stopped.set()
+            return False
+        #
+    def run(self):
+        """Starts the capture (new thread)."""
         try:
-            sys.ps1
-        except AttributeError:
-            sys.ps1 = ">>> "
-        try:
-            sys.ps2
-        except AttributeError:
-            sys.ps2 = "... "
-        # 
-        more = 0
+            self.dissector = Dissector()
+            a = self.dissector.start()
+            if settings['web_driven']:
+                self.web_server = WebServer(self)
+                b = self.web_server.start()
+            else:
+                b = True
+            if a and b:
+                self._run()
+        except:
+            logging_state_on()
+            logging_exception()
+            logging_state_restore()
+            self._stopping.set()
+            self._started.set()
+        else:
+            Netfilter.remove_rules()
+            if self.web_server:
+                self.web_server.stop()
+            if self.dissector:
+                self.dissector.stop()
+        finally:
+            logging_state_on()
+            logging_info("nfqueue stopped")
+            logging_state_restore()
+            self._started.clear()
+            self._stopping.clear()
+            self._stopped.set()
+        #
+    def isAlive(self):
+        """Returns True if the queue is started."""
+        if not self._started.isSet():
+            return False
+        if self._stopping.isSet():
+            return False
+        if self._stopped.isSet():
+            return False
+        return True
+        #
+    def pause(self, new_status):
+        """Pauses or continues packet processing."""
+        if self.isAlive() and self._paused.isSet() != new_status:
+            self._paused.set() if new_status else self._paused.clear()
+        #
+    def isPaused(self):
+        """Returns True if the queue is paused."""
+        return self.isAlive() and self._paused.isSet()
+        #
+    def stop(self):
+        """Stops the queue properly."""
+        if not self.isAlive():
+            return False
+        self._stopping.set()
+        return self._stopped.wait(self._timeout)
+        #
+    # Private methods #########################################################
+    def _run(self):
+        """A wrapper that runs the capture effectively."""
+        # nfqueue handlers
+        self._nfq_handle = libnfq.open_queue()
+        libnfq.unbind_pf(self._nfq_handle, self._sock_family)
+        libnfq.bind_pf(self._nfq_handle, self._sock_family)
+        self._c_handler = libnfq.HANDLER(self._callback)
+        self._nfq_connection_handle = libnfq.create_queue(
+            self._nfq_handle,
+            settings['queue_number'],
+            self._c_handler,
+            None)
+        libnfq.set_mode(self._nfq_connection_handle,
+                        libnfq.NFQNL_COPY_PACKET,
+                        self._snaplen)
+        # create a socket to receive the packets
+        s = socket.fromfd(libnfq.nfq_fd(libnfq.nfnlh(self._nfq_handle)),
+                          self._sock_family,
+                          self._sock_type)
+        s.settimeout(0.1)
+        # enter the main loop
+        logging_state_on()
+        Netfilter.apply_capture_filter()
+        logging_info("nfqueue started")
+        logging_state_restore()
+        self._started.set()
         while 1:
             try:
-                if more:
-                    prompt = sys.ps2
-                else:
-                    prompt = sys.ps1
-                try:
-                    line = self.raw_input("\001\033[1;34m\002%s\001\033[0m\002" % prompt)
-                    # Can be None if sys.stdin was redefined
-                    #encoding = getattr(sys.stdin, "encoding", None)
-                    #if encoding and not isinstance(line, unicode):
-                    #    line = line.decode(encoding)
-                except EOFError:
-                    self.write("\n")
+                data = s.recv(self._snaplen)
+                if not self.isAlive():
                     break
-                else:
-                    #more = self.push(line)
-                    self.runsource(line, '<console>')
-                    if line.strip() == 'exit()':
-                        break
-            except KeyboardInterrupt:
-                self.write("\nKeyboardInterrupt\n")
-                self.resetbuffer()
-                more = 0
+                libnfq.handle_packet(self._nfq_handle, data, len(data))
+            except:
+                pass
+        # if we go there then the queue is stopping, so destroy it properly
+        libnfq.destroy_queue(self._nfq_connection_handle)
+        libnfq.close_queue(self._nfq_handle)
         #
-    def runsource(self, source, filename):
-        """Interprets the command line."""
-        InteractiveConsole.runsource(self, source, filename)
-        """# sanitize the command line
-        source = re.sub(" +", " ", source).strip()
-        if source == "":
-            return
-        # split the command line
-        source_split = source.split(" ")
-        # look for the right command
-        for cmd in Command.available:
-            for name in cmd:
-                # try to extract the command name
-                result = re.search("^ *%s( |$)" % name, source.strip())
-                if result is None:
-                    continue
-                # try to run the command
-                try:
-                    eval(
-                        "%s(%s)" % (
-                            source_split[0],
-                            ", ".join([repr(arg) for arg in source_split[1:]])
-                        ),
-                        {source_split[0]: eval("Command.%s" % cmd[0])}
-                    )
-                except Exception, exception:
-                    sys.stdout.write(
-                        "%s\n" % exception.message
-                    )
+    def _callback(self, dummy1, dummy2, nfq_data, dummy3):
+        """Handles the packets received from Netfilter."""
+        try:
+            # dissect the packet
+            packet = self.dissector.dissect(self._nfq_connection_handle,
+                                            nfq_data)
+            if not packet:
                 return
-        else:
-            sys.stdout.write("%s: command not found\n" % source_split[0])
-        """
+            # apply the packet filter
+            if not packet.match(settings['packet_filter']):
+                packet.accept()
+                return
+            # store the packet
+            logging_info("nfqueue received packet #%s" % packet.identifier)
+            self.packets.append(packet)
+            # print the packet if needed
+            if settings['effective_verbose_level'] > 1:
+                logging_print(packet)
+            elif settings['effective_verbose_level'] > 0:
+                logging_print(repr(packet))
+            # build a list of items
+            items = packet.read_items()
+            if not items:
+                packet.accept()
+                return
+            # prepare http headers
+            host = '%s:%s' % (settings['web_server_host'],
+                              settings['web_server_port'])
+            post_headers = { 'Host'           : host,
+                             'User-Agent'     : __version__,
+                             'Accept-Encoding': 'identity', }
+            # send a post request to the local server through the web proxy
+            connection = httplib.HTTPConnection(settings['web_proxy'],
+                                                settings['web_proxy_port'],
+                                                False,
+                                                1)
+            connection.request('POST',
+                               '/edit-packet/%s' % packet.identifier,
+                               r(r' +').sub('', repr(items)),
+                               post_headers)
+            try:
+                # send the packet, but we don't need the response
+                connection.getresponse()
+            except:
+                pass
+        # accept the packet in case of error
+        except:
+            logging_exception()
+            full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
+            nfq_packet_id = full_msg_packet_hdr['packet_id']
+            data_length, data = libnfq.get_full_payload(nfq_data)
+            libnfq.set_pyverdict(self._nfq_connection_handle,
+                                 nfq_packet_id,
+                                 libnfq.NF_ACCEPT,
+                                 data_length,
+                                 data)
+        # flush buffers
+        finally:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        #
+    #
+
+###############################################################################
+# Interactive console
+###############################################################################
+
+class Proxyshark(InteractiveConsole):
+    """"""
+    # Default methods #########################################################
+    def __init__(self):
+        """"""
+        # initialize the interactive shell
+        self._stopping = Event()
+        self.default_completer = readline.get_completer()
+        readline.set_completer(self._completer)
+        load_history()
+        # readline settings
+        readline.set_history_length(10*5)
+        readline.parse_and_bind('set editing-mode vi')
+        readline.parse_and_bind('set keymap vi-command')
+        readline.parse_and_bind('"\vdraw": redraw-current-line')
+        readline.parse_and_bind('"\vauto": complete')
+        readline.parse_and_bind('"\veofl": end-of-line')
+        readline.parse_and_bind('TAB: "\veofl\vdraw\vauto\vauto"')
+        readline.parse_and_bind('RET: "\veofl\vdraw\n"')
+        readline.parse_and_bind('DEL: "\b\vdraw"')
+        readline.parse_and_bind('"\vback": backward-char')
+        readline.parse_and_bind('"\vforw": forward-char')
+        readline.parse_and_bind('"\vprev": previous-history')
+        readline.parse_and_bind('"\vnext": next-history')
+        readline.parse_and_bind('"\C-[[D": "\vback\vdraw"')
+        readline.parse_and_bind('"\C-[[C": "\vforw\vdraw"')
+        readline.parse_and_bind('"\C-[[A": "\vprev\vdraw"')
+        readline.parse_and_bind('"\C-[[B": "\vnext\vdraw"')
+        # environment
+        shared['nfqueue'] = NFQueue()
+        if settings['web_driven']:
+            shared['web_server'] = WebServer()
+        self.environ = {
+            'exit'   : lambda: None,
+            'nfqueue': shared['nfqueue'],
+            'q'      : shared['nfqueue'],
+            'start'  : self._cmd_start,
+            'stop'   : self._cmd_stop, }
+        InteractiveConsole.__init__(self, locals=self.environ)
+        #
+    # Public methods ##########################################################
+    def save_history():
+        """Saves command-line history to disk."""
+        history_path = os.path.expanduser('~/.proxyshark_history')
+        readline.write_history_file(history_path)
+        #
+
+    def load_history():
+        """Loads command-line history from disk."""
+        history_path = os.path.expanduser('~/.proxyshark_history')
+        if os.path.exists(history_path):
+            readline.read_history_file(history_path)
+        #
+    def main_loop(self):
+        """"""
+        try:
+            if settings['run_at_start']:
+                self._cmd_start()
+            self._interact("Welcome to %s" % __version__)
+            while not self._stopping.isSet():
+                try:
+                    # restore signal handling
+                    signal.signal(signal.SIGINT, handler_sigint)
+                    while not self._stopping.isSet():
+                        time.sleep(0.1)
+                # come back to the console in case of user interrupt
+                except KeyboardInterrupt:
+                    # disable signal handling
+                    signal.signal(signal.SIGINT, signal.SIG_IGN)
+                    self._interact()
+        except:
+            logging_exception()
+        try:
+            # restore signal handling
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except KeyboardInterrupt:
+            pass
+        # stop the capture
+        return self._cmd_stop()
+        #
+    # Private methods #########################################################
+    #
+    def _completer(self, text, index):
+        """"""
+        # exclude completion if the text is too short, and avoid printing
+        # hundreads of proposals when we end Ctrl-R with TAB
+        if len(text) in (0, 1):
+            return None
+        # return the result but exclude private members and members which
+        # contain uppercase characters
+        result = default_completer(text, index)
+        text_length = len(text)
+        private_member = result[text_length-1:text_length+1] == '._'
+        uppercase_char = r(r'[A-Z]').search(result)
+        if private_member or uppercase_char:
+            result = completer(text, index+1)
+        return result
+        #
+    def _interact(self, banner=None):
+        """"""
+        # 
+        logging_print("\001\033[0;34m\002%s" % banner if banner else "\r")
+        logging_print("<interactive mode - press Ctrl-D to jump in view mode>")
+        # 
+        while 1:
+            try:
+                logging_state_off()
+                line = self.raw_input("\001\033[1;34m\002>>>\001\033[0m\002 ")
+                encoding = getattr(sys.stdin, 'encoding', None)
+                if encoding and not isinstance(line, unicode):
+                    line = line.decode(encoding)
+            except EOFError:
+                save_history()
+                logging_state_on()
+                logging_print("\n<view mode - press Ctrl-C to jump in interactive mode>")
+                break
+            else:
+                if r(r'^\s*(exit)(\s*\(\s*\))?\s*$').match(line):
+                    save_history()
+                    self._stopping.set()
+                    return
+                else:
+                    self.runsource(line, '<console>')
+        #
+    def _cmd_start(self):
+        """"""
+        try:
+            result = shared['nfqueue'].start()
+            if result and settings['web_driven']:
+                result = shared['web_server'].start()
+            if result:
+                logging_info("capture started...")
+            return result
+        except:
+            logging_exception()
+        #
+    def _cmd_stop(self):
+        """"""
+        try:
+            result = shared['nfqueue'].stop()
+            if result and settings['web_driven']:
+                result = shared['web_server'].stop()
+            if result:
+                logging_info("capture stopped.")
+            return result
+        except:
+            logging_exception()
         #
     #
 
@@ -2186,17 +2470,16 @@ def print_usage():
 
         -h | --help
 
-        -l | --logging [<handler>][,<handler>][...]
-
         -v | --verbose
 
-        -e | --ethernet
+        -e | --ethernet-layer
 
-        -q | --queue-num <queue-num>
+        -q | --queue-number <queue-number>
 
-        -t | --tshark-path <tshark-path>
+        -t | --tshark-directory <tshark-directory>
 
-        -w | --web-driven [<bind-ip>]:[<bind-port>]:[<proxy-ip>]:[<proxy-port>]
+        -w | --web-driven [<web-server-host>]:[<web-server-port>]:
+                          [<web-proxy-host>]:[<web-proxy-port>]
 
         -c | --capture-filter <capture-filter>
 
@@ -2204,13 +2487,13 @@ def print_usage():
 
         -f | --field-filter <field-filter>
 
-        -r | --run
+        -r | --run-at-start
 
-        -b | --breakpoint <packet-filter>
+        -b | --default-breakpoint <packet-filter>
 
-        -a | --action <expression>
+        -a | --default-action <expression>
 
-        [<filename>]
+        [<default-script>]
 
 
         See https://code.google.com/p/proxyshark/ for further instructions.
@@ -2219,85 +2502,59 @@ def print_usage():
     logging_print(r(r'\n    ').sub('\n', usage))
     #
 
-if __name__ == '__main__':
-    # search a directory containing a tshark binary
+def process_arguments():
+    # configure the logging system
+    settings['real_verbose_level'] = (sys.argv.count('-v') +
+                                      sys.argv.count('--verbose'))
+    logging_level = { 0: logging.ERROR,
+                      1: logging.INFO,
+                      2: logging.DEBUG,
+    }.get(settings['real_verbose_level'], logging.DEBUG)
+    shared['logger'] = logging.getLogger()
+    shared['logger'].setLevel(logging_level)
+    handler = logging.StreamHandler()
+    formatter = LoggingFormatter("%%(asctime)s %s "
+                                 "Proxyshark(%%(process)s): "
+                                 "%%(threadName)s: "
+                                 "$COLOR[%%(levelname)s] "
+                                 "%%(message)s$RESET"
+                                 % socket.gethostname())
+    handler.setFormatter(formatter)
+    shared['logger'].addHandler(handler)
+    shared['logger'].addFilter(LoggingFilter())
+    settings['effective_verbose_level'] = settings['real_verbose_level']
+    logging_state_on()
+    # check if we have root permissions
+    if os.getuid() != 0:
+        logging_error("permission denied")
+        sys.exit(1)
+    # look for a directory containing a tshark binary
     locations = ['bin/%s/' % os.uname()[4]]
     locations += os.environ.get('PATH', '').split(os.pathsep)
     for location in locations:
         candidate = os.path.join(location, 'tshark')
         if os.path.isfile(candidate):
-            arg_tshark_path = os.path.dirname(candidate)
+            settings['tshark_directory'] = os.path.dirname(candidate)
             break
-    else:
-        raise RuntimeError("tshark was not found!") 
-    # other default values
-    arg_ethernet       = False
-    arg_queue_num      = 1234
-    arg_web_driven     = False
-    arg_bind_ip        = '127.0.0.1'
-    arg_bind_port      = 1234
-    arg_proxy_ip       = '127.0.0.1'
-    arg_proxy_port     = 8080
-    arg_capture_filter = ''
-    arg_packet_filter  = ''
-    arg_field_filter   = ''
-    arg_run            = False
-    arg_breakpoint     = ''
-    arg_action         = ''
-    arg_filename       = ''
-    # create various logging formatters
-    console_logging_formatter = ColorFormatter(
-        "%%(asctime)s %s "
-        "Proxyshark(%%(process)s): "
-        "%%(threadName)s: "
-        "$COLOR[%%(levelname)s] %%(message)s$RESET" %
-        socket.gethostname())
-    file_logging_formatter = logging.Formatter(
-        "%%(asctime)s %s "
-        "Proxyshark(%%(process)s): "
-        "%%(threadName)s: "
-        "[%%(levelname)s] %%(message)s" %
-        socket.gethostname())
-    syslog_logging_formatter = logging.Formatter(
-        "Proxyshark(%(process)s): "
-        "%(threadName)s: "
-        "[%(levelname)s] %(message)s")
-    # configure the logging system
-    verbose_level = sys.argv.count('-v') + sys.argv.count('--verbose')
-    logging_level = {
-        0: logging.ERROR,
-        1: logging.INFO,
-        2: logging.DEBUG,
-    }.get(verbose_level, logging.DEBUG)
-    real_verbose_level = verbose_level
-    logger = logging.getLogger()
-    logger.setLevel(logging_level)
-    # create a default console handler
-    handler = logging.StreamHandler()
-    handler.setFormatter(console_logging_formatter)
-    logger.addHandler(handler)
-    # check if we have root permission
-    if os.getuid() != 0:
-        logging_error("permission denied")
-        sys.exit(1)
     # parse the command line arguments
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'hl:veq:t:w:c:p:f:rb:a:',
+                                   'hveq:t:w:c:p:f:rb:a:',
                                    ['help',
-                                    'logging=',
                                     'verbose',
-                                    'ethernet',
-                                    'queue-num=',
-                                    'tshark-path=',
+                                    'ethernet-layer',
+                                    'queue-number=',
+                                    'tshark-directory=',
                                     'web-driven=',
                                     'capture-filter=',
                                     'packet-filter=',
                                     'field-filter=',
-                                    'run',
-                                    'breakpoint=',
-                                    'action=',])
-    except getopt.GetoptError:
+                                    'run-at-start',
+                                    'default-breakpoint=',
+                                    'default-action=',])
+    except getopt.GetoptError, error:
+        logging_error(error.msg)
+        logging_print("")
         print_usage()
         sys.exit(1)
     for opt, arg in opts:
@@ -2305,308 +2562,190 @@ if __name__ == '__main__':
         if opt in ['-h', '--help']:
             print_usage()
             sys.exit(0)
-        # -l | --logging [<handler>][,<handler>][...]
-        elif opt in ['-l', '--logging']:
-            handlers = []
-            parsing_success = True
-            nb_console_handlers = 0
-            for handler_arg in arg.split(','):
-                handler_type, _, handler_target = handler_arg.partition('=')
-                # create a new console handler
-                if handler_type == 'console':
-                    if nb_console_handlers > 0:
-                        continue
-                    if handler_target:
-                        logging_error("invalid logging handler argument %s"
-                                      % trunc_repr('=%s' % handler_target))
-                        parsing_success = False
-                        continue
-                    else:
-                        handler = logging.StreamHandler()
-                        handler.setFormatter(console_logging_formatter)
-                        handlers.append(handler)
-                        nb_console_handlers += 1
-                # create a new file handler
-                elif handler_type == 'file':
-                    # default filename
-                    if not handler_target:
-                        handler_target = './proxyshark.log'
-                    # check if the file can be opened
-                    try:
-                        open(handler_target, 'a').close()
-                    except IOError, error:
-                        logging_error("can't open log file %s: %s"
-                                      % (trunc_repr(handler_target),
-                                         error.strerror.lower()))
-                        parsing_success = False
-                        continue
-                    # create the new handler
-                    handler = logging.FileHandler(handler_target)
-                    handler.setFormatter(file_logging_formatter)
-                    handlers.append(handler)
-                # create a new syslog handler
-                elif handler_type == 'syslog':
-                    # default target host and ip address
-                    if not handler_target:
-                        handler_target = '127.0.0.1:514'
-                    target_host, _, target_port = handler_target.partition(':')
-                    if not target_port:
-                        target_port = '514'
-                    # check the target host
-                    try:
-                        values = resolver.query(target_host)
-                        if values:
-                            target_host = str(values[0])
-                        else:
-                            logging_error("can't resolve %s"
-                                          % trunc_repr(target_host))
-                            parsing_success = False
-                            continue
-                    except:
-                        logging_error("can't resolve %s" %
-                                      trunc_repr(target_host))
-                        continue
-                    # check the target port
-                    try:
-                        target_port = int(target_port)
-                    except:
-                        logging_error("invalid port number %s"
-                                      % trunc_repr(target_port))
-                        parsing_success = False
-                        continue
-                    if target_port <= 0 or target_port > 65535:
-                        logging_error("invalid port number %s"
-                                      % trunc_repr(target_port))
-                        parsing_success = False
-                        continue
-                    # create the new handler
-                    address = (target_host, target_port)
-                    handler = logging.handlers.SysLogHandler(address)
-                    handler.setFormatter(syslog_logging_formatter)
-                    handlers.append(handler)
-                else:
-                    logging_error("invalid logging handler %s"
-                                  % trunc_repr(handler_arg))
-                    parsing_success = False
-                    continue
-            # remove the old handlers and add the new ones
-            if parsing_success:
-                for handler in logger.handlers:
-                    logger.removeHandler(handler)
-                for handler in handlers:
-                    logger.addHandler(handler)
-            else:
-                sys.exit(1)
         # -v | --verbose
         elif opt in ['-v', '--verbose']:
             # nothing to do here, already done above
             pass
         # -e | --ethernet
-        elif opt in ['-e', '--ethernet']:
-            arg_ethernet = True
-        # -q | --queue-num <queue-num>
-        elif opt in ['-q', '--queue-num']:
+        elif opt in ['-e', '--ethernet-layer']:
+            settings['ethernet_layer'] = True
+        # -q | --queue-number <queue-number>
+        elif opt in ['-q', '--queue-number']:
             if arg.isdigit() and int(arg) >= 0 and int(arg) <= 65535:
-                arg_queue_num = int(arg)
+                settings['queue_number'] = int(arg)
             else:
                 logging_error("invalid queue number %s" % trunc_repr(arg))
                 sys.exit(1)
-        # -t | --tshark-path <tshark-path>
-        elif opt in ['-t', '--tshart-path']:
-            tshark_path = os.path.join(arg, 'tshark')
-            if os.path.isfile(tshark_path):
-                arg_tshark_path = arg
-            elif not os.path.isdir(arg):
-                logging_error("directory %s does not exist!"
-                              % trunc_repr(tshark_path))
+        # -t | --tshark-dir <tshark-dir>
+        elif opt in ['-t', '--tshark-directory']:
+            candidate = os.path.join(arg, 'tshark')
+            if os.path.isfile(candidate):
+                settings['tshark_directory'] = os.path.dirname(candidate)
+            elif not os.path.isdir(candidate):
+                logging_error("directory %s does not exist"
+                              % trunc_repr(candidate))
                 sys.exit(1)
             else:
-                logging_error("directory %s does not contain a tshark binary!"
+                logging_error("directory %s does not contain a tshark binary"
                               % trunc_repr(arg))
                 sys.exit(1)
-        # -w | --web-driven [<bind-ip>]:[<bind-port>]:
-        #                   [<proxy-ip>]:[<proxy-port>]
-        elif opt == '-w':
+        # -w | --web-driven [<web-server-host>]:[<web-server-port>]:
+        #                   [<web-proxy-host>]:[<web-proxy-port>]
+        elif opt in ['-w', '--web-driven']:
             split = arg.split(':')
             if len(split) == 4:
-                # proxy ip
-                try:
-                    socket.inet_aton(split[0])
-                    arg_proxy_ip = split[0]
-                except socket.error:
-                    logging_error("invalid proxy ip")
+                # web server
+                if resolv(split[0]):
+                    settings['web_server_host'] = split[0]
+                else:
+                    logging_error("invalid web server host")
                     sys.exit(1)
-                # proxy port
+                # web server port
                 if (split[1].isdigit() and
                     int(split[1]) > 0 and int(split[1]) <= 65535
                 ):
-                    arg_proxy_port = int(split[1])
+                    settings['web_server_port'] = int(split[1])
                 else:
-                    logging_error("invalid proxy port")
+                    logging_error("invalid web server port")
                     sys.exit(1)
-                # server ip
-                try:
-                    socket.inet_aton(split[2])
-                    arg_bind_ip = split[2]
-                except:
-                    logging_error("invalid server ip")
+                # web proxy
+                if resolv(split[2]):
+                    settings['web_proxy'] = split[2]
+                else:
+                    logging_error("invalid web proxy host")
                     sys.exit(1)
-                # server port
+                # web proxy port
                 if (split[3].isdigit() and
                     int(split[3]) > 0 and int(split[3]) <= 65535
                 ):
-                    arg_bind_port = int(split[3])
+                    settings['web_proxy_port'] = int(split[3])
                 else:
-                    logging_error("invalid server port")
+                    logging_error("invalid web proxy port")
                     sys.exit(1)
+                # 
+                settings['web_driven'] = True
             else:
-                logging_error("invalid proxy and server specification")
+                logging_error("invalid web server/proxy specifications")
                 sys.exit(1)
         # -c | --capture-filter <capture-filter>
         elif opt in ['-c', '--capture-filter']:
-            pass
+            settings['capture_filter'] = arg
         # -p | --packet-filter <packet-filter>
         elif opt in ['-p', '--packet-filter']:
-            pass
+            settings['packet_filter'] = arg
         # -f | --field-filter <field-filter>
         elif opt in ['-f', '--field-filter']:
+            settings['field_filter'] = arg
+        # -r | --run-at-start
+        elif opt in ['-r', '--run-at-start']:
+            settings['run_at_start'] = True
+        # -b | --default-breakpoint <packet-filter>
+        elif opt in ['-b', '--default-breakpoint']:
             pass
-        # -r | --run
-        elif opt in ['-r', '--run']:
-            pass
-        # -b | --breakpoint <packet-filter>
-        elif opt in ['-b', '--breakpoint']:
-            pass
-        # -a | --action <expression>
-        elif opt in ['-a', '--action']:
+        # -a | --default-action <expression>
+        elif opt in ['-a', '--default-action']:
             pass
         else:
             logging_error("unknown argument %s" % trunc_repr(opt))
             print_usage()
             sys.exit(1)
-    # other arguments
+    # ensure that we have a tshark directory
+    if not settings['tshark_directory']:
+        logging_error("tshark was not found")
+    # default capture filter based on the web server/proxy specifications
+    if settings['web_driven'] and not settings['capture_filter']:
+        settings['capture_filter'] = (
+            '(not (src host %s and tcp src port %s) and '
+            ' not (dst host %s and tcp dst port %s) and '
+            ' not (src host %s and tcp src port %s) and '
+            ' not (dst host %s and tcp dst port %s))'
+            % (settings['web_server_host'],
+               settings['web_server_port'],
+               settings['web_server_host'],
+               settings['web_server_port'],
+               settings['web_proxy'],
+               settings['web_proxy_port'],
+               settings['web_proxy'],
+               settings['web_proxy_port']))
+    # default script to be run at start
     if len(args) > 0:
-        arg_capture_filter = args[0]
-        if len(args) > 1:
-            arg_packet_filter = args[1]
-            if len(args) > 2:
-                arg_field_filter = args[2]
+        settings['default_script'] = args[0]
     # are we in quiet mode?
-    if verbose_level == 0:
+    if settings['effective_verbose_level'] == 0:
         logging_print("Running in quiet mode (use -h for help)...")
     # print current settings
-    logging_info("current settings:")
-    logging_info("- verbose level  = %s" % verbose_level)
-    logging_info("- tshark folder  = %s" % trunc_repr(arg_tshark_path))
-    logging_info("- queue number   = %s" % arg_queue_num)
-    logging_info("- web proxy      = %s:%s" % (arg_proxy_ip, arg_proxy_port))
-    logging_info("- web server     = %s:%s" % (arg_bind_ip, arg_bind_port))
-    logging_info("- capture filter = %s" % trunc_repr(arg_capture_filter))
-    logging_info("- packet filter  = %s" % trunc_repr(arg_packet_filter))
-    logging_info("- field filter   = %s" % trunc_repr(arg_field_filter))
-    print 
-    # start the netfilter queue
-    try:
-        nfqueue = NFQueue(arg_tshark_path, arg_queue_num, arg_proxy_ip,
-                          arg_proxy_port, arg_bind_ip, arg_bind_port,
-                          arg_capture_filter, arg_packet_filter,
-                          arg_field_filter)
-        nfqueue.start()
-    except Exception, exception:
-        logging_exception(exception)
-        sys.exit(1)
-    # run the local web server
-    try:
-        web_server = WebServer(arg_bind_ip, arg_bind_port)
-        web_server.start()
-    except Exception, exception:
-        logging_exception(exception)
-        nfqueue.stop()
-        sys.exit(1)
-    else:
-        try:
-            # provide a function to jump in interactive mode
-            console = Console(nfqueue)
-            def interactive_mode(banner="\r"):
-                logging_disable()
-                time.sleep(0.5)
-                mode = "<interactive mode - press Ctrl-D to jump in view mode>"
-                text = "\033[0;34m%s\n\033[37m%s\033[0m"% (banner, mode)
-                console.interact(text)
-                save_history()
-                logging_enable()
-                #
-            # initialize the interactive console
-            load_history()
-            readline.set_history_length(10*5)
-            readline.parse_and_bind('set editing-mode vi')
-            readline.parse_and_bind('set keymap vi-command')
-            readline.parse_and_bind('"\vdraw": redraw-current-line')
-            readline.parse_and_bind('"\vauto": complete')
-            readline.parse_and_bind('"\veofl": end-of-line')
-            readline.parse_and_bind('TAB: "\veofl\vdraw\vauto\vauto"')
-            readline.parse_and_bind('RET: "\veofl\vdraw\n"')
-            readline.parse_and_bind('DEL: "\b\vdraw"')
-            readline.parse_and_bind('"\vback": backward-char')
-            readline.parse_and_bind('"\vforw": forward-char')
-            readline.parse_and_bind('"\vprev": previous-history')
-            readline.parse_and_bind('"\vnext": next-history')
-            readline.parse_and_bind('"\C-[[D": "\vback\vdraw"')
-            readline.parse_and_bind('"\C-[[C": "\vforw\vdraw"')
-            readline.parse_and_bind('"\C-[[A": "\vprev\vdraw"')
-            readline.parse_and_bind('"\C-[[B": "\vnext\vdraw"')
-            # initialize auto completion
-            default_completer = readline.get_completer()
-            def completer(text, index):
-                # exclude completion if the text is too short, and avoid
-                # printing hundreads of proposals when we end Ctrl-R with TAB
-                if len(text) in (0, 1):
-                    return None
-                # return the result but exclude private members and members
-                # which contain uppercase characters
-                result = default_completer(text, index)
-                text_length = len(text)
-                private_member = result[text_length-1:text_length+1] == '._'
-                uppercase_char = r(r'[A-Z]').search(result)
-                if private_member or uppercase_char:
-                    result = completer(text, index+1)
-                return result
-                #
-            #readline.set_completer(completer)
-            # start within the console
-            interactive_mode(__banner__)
-            # enter the main loop
-            mode = "<view mode - press Ctrl-C to jump in interactive mode>"
-            while nfqueue.isAlive():
-                try:
-                    logging_print(mode)
-                    # restore signal handling
-                    signal.signal(signal.SIGINT, handler_sigint)
-                    while nfqueue.isAlive():
-                        if not web_server.isAlive():
-                            break
-                        time.sleep(0.5)
-                # come back to the console in case of user interrupt
-                except KeyboardInterrupt:
-                    # disable signal handling
-                    signal.signal(signal.SIGINT, signal.SIG_IGN)
-                    interactive_mode()
-            time.sleep(0.5)
-        except Exception, exception:
-            logging_exception(exception)
-        try:
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
-        except KeyboardInterrupt:
-            pass
-        # stop the threads
-        web_server.stop()
-        nfqueue.stop()
-    logging_info("done.")
-    logging.shutdown()
-    # kill the main process
-    os.kill(os.getuid(), signal.SIGINT)
-    time.sleep(1)
-    os.kill(os.getuid(), signal.SIGKILL)
-    sys.exit(0)
+    logging_info("""
+        current settings:
+        - verbose level      = %s
+        - ethernet layer     = %s
+        - queue number       = %s
+        - tshark directory   = %s
+        - web driven         = %s%s
+        - capture filter     = %s
+        - packet filter      = %s
+        - field filter       = %s
+        - run at start       = %s
+        - default breakpoint = %s
+        - default action     = %s
+        - default script     = %s
+    """ % (
+        settings['real_verbose_level'],
+        settings['ethernet_layer'],
+        settings['queue_number'],
+        trunc_repr(settings['tshark_directory']),
+        settings['web_driven'],
+        """\n - web server         = %s:%s
+              - web proxy          = %s:%s
+        """ % (
+            settings['web_server_host'],
+            settings['web_server_port'],
+            settings['web_proxy'],
+            settings['web_proxy_port'],
+        ) if settings['web_driven'] else "",
+        trunc_repr(settings['capture_filter']),
+        trunc_repr(settings['packet_filter']),
+        trunc_repr(settings['field_filter']),
+        settings['run_at_start'],
+        settings['default_breakpoint'],
+        settings['default_action'],
+        settings['default_script'],
+    ))
     #
+
+if __name__ == '__main__':
+    try:
+        process_arguments()
+
+        Netfilter.apply_capture_filter()
+        Netfilter.remove_rules()
+        sys.exit()
+
+        result = None
+        q = NFQueue()
+
+        print q.start()
+        time.sleep(1)
+        print q.stop()
+        print repr(q.packets)
+        time.sleep(2)
+        print q.start()
+        time.sleep(2)
+        print q.stop()
+        print repr(q.packets)
+
+        sys.exit()
+
+        result = Proxyshark().main_loop()
+        retcode = 0
+    except:
+        logging_exception()
+        retcode = 1
+    finally:
+        logging.shutdown()
+        if not result:
+            logging_warning("unable to destroy the queue properly")
+            os.kill(os.getuid(), signal.SIGINT)
+            time.sleep(1)
+            os.kill(os.getuid(), signal.SIGKILL)
+        sys.exit(retcode)
 
