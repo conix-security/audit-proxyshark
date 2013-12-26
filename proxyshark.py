@@ -21,6 +21,8 @@
 #
 
 #TODO: make packet identifiers start at 0
+#TODO: pause and cont commands
+#TODO: make '()' not mandatory
 
 __version__ = 'Proxyshark 1.0b'
 
@@ -2092,7 +2094,7 @@ class NFQueue(Thread):
         self.dissector = None
         self.web_server = None
         self.packets = DissectedPacketList()
-        self._timeout = 2
+        self._timeout = 5
         # interesting events
         self._started = Event()
         self._stopping = Event()
@@ -2177,9 +2179,10 @@ class NFQueue(Thread):
         return self.isAlive() and self._paused.isSet()
         #
     def pause(self, new_status):
-        """Pause or continue packet processing."""
+        """Pause or continue the current capture."""
         if self.isAlive() and self._paused.isSet() != new_status:
             self._paused.set() if new_status else self._paused.clear()
+        return True
         #
     def stop(self):
         """Stop the queue properly."""
@@ -2243,7 +2246,7 @@ class NFQueue(Thread):
                 packet.accept()
                 return
             self.packets.append(packet)
-            logging_info("nfqueue received packet #%s" % packet.identifier)
+            logging_debug("nfqueue received packet #%s" % packet.identifier)
             if settings['effective_verbose_level'] > 1:
                 logging_print(packet)
             elif settings['effective_verbose_level'] > 0:
@@ -2330,7 +2333,9 @@ class InteractiveShell(InteractiveConsole):
             'nfqueue': self.nfqueue,
             'q'      : self.nfqueue,
             'start'  : self._cmd_start,
-            'stop'   : self._cmd_stop, }
+            'stop'   : self._cmd_stop,
+            'pause'  : self._cmd_pause,
+            'cont'   : self._cmd_cont, }
         InteractiveConsole.__init__(self, locals=self.environ)
         #
     def interact(self):
@@ -2340,7 +2345,11 @@ class InteractiveShell(InteractiveConsole):
             if settings['run_at_start']:
                 self._cmd_start()
             # start in interactive mode
-            self._interact("Welcome to %s" % __version__)
+            if settings['run_at_start']:
+                logging_print("<view mode - press Ctrl-C to jump "
+                              "in interactive mode>")
+            else:
+                self._interact("Welcome to %s" % __version__)
             while not self._stopping.isSet():
                 # view mode
                 try:
@@ -2359,7 +2368,7 @@ class InteractiveShell(InteractiveConsole):
         except KeyboardInterrupt:
             pass
         # stop the capture
-        return self._cmd_stop() if self.nfqueue.isAlive() else True
+        return self._cmd_stop() if self.nfqueue.isAlive() else 0
         #
     # Private methods #########################################################
     def _load_history(self):
@@ -2391,23 +2400,27 @@ class InteractiveShell(InteractiveConsole):
         #
     def _interact(self, banner=None):
         """Handle one session in interactive mode (until Ctrl-D is pressed)."""
+        # print the banner
         logging_print("\001\033[0;34m\002%s" % banner if banner else "\r")
         logging_print("<interactive mode - press Ctrl-D to jump "
                       "in view mode>")
         while 1:
             try:
+                # wait next command from the user
                 logging_state_off()
                 line = self.raw_input("\001\033[1;34m\002>>>\001\033[0m\002 ")
                 encoding = getattr(sys.stdin, 'encoding', None)
                 if encoding and not isinstance(line, unicode):
                     line = line.decode(encoding)
             except EOFError:
+                # ctrl-d was pressed, switch to view mode
                 self._save_history()
                 logging_state_on()
                 logging_print("\n<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
                 break
             else:
+                # run the command
                 if r(r'^\s*(exit)(\s*\(\s*\))?\s*$').match(line):
                     self._save_history()
                     self._stopping.set()
@@ -2431,6 +2444,26 @@ class InteractiveShell(InteractiveConsole):
             result = self.nfqueue.stop()
             if result:
                 logging_info("capture stopped.")
+            return 0 if result else 1
+        except:
+            logging_exception()
+        #
+    def _cmd_pause(self):
+        """"""
+        try:
+            result = self.nfqueue.pause(True)
+            if result:
+                logging_info("capture paused")
+            return 0 if result else 1
+        except:
+            logging_exception()
+        #
+    def _cmd_cont(self):
+        """"""
+        try:
+            result = self.nfqueue.pause(False)
+            if result:
+                logging_info("capture continuing...")
             return 0 if result else 1
         except:
             logging_exception()
@@ -2696,14 +2729,13 @@ def process_arguments():
 if __name__ == '__main__':
     try:
         process_arguments()
-        result = InteractiveShell().interact()
-        retcode = 0
+        retcode = InteractiveShell().interact()
     except:
         logging_exception()
         retcode = 1
     finally:
         logging.shutdown()
-        if retcode > 0 or not result:
+        if retcode > 0:
             logging_warning("Unable to destroy the queue properly")
             os.kill(os.getuid(), signal.SIGINT)
             time.sleep(1)
