@@ -25,7 +25,6 @@
 #TODO: generate statistics about captured packets
 #TODO: print status after each command
 #TODO: implement .where(), .select(), .group(), .sort(), max(), min(), ...
-#TODO: autocompletion
 
 __version__ = 'Proxyshark 1.0b'
 
@@ -200,7 +199,7 @@ def logging_state_restore():
 def _logging_exception():
     """Print the last exception and the associated stack traceback."""
     # retrieve information about the last exception
-    exc_type, exc_msg, exc_tb = sys.exc_info()
+    exc_type, exc, exc_tb = sys.exc_info()
     findings = r(r"^<\w+\s'\w+\.(\w+)'>$").findall(str(exc_type))
     exc_type = findings[0] if findings else 'Exception'
     stack = traceback.extract_tb(exc_tb)
@@ -210,11 +209,14 @@ def _logging_exception():
             break
     else:
         filename, lineno, function, _ = stack[0]
+    if exc_type == 'ParseException' and exc.loc:
+        exc.msg = r(r' at .*$').sub('', exc.msg)
+        exc.msg += ' at %s' % trunc_repr(exc.line[exc.loc:])
     logging_error("%s in %s: %s() => %s at line %s"
                   % (exc_type,
                      filename,
                      function,
-                     exc_msg,
+                     exc,
                      lineno))
     # in debug mode, print the stack traceback
     if settings['effective_verbose_level'] > 1:
@@ -236,13 +238,13 @@ def _logging_exception():
                               line))
     #
 
-def _logging_print(string):
+def _logging_print(string=''):
     """Print a raw string to "standard error" if logging is enabled."""
     if shared['logging']:
         _logging_raw(string)
     #
 
-def _logging_raw(string):
+def _logging_raw(string=''):
     """Print a raw string to "standard error"."""
     sys.stderr.write("\001\033[0m\002%s\001\033[0m\002\n" % string)
     sys.stderr.flush()
@@ -270,7 +272,7 @@ logging_print     = _logging_print
 logging_raw       = _logging_raw
 
 ###############################################################################
-# Utility functions
+# Functions
 ###############################################################################
 
 #@cached
@@ -314,6 +316,7 @@ def network_devices(n=None):
 #@cached
 def resolv(hostname):
     """Resolve a given hostname."""
+    hostname = str(hostname)
     if r(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').match(hostname):
         return [hostname]
     try:
@@ -347,7 +350,7 @@ def trunc(string, max_length=50):
 
 def trunc_repr(string, max_length=50):
     """Return the truncated representation of a given string."""
-    default = repr(string)
+    default = repr(str(string))
     if len(default) > max_length:
         result = '%s...%s' % (default[:max_length-4].strip(), default[0])
     else:
@@ -410,6 +413,13 @@ class Netfilter:
     _existing_chains = []
     # Public methods ##########################################################
     @staticmethod
+    def check_syntax(capture_filter):
+        """Check the syntax of the given capture filter."""
+        parser = Netfilter._capture_filter_parser()
+        tokens = tuple(parser.parseString(capture_filter))
+        Netfilter._process_boolean(tokens, Netfilter._process_keyword)
+        #
+    @staticmethod
     def apply_capture_filter():
         """Generate and apply Netfilter rules based on the current capture
         filter. A rule is a tuple composed of a chain, a condition ('iptables'
@@ -419,7 +429,7 @@ class Netfilter:
         capture_filter = settings['capture_filter']
         logging_info("parsing capture filter %s" % trunc_repr(capture_filter))
         parser = Netfilter._capture_filter_parser()
-        tokens = parser.parseString(capture_filter)
+        tokens = tuple(parser.parseString(capture_filter))
         rules = Netfilter._process_boolean(tokens, Netfilter._process_keyword)
         # apply the rules
         logging_info("applying netfilter rules")
@@ -504,7 +514,9 @@ class Netfilter:
         # create custom values
         keywords = ('not and or in out src dst '
                     'dev host net port ip icmp tcp udp')
-        name     = NotAny(oneOf(keywords) + (White() | StringEnd()))
+        name     = NotAny(Optional('(') +
+                          oneOf(keywords) +
+                          (')' | White() | StringEnd()))
         name    += Word(initChars=alphas, bodyChars=alphanums+'-._')
         ip       = Combine(Word(nums, max=3) + '.' +
                            Word(nums, max=3) + '.' +
@@ -531,7 +543,6 @@ class Netfilter:
     def _process_boolean(tokens, callback_func, callback_args=None):
         """Handle tokens describing a boolean expression. We must provide a
         callback function to handle the operands (keywords or values)."""
-        tokens = tuple(tokens)
         # shortcut for recursive calls
         recurse = lambda tokens: Netfilter._process_boolean(tokens,
                                                             callback_func,
@@ -622,7 +633,7 @@ class Netfilter:
             return rules
         # if we have a single operand, process it with the callback function
         # with or without arguments
-        elif callback_args:
+        if callback_args:
             return callback_func(tokens, callback_args)
         else:
             return callback_func(tokens)
@@ -634,9 +645,9 @@ class Netfilter:
         # if we have a single string it should be a protocol, it works also if
         # we have no filter at all
         if check_tokens(tokens, (basestring,)) == 1:
-            if tokens[0] in ('ip', 'any'):
+            if tokens[0] in ['ip', 'any']:
                 condition = '' # nothing to do
-            elif tokens[0] in ('icmp', 'tcp', 'udp'):
+            elif tokens[0] in ['icmp', 'tcp', 'udp']:
                 condition = '-p %s' % tokens[0]
             else:
                 raise ParseException(trunc_repr(tokens))
@@ -813,6 +824,11 @@ class PacketFilter:
     """A set of static methods to handle packet filters."""
     # Public methods ##########################################################
     @staticmethod
+    def check_syntax(packet_filter):
+        """Check the syntax of the given packet filter."""
+        PacketFilter._tokens_from_packet_filter(packet_filter)
+        #
+    @staticmethod
     def evaluate(packet, packet_filter):
         """Evaluate the given packet filter on the given packet. The result
         could be either a boolean value, a field or a set of fields depending
@@ -875,7 +891,6 @@ class PacketFilter:
     @staticmethod
     def _process_boolean(tokens, packet):
         """Handle tokens describing a boolean expression."""
-        tokens = tuple(tokens)
          # shortcut for recursive calls
         recurse = PacketFilter._process_boolean
         # if we have a single list of tokens, process the elements recursively
@@ -900,7 +915,6 @@ class PacketFilter:
     def _process_condition(tokens, packet):
         """Handle tokens describing a condition (an item, an optional operator
         and an optional value)."""
-        tokens = tuple(tokens)
         # shortcut for recursive calls
         recurse = PacketFilter._process_condition
         # associate a function to each available operator
@@ -1039,7 +1053,7 @@ class PacketFilter:
     def _tokens_from_packet_filter(packet_filter):
         """Generate tokens from a given packet filter (see 'evaluate()')."""
         parser = PacketFilter._packet_filter_parser()
-        tokens = parser.parseString(packet_filter)
+        tokens = tuple(parser.parseString(packet_filter))
         return tokens
         #
     #
@@ -1704,7 +1718,7 @@ class Dissector:
         #
     def dissect(self, nfq_handle, nfq_data):
         """Return a tuple composed of a short description and a 'etree.Element'
-        instance describing the given packet."""
+        describing the given packet."""
         if not self.isAlive():
             return None
         # get raw data and packet length
@@ -2198,10 +2212,26 @@ class NFQueue(Thread):
         """Return True if a capture is running."""
         return self.isAlive() and not self.isPaused()
         #
-    def pause(self, new_status):
-        """Pause or continue the current capture."""
-        if self.isAlive() and self._paused.isSet() != new_status:
-            self._paused.set() if new_status else self._paused.clear()
+    def pause(self):
+        """Pause the current capture."""
+        if not self.isAlive():
+            logging_warning("nfqueue not started")
+            return False
+        if not self.isRunning():
+            logging_warning("nfqueue already paused")
+            return False
+        self._paused.set()
+        return True
+        #
+    def cont(self):
+        """Continue the current capture."""
+        if not self.isAlive():
+            logging_warning("nfqueue not started")
+            return False
+        if self.isRunning():
+            logging_warning("nfqueue already running")
+            return False
+        self._paused.clear()
         return True
         #
     def stop(self):
@@ -2218,7 +2248,7 @@ class NFQueue(Thread):
         #
     # Private methods #########################################################
     def _run(self):
-        """A wrapper that runs the capture effectively."""
+        """A wrapper that runs a new capture effectively."""
         # nfqueue handlers
         self._nfq_handle = libnfq.open_queue()
         libnfq.unbind_pf(self._nfq_handle, self._sock_family)
@@ -2321,11 +2351,12 @@ class NFQueue(Thread):
 ###############################################################################
 
 class Console(InteractiveConsole):
-    """An interactive shell to use Proxyshark from the command line."""
+    """An interactive console to use Proxyshark from the command line."""
     # Public methods ##########################################################
     def __init__(self):
-        """Create a new interactive shell."""
+        """Create a new interactive console."""
         # initialization
+        self.nfqueue = NFQueue()
         self._default_completer = readline.get_completer()
         readline.set_completer(self._completer)
         self._load_history()
@@ -2349,38 +2380,39 @@ class Console(InteractiveConsole):
         readline.parse_and_bind('"\C-[[C": "\vforw\vdraw"')
         readline.parse_and_bind('"\C-[[A": "\vprev\vdraw"')
         readline.parse_and_bind('"\C-[[B": "\vnext\vdraw"')
-        # shell environment
-        self.nfqueue = NFQueue()
-        self.environ = {
-            'help'      : self._cmd_help,
-            'h'         : self._cmd_help,
-            'info'      : self._cmd_info,
-            'i'         : self._cmd_info,
-            'set'       : self._cmd_set,
-            'run'       : self._cmd_run,
-            'r'         : self._cmd_run,
-            'pause'     : self._cmd_pause,
-            'p'         : self._cmd_pause,
-            'continue'  : self._cmd_continue,
-            'c'         : self._cmd_continue,
-            'stop'      : self._cmd_stop,
-            's'         : self._cmd_stop,
-            'nfqueue'   : self.nfqueue,
-            'queue'     : self.nfqueue,
-            'q'         : self.nfqueue,
-            'packet'    : None,
-            'pkt'       : None,
-            'flush'     : self._cmd_flush, }
-        InteractiveConsole.__init__(self, locals=self.environ)
+        # build the environment
+        self.commands = {}
+        self.docstrings = {}
+        for method in dir(Console):
+            # is it really a command?
+            findings = r(r'^_cmd_(.*)$').findall(method)
+            if not findings:
+                continue
+            command = findings[0]
+            # retrieve the doc string (short version and full text)
+            docstring = eval('self.%s.__doc__' % method)
+            docstring_short, _, text = docstring.partition('\n\n')
+            docstring_short = r(r'\n[^\n]\s*').sub(' ', docstring_short)
+            text = r(r'(^|\n) {8}').sub('\g<1>    ', text)
+            # retrieve shortcuts, parameters and title
+            regex = r'^\s*([a-z|]+)\s*(.*?)\s*:\s*(.*?)\s*$'
+            findings = r(regex).findall(docstring_short)
+            if not findings:
+                continue
+            shortcuts, parameters, title = findings[0]
+            # store commands and doc strings
+            for shortcut in shortcuts.split('|'):
+                self.commands[shortcut] = eval('self.%s' % method)
+                self.docstrings[shortcut] = (shortcuts, parameters, title,
+                                             text)
+        InteractiveConsole.__init__(self, locals=self.commands)
         #
     def interact(self):
-        """Handle view mode and interactive mode."""
+        """Handle switching between view mode and interactive mode."""
         try:
-            # run capture at start if needed
+            # run capture and start in interactive mode if needed
             if settings['run_at_start']:
-                self._cmd_start()
-            # start in interactive mode
-            if settings['run_at_start']:
+                self._cmd_run()
                 logging_print("<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
             else:
@@ -2402,8 +2434,8 @@ class Console(InteractiveConsole):
             signal.signal(signal.SIGINT, signal.SIG_IGN)
         except KeyboardInterrupt:
             pass
-        # stop the capture
-        return self._cmd_stop() if self.nfqueue.isAlive() else 0
+        # stop the capture and quit
+        return self._cmd_stop() if self.nfqueue.isAlive() else True
         #
     # Private methods #########################################################
     def _load_history(self):
@@ -2419,22 +2451,34 @@ class Console(InteractiveConsole):
         #
     def _completer(self, text, index):
         """Complete user's input automatically when pressing TAB key."""
-        # exclude completion if text is too short, and avoid printing
-        # hundreads of proposals when we end ctrl-d with tab
+        # exclude completion if text is too short
         if len(text) in (0, 1):
             return None
-        # return the result but exclude private members and members which
-        # contain uppercase characters
         result = self._default_completer(text, index)
-        text_length = len(text)
-        private_member = result[text_length-1:text_length+1] == '._'
-        uppercase_char = r(r'[A-Z]').search(result)
-        if private_member or uppercase_char:
-            result = self._completer(text, index+1)
-        return result
+        if result:
+            # exclude private members and those containing uppercase characters
+            text_length = len(text)
+            private_member = result[text_length-1:text_length+1] == '._'
+            uppercase_char = r(r'[A-Z]').search(result)
+            if private_member or uppercase_char:
+                result = self._completer(text, index+1)
+            return result
+        else:
+            # append custom commands to the results
+            default_results_max_length = 1024
+            default_results = [self._default_completer(text, i) for i
+                               in range(default_results_max_length)]
+            result_index = index - default_results.index(None)
+            results = ['%s(' % key for key
+                       in self.commands.keys()
+                       if key.startswith(text)]
+            if result_index < len(results):
+                return results[result_index]
+            else:
+                return None
         #
     def _command_parser(self):
-        """"""
+        """Return a parser for the custom commands."""
         printable = alphanums + string.punctuation
         command   = Word(string.ascii_lowercase)
         argument  = quotedString(printable + ' ') | Word(printable)
@@ -2442,21 +2486,18 @@ class Console(InteractiveConsole):
         return StringStart() + parser + StringEnd()
         #
     def _interact(self, banner=None):
-        """Handle one session in interactive mode (until Ctrl-D is pressed)."""
+        """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
         logging_print("\001\033[0;34m\002%s" % banner if banner else "\r")
         logging_print("<interactive mode - press Ctrl-D to jump "
                       "in view mode>")
         while 1:
             try:
-                # wait next command from the user
+                # wait for the next command from the user
                 logging_state_off()
                 line = self.raw_input("\001\033[1;34m\002>>>\001\033[37m\002 ")
                 sys.stdout.write("\001\033[0m\002")
                 sys.stdout.flush()
-                encoding = getattr(sys.stdin, 'encoding', None)
-                if encoding and not isinstance(line, unicode):
-                    line = line.decode(encoding)
             except EOFError:
                 # ctrl-d was pressed, switch to view mode
                 self._save_history()
@@ -2464,17 +2505,16 @@ class Console(InteractiveConsole):
                 logging_print("\n<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
                 break
-            else:
-                # run the command
+            for line in line.split(';'):
+                # parse the line and run the appropriate command
                 try:
                     parser = self._command_parser()
-                    tokens = parser.parseString(line)
-                    tokens = tuple(tokens)
-                    if len(tokens) == 1 and tokens[0] in ['exit', 'x']:
+                    tokens = tuple(parser.parseString(line))
+                    if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
                         self._save_history()
                         self._stopping.set()
-                        break
-                    command = 'self.%s' % self.environ[tokens[0]].__name__
+                        return
+                    command = 'self.%s' % self.commands[tokens[0]].__name__
                     arguments = []
                     for token in tokens[2:]:
                         if token.startswith('"') and token.endswith('"'):
@@ -2492,53 +2532,117 @@ class Console(InteractiveConsole):
                         logging_exception()
         #
     def _cmd_help(self, command=None):
-        """"""
-        logging_raw("NotImplemented")
+        """h|help [<command>] : print a short help describing the available
+        commands
+
+        <command> : you can give an optional command name to get detailed
+                    description about it"""
+        # build a list of selected commands
+        commands = [command] if command else ['help', 'info', 'set', 'run',
+                                              'pause', 'cont', 'stop',
+                                              'nfqueue', 'packet', 'flush']
+        # check commands availability and retrieve max length of the left part
+        max_length = 0
+        for command in commands:
+            if command in self.docstrings:
+                shortcuts, parameters, title, text = self.docstrings[command]
+                length = len(shortcuts) + len(parameters) + 1
+                if length > max_length:
+                    max_length = length
+            else:
+                logging_error("command %s does not exist"
+                              % trunc_repr(command))
+                return
+        # print doc strings of selected commands
+        logging_state_on()
+        for command in commands:
+            shortcuts, parameters, title, text = self.docstrings[command]
+            docstring = (('%%-%ss : %%s' % max_length)
+                         % ('%s %s' % (shortcuts, parameters),
+                            title))
+            logging_print(docstring)
+            if len(commands) == 1:
+                logging_print()
+                logging_print(text)
+        logging_print()
+        logging_state_restore()
         #
     def _cmd_info(self, parameter=None):
-        """"""
-        logging_raw("NotImplemented")
+        """i|info : print information about the current program state"""
+        logging_print("NotImplemented")
         #
     def _cmd_set(self, parameter, value):
-        """"""
-        logging_raw("NotImplemented")
+        """set <parameter> <value> : set the value of a given parameter"""
+        logging_print("NotImplemented")
         #
     def _cmd_run(self, capture_filter=None, packet_filter=None,
                  field_filter=None):
-        """"""
+        """r|run [<capture-filter>] [<packet-filter>] [<field-filter>] : run a
+        new capture (drop previously captured packets)"""
+        try:
+            if capture_filter:
+                Netfilter.check_syntax(capture_filter)
+        except ParseException, exception:
+            exception.msg = "invalid capture filter"
+            raise exception
+        try:
+            if packet_filter:
+                PacketFilter.check_syntax(packet_filter)
+        except ParseException, exception:
+            exception.msg = "invalid packet filter"
+            raise exception
+        try:
+            if field_filter:
+                re.compile(field_filter)
+        except:
+            raise ParseException("invalid field filter")
         result = self.nfqueue.start()
         if result:
-            logging_info("capture started...")
+            logging_state_on()
+            logging_print("Capture started...")
+            logging_state_restore()
+        return result
         #
     def _cmd_pause(self):
-        """"""
-        result = self.nfqueue.pause(True)
+        """p|pause : pause the current capture"""
+        result = self.nfqueue.pause()
         if result:
-            logging_info("capture paused")
+            logging_state_on()
+            logging_print("Capture paused.")
+            logging_state_restore()
+        return result
         #
-    def _cmd_continue(self):
-        """"""
-        result = self.nfqueue.pause(False)
+    def _cmd_cont(self):
+        """c|cont : continue the current capture"""
+        result = self.nfqueue.cont()
         if result:
-            logging_info("capture continuing...")
+            logging_state_on()
+            logging_print("Capture continuing...")
+            logging_state_restore()
+        return result
         #
     def _cmd_stop(self):
-        """"""
+        """s|stop : stop the current capture (drop previously captured
+        packets)"""
         result = self.nfqueue.stop()
         if result:
-            logging_info("capture stopped.")
+            logging_state_on()
+            logging_print("Capture stopped.")
+            logging_state_restore()
+        return result
         #
-    def _cmd_queue(self):
-        """"""
-        logging_raw("NotImplemented")
+    def _cmd_nfqueue(self):
+        """q|queue|nfqueue : a reference to the netfilter queue"""
+        logging_print("NotImplemented")
         #
     def _cmd_packet(self):
-        """"""
-        logging_raw("NotImplemented")
+        """pkt|packet : a reference to the last captured packet"""
+        logging_print("NotImplemented")
         #
     def _cmd_flush(self):
-        """"""
-        logging_raw("NotImplemented")
+        """f|flush : flush internal cache to free memory (captured packets are
+        not removed)"""
+        logging_print("NotImplemented")
         #
     #
 
@@ -2574,43 +2678,18 @@ def print_usage():
 
         -b | --default-breakpoint <packet-filter>
 
-        -a | --default-action <expression>
+        -a | --default-action <python-expression>
 
         [<default-script>]
 
 
         See https://code.google.com/p/proxyshark/ for further instructions.
 
-    """ % (__banner__, __file__)
+    """ % (__version__, __file__)
     logging_print(r(r'\n    ').sub('\n', usage))
     #
 
 def process_arguments():
-    # configure the logging system
-    settings['real_verbose_level'] = (sys.argv.count('-v') +
-                                      sys.argv.count('--verbose'))
-    logging_level = { 0: logging.ERROR,
-                      1: logging.INFO,
-                      2: logging.DEBUG,
-    }.get(settings['real_verbose_level'], logging.DEBUG)
-    shared['logger'] = logging.getLogger()
-    shared['logger'].setLevel(logging_level)
-    handler = logging.StreamHandler()
-    formatter = LoggingFormatter("%%(asctime)s %s "
-                                 "Proxyshark(%%(process)s): "
-                                 "%%(threadName)s: "
-                                 "$COLOR[%%(levelname)s] "
-                                 "%%(message)s$RESET"
-                                 % socket.gethostname())
-    handler.setFormatter(formatter)
-    shared['logger'].addHandler(handler)
-    shared['logger'].addFilter(LoggingFilter())
-    settings['effective_verbose_level'] = settings['real_verbose_level']
-    logging_state_on()
-    # check if we have root permissions
-    if os.getuid() != 0:
-        logging_error("permission denied")
-        sys.exit(1)
     # search a directory containing a tshark binary
     locations = ['bin/%s/' % os.uname()[4]]
     locations += os.environ.get('PATH', '').split(os.pathsep)
@@ -2620,121 +2699,104 @@ def process_arguments():
             settings['tshark_directory'] = os.path.dirname(candidate)
             break
     # parse the command line arguments
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   'hveq:t:w:c:p:f:rb:a:',
-                                   ['help',
-                                    'verbose',
-                                    'ethernet-layer',
-                                    'queue-number=',
-                                    'tshark-directory=',
-                                    'web-driven=',
-                                    'capture-filter=',
-                                    'packet-filter=',
-                                    'field-filter=',
-                                    'run-at-start',
-                                    'default-breakpoint=',
-                                    'default-action=',])
-    except getopt.GetoptError, error:
-        logging_error(error.msg)
-        logging_print("")
+    opts, args = getopt.getopt(sys.argv[1:],
+                               'hveq:t:w:c:p:f:rb:a:',
+                               ['help',
+                                'verbose',
+                                'ethernet-layer',
+                                'queue-number=',
+                                'tshark-directory=',
+                                'web-driven=',
+                                'capture-filter=',
+                                'packet-filter=',
+                                'field-filter=',
+                                'run-at-start',
+                                'default-breakpoint=',
+                                'default-action=',])
+    # -h | --help
+    if ('-h', '') in opts or ('--help', '') in opts:
         print_usage()
-        sys.exit(1)
+        sys.exit(0)
     for opt, arg in opts:
-        # -h | --help
-        if opt in ['-h', '--help']:
-            print_usage()
-            sys.exit(0)
-        # -v | --verbose
-        elif opt in ['-v', '--verbose']:
-            # nothing to do here, already done above
-            pass
         # -e | --ethernet
-        elif opt in ['-e', '--ethernet-layer']:
+        if opt in ['-e', '--ethernet-layer']:
             settings['ethernet_layer'] = True
         # -q | --queue-number <queue-number>
         elif opt in ['-q', '--queue-number']:
             if arg.isdigit() and int(arg) >= 0 and int(arg) <= 65535:
                 settings['queue_number'] = int(arg)
             else:
-                logging_error("invalid queue number %s" % trunc_repr(arg))
-                sys.exit(1)
-        # -t | --tshark-dir <tshark-dir>
+                raise ValueError("invalid queue number %s" % trunc_repr(arg))
+        # -t | --tshark-directory <tshark-directory>
         elif opt in ['-t', '--tshark-directory']:
             candidate = os.path.join(arg, 'tshark')
             if os.path.isfile(candidate):
                 settings['tshark_directory'] = os.path.dirname(candidate)
-            elif not os.path.isdir(candidate):
-                logging_error("directory %s does not exist"
-                              % trunc_repr(candidate))
-                sys.exit(1)
+            elif not os.path.isdir(arg):
+                raise ValueError("directory %s not found" % trunc_repr(arg))
             else:
-                logging_error("directory %s does not contain a tshark binary"
-                              % trunc_repr(arg))
-                sys.exit(1)
+                raise ValueError("tshark not found in %s" % trunc_repr(arg))
         # -w | --web-driven [<web-server-host>]:[<web-server-port>]:
         #                   [<web-proxy-host>]:[<web-proxy-port>]
         elif opt in ['-w', '--web-driven']:
             split = arg.split(':')
             if len(split) == 4:
-                # web server
-                if resolv(split[0]):
-                    settings['web_server_host'] = split[0]
-                else:
-                    logging_error("invalid web server host")
-                    sys.exit(1)
+                # web server host
+                if split[0]:
+                    if resolv(split[0]):
+                        settings['web_server_host'] = split[0]
+                    else:
+                        raise ValueError("invalid web server host")
                 # web server port
-                if (split[1].isdigit() and
-                    int(split[1]) > 0 and int(split[1]) <= 65535
-                ):
-                    settings['web_server_port'] = int(split[1])
-                else:
-                    logging_error("invalid web server port")
-                    sys.exit(1)
-                # web proxy
-                if resolv(split[2]):
-                    settings['web_proxy'] = split[2]
-                else:
-                    logging_error("invalid web proxy host")
-                    sys.exit(1)
+                if split[1]:
+                    if (split[1].isdigit() and
+                        int(split[1]) > 0 and int(split[1]) <= 65535
+                    ):
+                        settings['web_server_port'] = int(split[1])
+                    else:
+                        raise ValueError("invalid web server port")
+                # web proxy host
+                if split[2]:
+                    if split[2] and resolv(split[2]):
+                        settings['web_proxy'] = split[2]
+                    else:
+                        raise ValueError("invalid web proxy host")
                 # web proxy port
-                if (split[3].isdigit() and
-                    int(split[3]) > 0 and int(split[3]) <= 65535
-                ):
-                    settings['web_proxy_port'] = int(split[3])
-                else:
-                    logging_error("invalid web proxy port")
-                    sys.exit(1)
+                if split[3]:
+                    if (split[3].isdigit() and
+                        int(split[3]) > 0 and int(split[3]) <= 65535
+                    ):
+                        settings['web_proxy_port'] = int(split[3])
+                    else:
+                        raise ValueError("invalid web proxy port")
                 # 
                 settings['web_driven'] = True
             else:
-                logging_error("invalid web server/proxy specification")
-                sys.exit(1)
+                raise ValueError("invalid web server/proxy specification")
         # -c | --capture-filter <capture-filter>
         elif opt in ['-c', '--capture-filter']:
+            Netfilter.check_syntax(arg)
             settings['capture_filter'] = arg
         # -p | --packet-filter <packet-filter>
         elif opt in ['-p', '--packet-filter']:
+            PacketFilter.check_syntax(arg)
             settings['packet_filter'] = arg
         # -f | --field-filter <field-filter>
         elif opt in ['-f', '--field-filter']:
+            re.compile(arg)
             settings['field_filter'] = arg
         # -r | --run-at-start
         elif opt in ['-r', '--run-at-start']:
             settings['run_at_start'] = True
         # -b | --default-breakpoint <packet-filter>
         elif opt in ['-b', '--default-breakpoint']:
-            pass
+            raise NotImplementedError("breakpoints are not implemented yet")
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
-            pass
-        else:
-            logging_error("unknown argument %s" % trunc_repr(opt))
-            print_usage()
-            sys.exit(1)
+            raise NotImplementedError("actions are not implemented yet")
     # ensure that we have a tshark directory
     if not settings['tshark_directory']:
-        logging_error("tshark was not found")
+        raise ValueError("tshark was not found")
     # default capture filter
     if not settings['capture_filter']:
         if settings['web_driven']:
@@ -2755,11 +2817,9 @@ def process_arguments():
             settings['capture_filter'] = 'any'
     # default script to run at start
     if len(args) > 0:
+        raise NotImplementedError("scripts are not implemented yet")
         #FIXME: args[0] can contain more than one argument
         settings['default_script'] = args[0]
-    # are we in quiet mode?
-    if settings['effective_verbose_level'] == 0:
-        logging_print("running in quiet mode (use -h for help)...")
     # print current settings
     logging_info("""
         Current settings:
@@ -2801,18 +2861,40 @@ def process_arguments():
 
 if __name__ == '__main__':
     try:
-        # process command line arguments and start interactive shell
+        result = None
+        # configure the logging system
+        settings['real_verbose_level'] = (sys.argv.count('-v') +
+                                          sys.argv.count('--verbose'))
+        logging_level = { 0: logging.WARNING,
+                          1: logging.INFO,
+                          2: logging.DEBUG,
+        }.get(settings['real_verbose_level'], logging.DEBUG)
+        shared['logger'] = logging.getLogger()
+        shared['logger'].setLevel(logging_level)
+        handler = logging.StreamHandler()
+        formatter = LoggingFormatter("%%(asctime)s %s "
+                                     "Proxyshark(%%(process)s): "
+                                     "%%(threadName)s: "
+                                     "$COLOR[%%(levelname)s] "
+                                     "%%(message)s$RESET"
+                                     % socket.gethostname())
+        handler.setFormatter(formatter)
+        shared['logger'].addHandler(handler)
+        shared['logger'].addFilter(LoggingFilter())
+        settings['effective_verbose_level'] = settings['real_verbose_level']
+        logging_state_on()
+        # check if we have root permissions
+        if os.getuid() != 0:
+            raise RuntimeError("permission denied")
+        # process command line arguments
         process_arguments()
-        retcode = Console().interact()
+        # start interactive console
+        result = Console().interact()
+    except SystemExit:
+        result = True
     except:
         logging_exception()
-        retcode = 1
     finally:
         logging.shutdown()
-        if retcode > 0:
-            logging_warning("Unable to destroy the queue properly")
-            os.kill(os.getuid(), signal.SIGINT)
-            time.sleep(1)
-            os.kill(os.getuid(), signal.SIGKILL)
-        sys.exit(retcode)
+        sys.exit(0 if result is True else 1)
 
