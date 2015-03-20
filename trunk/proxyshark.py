@@ -1105,7 +1105,7 @@ class DissectedPacket:
             # this exception can be caused by 'int()' or '[0]'
             self.stream = None
         # retrieve packet attributes from the description
-        regex = r'^ *(\d+\.\d+) +([^ ]+) +-> +([^ ]+) +([^ ]+) +[^ ]+ +(.*)$'
+        regex = r'^.*(\d+\.\d+) +([^ ]+) +-> +([^ ]+) +([^ ]+) +[^ ]+ +(.*)$'
         findings = r(regex).findall(description)
         if not findings or len(findings[0]) != 5:
             raise ValueError("invalid packet description %s"
@@ -2524,6 +2524,9 @@ class Console(InteractiveConsole):
                         else:
                             arguments.append(repr(token))
                 except:
+                    self.locals['q'] = self.nfqueue.packets
+                    self.locals['queue'] = self.nfqueue.packets
+                    self.locals['nfqueue'] = self.nfqueue.packets
                     self.runsource(line, '<console>')
                 else:
                     try:
@@ -2631,10 +2634,10 @@ class Console(InteractiveConsole):
             logging_state_restore()
         return result
         #
-    def _cmd_nfqueue(self):
-        """q|queue|nfqueue : a reference to the netfilter queue"""
-        logging_print("NotImplemented")
-        #
+    #def _cmd_nfqueue(self):
+    #    """q|queue|nfqueue : a reference to the netfilter queue"""
+    #    logging_print("NotImplemented")
+    #    #
     def _cmd_packet(self):
         """pkt|packet : a reference to the last captured packet"""
         logging_print("NotImplemented")
