@@ -41,7 +41,7 @@ import copy
 import cProfile
 import getopt
 import httplib
-import libnetfilter_queue as libnfq # need python-nfqueue
+import libnetfilter_queue as libnfq 
 import logging
 import os
 import pprint # debug
