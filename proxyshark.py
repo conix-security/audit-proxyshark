@@ -41,7 +41,8 @@ import copy
 import cProfile
 import getopt
 import httplib
-import libnetfilter_queue as libnfq 
+import nfqueue
+import asyncore #asynchronous socket programming
 import logging
 import os
 import pprint # debug
@@ -1073,19 +1074,16 @@ class DissectedPacket:
     next_real_identifier = 0 # directly from tshark (-1)
     next_identifier = 0      # after packet filtering
     # Public methods ##########################################################
-    def __init__(self, nfq_handle, nfq_data, description, xml_data,
+    def __init__(self, nfq_data, description, xml_data,
                  etree_packet):
         """Create a new dissected packet from tshark data."""
         # initialization
-        self.nfq_handle = nfq_handle
         self.nfq_data = nfq_data
         self.description = r(r' +').sub(' ', description).strip()
         self.xml_data = xml_data
         self.etree_packet = etree_packet
-        full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
-        self.nfq_packet_id = full_msg_packet_hdr['packet_id']
-        self.indev = network_devices(libnfq.get_indev(nfq_data))
-        self.outdev = network_devices(libnfq.get_outdev(nfq_data))
+        #self.indev = network_devices(libnfq.get_indev(nfq_data))
+        #self.outdev = network_devices(libnfq.get_outdev(nfq_data))
         self.verdict = None
         # create a dictionary of committed fields and a dictionary of fields
         # to commit, fields are written with 'self.__setitem__()' and
@@ -1093,7 +1091,8 @@ class DissectedPacket:
         self._items_committed = {}
         self._items_to_commit = copy.deepcopy(self.read_items())
         # get raw data and packet length
-        self.data_length, self.data = libnfq.get_full_payload(nfq_data)
+        self.data = nfq_data.get_data()
+        self.data_length = len(self.data)
         # get real packet identifier
         self.real_identifier = DissectedPacket.next_real_identifier
         DissectedPacket.next_real_identifier += 1
@@ -1467,11 +1466,11 @@ class DissectedPacket:
         #
     def accept(self):
         """Accept the packet."""
-        self._set_verdict(libnfq.NF_ACCEPT)
+        self._set_verdict(nfqueue.NF_ACCEPT)
         #
     def drop(self):
         """Drop the packet."""
-        self._set_verdict(libnfq.NF_DROP)
+        self._set_verdict(nfqueue.NF_DROP)
         #
     # Private methods #########################################################
     @cached # these items won't be updated, even if the packet is modified
@@ -1566,11 +1565,7 @@ class DissectedPacket:
         if self.verdict:
             raise IOError("verdict already set for packet #%s"
                           % self.identifier)
-        libnfq.set_pyverdict(self.nfq_handle,
-                             self.nfq_packet_id,
-                             verdict,
-                             self.data_length,
-                             self.data)
+        self.nfq_data.set_verdict(verdict)
         self.verdict = verdict
         #
     #
@@ -1613,7 +1608,7 @@ class DissectedPacketList(list):
                     result.append(packet)
             # return a sublist containing the packets that match
             return result
-        # 
+        #
         else:
             return super(DissectedPacketList, self).__getitem__(key)
         #
@@ -1716,13 +1711,15 @@ class Dissector:
                 return False
         return True
         #
-    def dissect(self, nfq_handle, nfq_data):
+    def dissect(self, nfq_data):
         """Return a tuple composed of a short description and a 'etree.Element'
         describing the given packet."""
         if not self.isAlive():
             return None
         # get raw data and packet length
-        data_length, data = libnfq.get_full_payload(nfq_data)
+        data = nfq_data.get_data()
+        data_length = len(data)
+
         # create a pcap header
         current_time = time.time()
         sec = int(current_time)
@@ -1771,8 +1768,7 @@ class Dissector:
                 parser.feed(xml_data)
                 break
         # return a new dissected packet
-        return DissectedPacket(nfq_handle,
-                               nfq_data,
+        return DissectedPacket(nfq_data,
                                description,
                                xml_data,
                                parser.close())
@@ -2109,6 +2105,30 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 # NFQueue
 ###############################################################################
 
+class NFQChannel(asyncore.file_dispatcher):
+
+    """A file dispatcher used to easily monitor the nfqueue socket
+    """
+    def __init__(self, queue):
+        self._nfq = queue
+        self._fd = self._nfq.get_fd()
+        asyncore.file_dispatcher.__init__(self, self._fd)
+
+    def handle_read(self):
+        """Process at most 100 event
+
+        it might be required to tune this value
+        """
+        self._nfq.process_pending(100)
+
+
+    def writable(self):
+        """Set us as not writable
+
+        Prevents asyncore.poll from using 100% CPU
+        """
+        return False
+
 class NFQueue(Thread):
     """A Netfilter queue that receives packets, dissects them and makes them
     available to the user."""
@@ -2132,8 +2152,7 @@ class NFQueue(Thread):
         self._sock_type = 0
         # nfqueue handlers
         self._nfq_handle = None
-        self._c_handler = None
-        self._nfq_connection_handle = None
+        self._nfq_channel = None
         # re-initialize the packet identifiers
         DissectedPacket.next_real_identifier = 0
         DissectedPacket.next_identifier = 0
@@ -2241,6 +2260,8 @@ class NFQueue(Thread):
             return False
         self._stopping.set()
         self._paused.clear()
+        self._nfq_channel.close()
+
         if self._stopped.wait(self._timeout):
             return True
         logging_warning("waiting for nfqueue to stop...")
@@ -2249,50 +2270,35 @@ class NFQueue(Thread):
     # Private methods #########################################################
     def _run(self):
         """A wrapper that runs a new capture effectively."""
-        # nfqueue handlers
-        self._nfq_handle = libnfq.open_queue()
-        libnfq.unbind_pf(self._nfq_handle, self._sock_family)
-        libnfq.bind_pf(self._nfq_handle, self._sock_family)
-        self._c_handler = libnfq.HANDLER(self._callback)
-        self._nfq_connection_handle = libnfq.create_queue(
-            self._nfq_handle,
-            settings['queue_number'],
-            self._c_handler,
-            None)
-        libnfq.set_mode(self._nfq_connection_handle,
-                        libnfq.NFQNL_COPY_PACKET,
-                        self._snaplen)
-        # create a socket to receive the packets
-        s = socket.fromfd(libnfq.nfq_fd(libnfq.nfnlh(self._nfq_handle)),
-                          self._sock_family,
-                          self._sock_type)
-        s.settimeout(0.1)
+        # nfqueue handler
+        self._nfq_handle = nfqueue.queue()
+        self._nfq_handle.open()
+        self._nfq_handle.bind(self._sock_family)
+        self._nfq_handle.set_callback(self._callback)
+        self._nfq_handle.create_queue(settings['queue_number'])
+        self._nfq_handle.set_mode(nfqueue.NFQNL_COPY_PACKET)
+        self._nfq_channel = NFQChannel(self._nfq_handle)
+
         # enter the main loop
         logging_state_on()
         Netfilter.apply_capture_filter()
         logging_info("nfqueue started")
         logging_state_restore()
         self._started.set()
-        while 1:
-            try:
-                data = s.recv(self._snaplen)
-                while self._paused.isSet():
-                    time.sleep(0.1)
-                if not self.isAlive():
-                    break
-                libnfq.handle_packet(self._nfq_handle, data, len(data))
-            except:
-                pass
+        try:
+            #
+            asyncore.loop(timeout=5)
+        except Exception as e:
+            pass
         # if we go there then the queue is stopping, so destroy it properly
-        libnfq.destroy_queue(self._nfq_connection_handle)
-        libnfq.close_queue(self._nfq_handle)
+        self._nfq_handle.unbind(socket.AF_INET)
+        self._nfq_handle.close()
         #
-    def _callback(self, dummy1, dummy2, nfq_data, dummy3):
+    def _callback(self, nfq_data):
         """Handle the packets received from Netfilter."""
         try:
             # apply the packet filter
-            packet = self.dissector.dissect(self._nfq_connection_handle,
-                                            nfq_data)
+            packet = self.dissector.dissect(nfq_data)
             if not packet: # the queue is probably stopping
                 return
             if not packet.match(settings['packet_filter']):
@@ -2335,14 +2341,7 @@ class NFQueue(Thread):
         # accept the packet in case of error
         except:
             logging_exception()
-            full_msg_packet_hdr = libnfq.get_full_msg_packet_hdr(nfq_data)
-            nfq_packet_id = full_msg_packet_hdr['packet_id']
-            data_length, data = libnfq.get_full_payload(nfq_data)
-            libnfq.set_pyverdict(self._nfq_connection_handle,
-                                 nfq_packet_id,
-                                 libnfq.NF_ACCEPT,
-                                 data_length,
-                                 data)
+            nfq_data.set_verdict(nfqueue.NF_ACCEPT)
         #
     #
 
@@ -2772,7 +2771,7 @@ def process_arguments():
                         settings['web_proxy_port'] = int(split[3])
                     else:
                         raise ValueError("invalid web proxy port")
-                # 
+                #
                 settings['web_driven'] = True
             else:
                 raise ValueError("invalid web server/proxy specification")
