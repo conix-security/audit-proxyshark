@@ -480,8 +480,8 @@ class Netfilter:
             while not chain_id or chain_id in existing_chains:
                 chain_id = ''.join((Netfilter._chain_prefix,
                                     str(random.randint(1000, 9999))))
-                existing_chains.append(chain_id)
-                yield chain_id
+            existing_chains.append(chain_id)
+            yield chain_id
         #
     @staticmethod
     def _new_chain_id():
