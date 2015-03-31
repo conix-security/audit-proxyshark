@@ -1631,6 +1631,9 @@ class DissectedPacketList(list):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([str(x) for x in self[1:]])
         #
+    def __len__(self):
+        """First element is always NotImplemented"""
+        return super(DissectedPacketList, self).__len__() -1
     # Private methods #########################################################
     #
 
