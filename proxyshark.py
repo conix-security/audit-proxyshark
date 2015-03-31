@@ -76,7 +76,7 @@ from pyparsing import (alphas, alphanums, Combine, Empty, Forward, Group,
 alphanums += '-._'
 from SocketServer import ThreadingMixIn
 from subprocess import Popen, PIPE
-from threading import currentThread, Event, RLock, Thread
+from threading import currentThread, Event, RLock, Lock, Thread
 from xml.etree.cElementTree import XMLParser
 
 logging.getLogger('scapy.runtime').setLevel(logging.ERROR)
@@ -2109,9 +2109,10 @@ class NFQChannel(asyncore.file_dispatcher):
 
     """A file dispatcher used to easily monitor the nfqueue socket
     """
-    def __init__(self, queue):
+    def __init__(self, queue, nfq_hdl):
         self._nfq = queue
-        self._fd = self._nfq.get_fd()
+        self._nfq_hdl = nfq_hdl
+        self._fd = nfq_hdl.get_fd()
         asyncore.file_dispatcher.__init__(self, self._fd)
 
     def handle_read(self):
@@ -2119,8 +2120,7 @@ class NFQChannel(asyncore.file_dispatcher):
 
         it might be required to tune this value
         """
-        self._nfq.process_pending(100)
-
+        self._nfq_hdl.process_pending(100)
 
     def writable(self):
         """Set us as not writable
@@ -2139,7 +2139,9 @@ class NFQueue(Thread):
         Thread.__init__(self, name='NFQueueThread')
         self.dissector = None
         self.web_server = None
+        self.pkt_lock = Lock()
         self.packets = DissectedPacketList()
+        self.tmp_packets = DissectedPacketList()
         self._timeout = 5
         # interesting events
         self._started = Event()
@@ -2250,11 +2252,22 @@ class NFQueue(Thread):
         if self.isRunning():
             logging_warning("nfqueue already running")
             return False
+
+        #merge the primary list with the temporary one
         self._paused.clear()
+        if(len(self.tmp_packets) - 1 > 0):
+            self.pkt_lock.acquire()
+            self.packets.extend(self.tmp_packets)
+            self.tmp_packets = DissectedPacketList()
+            self.pkt_lock.release()
+
         return True
         #
     def stop(self):
-        """Stop the queue properly."""
+        """Stop the queue properly.
+
+        Do not erase the captured packet list: packets are still
+        reachable until a new capture is started"""
         if not self.isAlive():
             logging_warning("nfqueue already stopped")
             return False
@@ -2267,17 +2280,23 @@ class NFQueue(Thread):
         logging_warning("waiting for nfqueue to stop...")
         return self._stopped.wait()
         #
-    # Private methods #########################################################
-    def _run(self):
-        """A wrapper that runs a new capture effectively."""
-        # nfqueue handler
+    def close(self):
+        self._nfq_handle.unbind(socket.AF_INET)
+        self._nfq_handle.close()
+
+    def open(self):
         self._nfq_handle = nfqueue.queue()
         self._nfq_handle.open()
         self._nfq_handle.bind(self._sock_family)
         self._nfq_handle.set_callback(self._callback)
         self._nfq_handle.create_queue(settings['queue_number'])
         self._nfq_handle.set_mode(nfqueue.NFQNL_COPY_PACKET)
-        self._nfq_channel = NFQChannel(self._nfq_handle)
+        self._nfq_channel = NFQChannel(self, self._nfq_handle)
+
+    # Private methods #########################################################
+    def _run(self):
+        """A wrapper that runs a new capture effectively."""
+        self.open()
 
         # enter the main loop
         logging_state_on()
@@ -2287,12 +2306,11 @@ class NFQueue(Thread):
         self._started.set()
         try:
             #
-            asyncore.loop(timeout=5)
+            asyncore.loop(timeout=0.1)
         except Exception as e:
             pass
         # if we go there then the queue is stopping, so destroy it properly
-        self._nfq_handle.unbind(socket.AF_INET)
-        self._nfq_handle.close()
+        self.close()
         #
     def _callback(self, nfq_data):
         """Handle the packets received from Netfilter."""
@@ -2304,7 +2322,15 @@ class NFQueue(Thread):
             if not packet.match(settings['packet_filter']):
                 packet.accept()
                 return
-            self.packets.append(packet)
+
+            #if the pause is set, append new packets to a temporary list
+            if(self.isPaused()):
+                self.tmp_packets.append(packet)
+            else:
+                self.pkt_lock.acquire()
+                self.packets.append(packet)
+                self.pkt_lock.release()
+
             logging_debug("nfqueue received packet #%s" % packet.identifier)
             if settings['effective_verbose_level'] > 1:
                 logging_print(packet)
