@@ -2409,6 +2409,8 @@ class Console(InteractiveConsole):
         readline.parse_and_bind('"\C-[[A": "\vprev\vdraw"')
         readline.parse_and_bind('"\C-[[B": "\vnext\vdraw"')
         # build the environment
+        self.current_line = ''
+        self.default_commands = {}
         self.commands = {}
         self.docstrings = {}
         for method in dir(Console):
@@ -2433,6 +2435,7 @@ class Console(InteractiveConsole):
                 self.commands[shortcut] = eval('self.%s' % method)
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
+        self.default_commands = self.commands.copy()
         InteractiveConsole.__init__(self, locals=self.commands)
         #
     def interact(self):
@@ -2535,32 +2538,53 @@ class Console(InteractiveConsole):
                 break
             for line in line.split(';'):
                 # parse the line and run the appropriate command
+
+                parser = self._command_parser()
+                tokens = tuple(parser.parseString(line))
+                if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
+                    self._save_history()
+                    self._stopping.set()
+                    return
+
                 try:
-                    parser = self._command_parser()
-                    tokens = tuple(parser.parseString(line))
-                    if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
-                        self._save_history()
-                        self._stopping.set()
-                        return
                     command = 'self.%s' % self.commands[tokens[0]].__name__
-                    arguments = []
-                    for token in tokens[2:]:
-                        if token.startswith('"') and token.endswith('"'):
-                            arguments.append(repr(token[1:-1]))
-                        elif token.startswith('\'') and token.endswith('\''):
-                            arguments.append(repr(token[1:-1]))
-                        else:
-                            arguments.append(repr(token))
+                except AttributeError:
+                    #Temporary workaround:
+                    #Value of self.commands' keys q, queue, nfqueue
+                    #pkt and packet seems to change somehow (why exactly?),
+                    #which makes the code raise an AttributeError.
+                    #-> Update the values, get the requested command,
+                    #and continue execution
+                    self.commands['q'] = self.default_commands['q']
+                    self.commands['queue'] = self.default_commands['queue']
+                    self.commands['nfqueue'] = self.default_commands['nfqueue']
+                    self.commands['pkt'] = self.default_commands['pkt']
+                    self.commands['packet'] = self.default_commands['packet']
+                    command = 'self.%s' % self.commands[tokens[0]].__name__
+
                 except:
-                    self.locals['q'] = self.nfqueue.packets
-                    self.locals['queue'] = self.nfqueue.packets
-                    self.locals['nfqueue'] = self.nfqueue.packets
-                    self.runsource(line, '<console>')
-                else:
-                    try:
-                        exec '%s(%s)' % (command, ', '.join(arguments))
-                    except:
-                        logging_exception()
+                    if(len(tokens) > 0):
+                        logging_state_on()
+                        logging_print('Unknown command "%s"' % (tokens[0]))
+                        logging_state_restore()
+                    continue
+
+                arguments = []
+                for token in tokens[2:]:
+                    if token.startswith('"') and token.endswith('"'):
+                        arguments.append(repr(token[1:-1]))
+                    elif token.startswith('\'') and token.endswith('\''):
+                        arguments.append(repr(token[1:-1]))
+                    else:
+                        arguments.append(repr(token))
+
+
+                try:
+                    self.current_line = line
+                    exec '%s(%s)' % (command, ', '.join(arguments))
+
+                except:
+                    logging_exception()
         #
     def _cmd_help(self, command=None):
         """h|help [<command>] : print a short help describing the available
@@ -2662,13 +2686,23 @@ class Console(InteractiveConsole):
             logging_state_restore()
         return result
         #
-    #def _cmd_nfqueue(self):
-    #    """q|queue|nfqueue : a reference to the netfilter queue"""
-    #    logging_print("NotImplemented")
-    #    #
+    def _cmd_nfqueue(self):
+        """q|queue|nfqueue : a reference to the netfilter queue"""
+        self.locals['q'] = self.nfqueue.packets
+        self.locals['queue'] = self.nfqueue.packets
+        self.locals['nfqueue'] = self.nfqueue.packets
+        self.runsource(self.current_line, '<console>')
+
+        #
     def _cmd_packet(self):
         """pkt|packet : a reference to the last captured packet"""
-        logging_print("NotImplemented")
+        last_pkt = None
+        if(len(self.nfqueue.packets) > 0):
+            last_pkt = self.nfqueue.packets[-1]
+
+        self.locals['packet'] = last_pkt
+        self.locals['pkt'] = last_pkt
+        self.runsource(self.current_line, '<console>')
         #
     def _cmd_flush(self):
         """f|flush : flush internal cache to free memory (captured packets are
