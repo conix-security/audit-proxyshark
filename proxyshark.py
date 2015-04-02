@@ -2610,7 +2610,98 @@ class Console(InteractiveConsole):
         #
     def _cmd_info(self, parameter=None):
         """i|info : print information about the current program state"""
-        logging_print("NotImplemented")
+
+        def info_verbosity():
+            return 'Verbose level: %s' % (settings['effective_verbose_level'])
+
+        def info_ethernet():
+            return 'Ethernet mode: %s' % (repr(settings['ethernet_layer']))
+
+        def info_queue_num():
+            return 'Queue number: %s' % (settings['queue_number'])
+
+        def info_tshark_dir():
+            return 'tshark directory: %s' % (settings['tshark_directory'])
+
+        def info_web_driven():
+            return 'Web driven mode: %s' % (settings['web_driven'])
+
+        def info_bind_ip():
+            return 'Bind IP: %s' % (settings['web_server_host'])
+
+        def info_bind_port():
+            return 'Bind port: %s' % (settings['web_server_port'])
+
+        def info_proxy_ip():
+            return 'Proxy IP: %s' % (settings['web_proxy'])
+
+        def info_proxy_port():
+            return 'Proxy port: %s' % (settings['web_proxy_port'])
+
+        def info_capture_filter():
+            return 'Capture filter: %s' % repr((settings['capture_filter']))
+
+        def info_packet_filter():
+            return 'Packet filter: %s' % repr((settings['packet_filter']))
+
+        def info_field_filter():
+            return 'Field filter: %s' % repr((settings['field_filter']))
+
+        def info_breakpoints():
+            return 'Breakpoints: ' + str(NotImplemented)
+
+        def info_actions():
+            return 'Action: ' + str(NotImplemented)
+
+        def info_cache():
+            return 'Cache: ' + str(NotImplemented)
+
+        output = ''
+        param_list = {
+            'verbosity',
+            'ethernet',
+            'queue-num',
+            'tshark-dir',
+            'web-driven',
+            'bind ip',
+            'bind port',
+            'proxy ip',
+            'proxy port',
+            'capture filter',
+            'packet filter',
+            'field filter',
+            'breakpoints',
+            'actions',
+            'cache'
+        }
+
+        #display all
+        if(parameter is None):
+            output_list = []
+            fctstr_list = [f.replace(' ', '_').replace('-', '_')
+                        for f in param_list]
+            for fstr in fctstr_list:
+                fct = eval('info_%s' % (fstr))
+                output_list.append(fct())
+            output = '\n'.join(output_list)
+
+        #unknown
+        elif(not parameter in param_list):
+            output = 'Unknown parameter %s' % (parameter)
+        #known
+        else:
+            #spaces and '-' are not allowed in function names
+            fparameter = parameter.replace(' ', '_').replace('-', '_')
+            info_fct = eval('info_%s' % (fparameter))
+            output = info_fct()
+
+        logging_state_on()
+        logging_print(output)
+        logging_state_restore()
+
+
+
+
         #
     def _cmd_set(self, parameter, value):
         """set <parameter> <value> : set the value of a given parameter"""
