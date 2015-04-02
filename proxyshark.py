@@ -2410,7 +2410,6 @@ class Console(InteractiveConsole):
         readline.parse_and_bind('"\C-[[B": "\vnext\vdraw"')
         # build the environment
         self.current_line = ''
-        self.default_commands = {}
         self.commands = {}
         self.docstrings = {}
         for method in dir(Console):
@@ -2435,8 +2434,9 @@ class Console(InteractiveConsole):
                 self.commands[shortcut] = eval('self.%s' % method)
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
-        self.default_commands = self.commands.copy()
-        InteractiveConsole.__init__(self, locals=self.commands)
+
+        InteractiveConsole.__init__(self, locals=self.commands.copy())
+
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
@@ -2548,20 +2548,6 @@ class Console(InteractiveConsole):
 
                 try:
                     command = 'self.%s' % self.commands[tokens[0]].__name__
-                except AttributeError:
-                    #Temporary workaround:
-                    #Value of self.commands' keys q, queue, nfqueue
-                    #pkt and packet seems to change somehow (why exactly?),
-                    #which makes the code raise an AttributeError.
-                    #-> Update the values, get the requested command,
-                    #and continue execution
-                    self.commands['q'] = self.default_commands['q']
-                    self.commands['queue'] = self.default_commands['queue']
-                    self.commands['nfqueue'] = self.default_commands['nfqueue']
-                    self.commands['pkt'] = self.default_commands['pkt']
-                    self.commands['packet'] = self.default_commands['packet']
-                    command = 'self.%s' % self.commands[tokens[0]].__name__
-
                 except:
                     if(len(tokens) > 0):
                         logging_state_on()
@@ -2656,6 +2642,13 @@ class Console(InteractiveConsole):
             logging_state_on()
             logging_print("Capture started...")
             logging_state_restore()
+
+        #refresh instance references
+        self.locals['q'] = self.nfqueue.packets
+        self.locals['queue'] =  self.nfqueue.packets
+        self.locals['nfqueue'] =  self.nfqueue.packets
+        self.locals['pkt'] = None
+        self.locals['packet'] = None
         return result
         #
     def _cmd_pause(self):
@@ -2688,11 +2681,7 @@ class Console(InteractiveConsole):
         #
     def _cmd_nfqueue(self):
         """q|queue|nfqueue : a reference to the netfilter queue"""
-        self.locals['q'] = self.nfqueue.packets
-        self.locals['queue'] = self.nfqueue.packets
-        self.locals['nfqueue'] = self.nfqueue.packets
         self.runsource(self.current_line, '<console>')
-
         #
     def _cmd_packet(self):
         """pkt|packet : a reference to the last captured packet"""
