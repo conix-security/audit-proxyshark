@@ -2691,7 +2691,7 @@ class Console(InteractiveConsole):
             return 'Cache: ' + cache_mng(summary = True)
 
         output = ''
-        param_list = {
+        param_list = [
             'verbosity',
             'ethernet',
             'queue-num',
@@ -2707,8 +2707,8 @@ class Console(InteractiveConsole):
             'breakpoints',
             'actions',
             'cache'
-        }
-
+        ]
+        parameter = parameter.strip()
         #display all
         if(parameter is None):
             output_list = []
@@ -2733,9 +2733,103 @@ class Console(InteractiveConsole):
         logging_print(output)
         logging_state_restore()
         #
-    def _cmd_set(self, parameter, value):
+    def _cmd_set(self, parameter = None, value = None):
         """set <parameter> <value> : set the value of a given parameter"""
-        logging_print("NotImplemented")
+        def set_verbosity(value):
+            global settings
+            accepted_val = [str(x) for x in range(0,3)]
+
+            if(not value in accepted_val):
+                t =  Template('Accepted value are: $v')
+                return t.substitute(v = ', '.join(accepted_val))
+
+            ivalue = int(value)
+            settings['effective_verbose_level'] = ivalue
+            return None
+
+        def set_ethernet(value):
+            global settings
+            accepted_val = {
+                'off': False,
+                '0': False,
+                'on': True,
+                '1': True
+            }
+            value = value.lower()
+            if(value not in accepted_val):
+                t =  Template('Accepted value are: $v')
+                return t.substitute(v = ', '.join(accepted_val.keys()))
+            settings['ethernet_layer'] = accepted_val[value]
+            return None
+
+        def set_queue_num(value):
+            global settings
+            if self.nfqueue.isAlive():
+                return 'Cannot change queue number while capture is running'
+            try:
+                ivalue = int(value)
+                if(ivalue < 0 or ivalue > 65535):
+                    raise ValueError
+            except ValueError:
+                return 'Bad value, or out of range (0-65535)'
+            settings['queue_number'] = ivalue
+            return None
+
+        def set_tshark_dir(value):
+            return str(NotImplemented)
+        def set_web_driven(value):
+            return str(NotImplemented)
+        def set_bind_ip(value):
+            return str(NotImplemented)
+        def set_bind_port(value):
+            return str(NotImplemented)
+        def set_proxy_ip(value):
+            return str(NotImplemented)
+        def set_proxy_port(value):
+            return str(NotImplemented)
+        def set_capture_filter(value):
+            return str(NotImplemented)
+        def set_packet_filter(value):
+            return str(NotImplemented)
+        def set_field_filter(value):
+            return str(NotImplemented)
+
+        output = None
+        param_list = [
+            'verbosity',
+            'ethernet',
+            'queue-num',
+            'tshark-dir',
+            'web-driven',
+            'bind ip',
+            'bind port',
+            'proxy ip',
+            'proxy port',
+            'capture filter',
+            'packet filter',
+            'field filter'
+        ]
+        parameter = parameter.strip()
+        value = value.strip()
+        if(parameter is None):
+            output = 'Available parameters:\n    $params'
+            t = Template(output)
+            output = t.substitute(params=',\n    '.join(param_list))
+        elif(value is None):
+            output = 'Value is missing'
+        elif(not parameter in param_list):
+            output = 'Unknown parameter'
+        else:
+            #spaces and '-' are not allowed in function names
+            fparameter = parameter.replace(' ', '_').replace('-', '_')
+            info_fct = eval('set_%s' % (fparameter))
+            output = info_fct(value)
+
+
+        if(output is not None):
+            logging_state_on()
+            logging_print(output)
+            logging_state_restore()
         #
     def _cmd_run(self, capture_filter=None, packet_filter=None,
                  field_filter=None):
