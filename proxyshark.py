@@ -58,6 +58,7 @@ import sys
 import time
 import traceback
 import urllib
+from string import Template
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from code import InteractiveConsole
@@ -111,9 +112,15 @@ settings = { 'real_verbose_level'     : 0,
 # Caching mechanism
 ###############################################################################
 
+
+caches = list()
 def cached(function):
     """Implement a generic caching decorator."""
+    global caches
     cache = {}
+    #keep a list of all the caches, so they can be managed
+    caches.append(cache)
+
     @wraps(function)
     def wrapper(*args):
         key = args # this key must be hashable
@@ -124,6 +131,33 @@ def cached(function):
         return result
         #
     return wrapper
+    #
+def cache_mng(summary = True, flush = False):
+    """Manage the internal cache
+
+    If summary is set to True, return a strinb telling (at least) of many
+    elements the cache contains.
+    If flush is set to True, the content of the cache will be removed, thus
+    freeing memory.
+    Both summary and flush can be True.
+    """
+    global caches
+    ret = None
+    if(summary):
+        fct_count = len(caches)
+        elem_count = 0
+        for c in caches:
+            elem_count += len(c)
+
+        ret =  Template('$elen elements in cache, ' +
+                        'concerning $fcount different functions')
+        ret = ret.substitute(elen = elem_count, fcount = fct_count)
+
+    if(flush):
+        for c in cache:
+            c.clear()
+
+    return ret
     #
 
 @cached
@@ -2654,7 +2688,7 @@ class Console(InteractiveConsole):
             return 'Action: ' + str(NotImplemented)
 
         def info_cache():
-            return 'Cache: ' + str(NotImplemented)
+            return 'Cache: ' + cache_mng(summary = True)
 
         output = ''
         param_list = {
@@ -2698,10 +2732,6 @@ class Console(InteractiveConsole):
         logging_state_on()
         logging_print(output)
         logging_state_restore()
-
-
-
-
         #
     def _cmd_set(self, parameter, value):
         """set <parameter> <value> : set the value of a given parameter"""
