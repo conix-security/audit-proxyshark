@@ -2708,7 +2708,8 @@ class Console(InteractiveConsole):
             'actions',
             'cache'
         ]
-        parameter = parameter.strip()
+        if(parameter is not None):
+            parameter = parameter.strip()
         #display all
         if(parameter is None):
             output_list = []
@@ -2775,8 +2776,21 @@ class Console(InteractiveConsole):
             settings['queue_number'] = ivalue
             return None
 
-        def set_tshark_dir(value):
-            return str(NotImplemented)
+        def set_tshark_dir(directory):
+            if self.nfqueue.isAlive():
+                return 'Cannot change tshark directory while capture is running'
+
+            candidate = os.path.join(directory, 'tshark')
+            t = None
+            if os.path.isfile(candidate):
+                settings['tshark_directory'] = os.path.dirname(candidate)
+            elif not os.path.isdir(directory):
+                return  "Directory not found"
+            else:
+                return "Cannot find tshark in this directory"
+
+            return None
+
         def set_web_driven(value):
             return str(NotImplemented)
         def set_bind_ip(value):
@@ -2809,22 +2823,25 @@ class Console(InteractiveConsole):
             'packet filter',
             'field filter'
         ]
-        parameter = parameter.strip()
-        value = value.strip()
+
+
         if(parameter is None):
             output = 'Available parameters:\n    $params'
             t = Template(output)
             output = t.substitute(params=',\n    '.join(param_list))
-        elif(value is None):
-            output = 'Value is missing'
-        elif(not parameter in param_list):
-            output = 'Unknown parameter'
         else:
-            #spaces and '-' are not allowed in function names
-            fparameter = parameter.replace(' ', '_').replace('-', '_')
-            info_fct = eval('set_%s' % (fparameter))
-            output = info_fct(value)
+            parameter = parameter.strip()
+            if(value is None):
+                output = 'Value is missing'
+            elif(not parameter in param_list):
+                output = 'Unknown parameter'
+            else:
+                value = value.strip()
 
+                #spaces and '-' are not allowed in function names
+                fparameter = parameter.replace(' ', '_').replace('-', '_')
+                info_fct = eval('set_%s' % (fparameter))
+                output = info_fct(value)
 
         if(output is not None):
             logging_state_on()
