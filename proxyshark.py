@@ -2824,8 +2824,21 @@ class Console(InteractiveConsole):
                 settings['web_server_host'] = host
             return None
 
-        def set_bind_port(value):
-            return str(NotImplemented)
+        def set_bind_port(port):
+            global settings
+            if(self.nfqueue.isAlive()):
+                return 'Cannot change bind port while capture is running'
+
+            try:
+                iport = int(port, base=10)
+                if(iport < 1 or iport > 65535):
+                    raise ValueError()
+
+            except ValueError:
+                return 'Invalid port number'
+
+            settings['web_server_port'] = iport
+            return None
 
         def set_proxy_ip(host):
             global settings
@@ -2840,8 +2853,22 @@ class Console(InteractiveConsole):
             else:
                 settings['web_proxy'] = host
             return None
-        def set_proxy_port(value):
-            return str(NotImplemented)
+
+        def set_proxy_port(port):
+            global settings
+            if(self.nfqueue.isAlive()):
+                return 'Cannot change proxy port while capture is running'
+
+            try:
+                iport = int(port, base=10)
+                if(iport < 1 or iport > 65535):
+                    raise ValueError()
+
+            except ValueError:
+                return 'Invalid port number'
+
+            settings['web_proxy_port'] = iport
+            return None
         def set_capture_filter(value):
             return str(NotImplemented)
         def set_packet_filter(value):
