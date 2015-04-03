@@ -2760,6 +2760,7 @@ class Console(InteractiveConsole):
             if(value not in accepted_val):
                 t =  Template('Accepted value are: $v')
                 return t.substitute(v = ', '.join(accepted_val.keys()))
+
             settings['ethernet_layer'] = accepted_val[value]
             return None
 
@@ -2791,14 +2792,54 @@ class Console(InteractiveConsole):
 
             return None
 
-        def set_web_driven(value):
-            return str(NotImplemented)
-        def set_bind_ip(value):
-            return str(NotImplemented)
+        def set_web_driven(state):
+            global settings
+            accepted_val = {
+                'off': False,
+                '0': False,
+                'on': True,
+                '1': True
+            }
+            state = state.lower()
+
+            if self.nfqueue.isAlive():
+                return 'Cannot (un)set web-driven mode while capture is running'
+
+            if(state not in accepted_val):
+                t =  Template('Accepted value are: $v')
+                return t.substitute(v = ', '.join(accepted_val.keys()))
+
+            settings['web_driven'] = accepted_val[state]
+            return None
+
+        def set_bind_ip(host):
+            global settings
+            if(self.nfqueue.isAlive()):
+                return 'Cannot change bind ip while capture is running'
+            try:
+                resolv(host)
+            except ValueError:
+                return 'Could not resolv host, or invalid ip'
+            else:
+                settings['web_server_host'] = host
+            return None
+
         def set_bind_port(value):
             return str(NotImplemented)
-        def set_proxy_ip(value):
-            return str(NotImplemented)
+
+        def set_proxy_ip(host):
+            global settings
+            if(self.nfqueue.isAlive()):
+                return 'Cannot change proxy ip while capture is running'
+            try:
+                resolv(host)
+            except ValueError:
+                return 'Could not resolv host, or invalid ip'
+            except Exception as e:
+                print e
+            else:
+                settings['web_proxy'] = host
+            return None
         def set_proxy_port(value):
             return str(NotImplemented)
         def set_capture_filter(value):
