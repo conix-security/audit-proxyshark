@@ -154,7 +154,7 @@ def cache_mng(summary = True, flush = False):
         ret = ret.substitute(elen = elem_count, fcount = fct_count)
 
     if(flush):
-        for c in cache:
+        for c in caches:
             c.clear()
 
     return ret
@@ -2817,7 +2817,7 @@ class Console(InteractiveConsole):
     def _cmd_flush(self):
         """f|flush : flush internal cache to free memory (captured packets are
         not removed)"""
-        logging_print("NotImplemented")
+        cache_mng(summary=False, flush=True)
         #
     #
 
