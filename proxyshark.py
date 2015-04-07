@@ -69,11 +69,13 @@ try:
 except ImportError:
     resolver = None
 from functools import wraps
+
+# need python-pyparsing
 from pyparsing import (alphas, alphanums, Combine, Empty, Forward, Group,
                        Keyword, nestedExpr, NotAny, nums, oneOf, opAssoc,
                        operatorPrecedence, Optional, OneOrMore, ParseException,
-                       ParseResults, quotedString, StringEnd, StringStart,
-                       Suppress, White, Word) # need python-pyparsing
+                       ParseBaseException, ParseResults, quotedString,
+                       StringEnd, StringStart, Suppress, White, Word)
 alphanums += '-._'
 from SocketServer import ThreadingMixIn
 from subprocess import Popen, PIPE
@@ -2876,8 +2878,15 @@ class Console(InteractiveConsole):
             settings['web_proxy_port'] = iport
             return None
 
-        def set_capture_filter(value):
-            return str(NotImplemented)
+        def set_capture_filter(cfilter):
+            try:
+                Netfilter.check_syntax(cfilter)
+            except(ParseBaseException):
+                return 'Invalid capture filter'
+
+            settings['capture_filter'] = cfilter
+
+            return None
 
         def set_packet_filter(value):
             return str(NotImplemented)
