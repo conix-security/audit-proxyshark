@@ -2895,8 +2895,16 @@ class Console(InteractiveConsole):
             except(ParseBaseException):
                 return 'Invalid packet filter'
 
-        def set_field_filter(value):
-            return str(NotImplemented)
+        def set_field_filter(ffilter):
+            output = None
+            try:
+                re_compile(ffilter)
+            except re.error as e:
+                t = Template('Invalid field filter: $err')
+                output = t.substitute(err = trunc(e.message))
+            else:
+                settings['field_filter'] = ffilter
+            return output
 
         output = None
         param_list = [
