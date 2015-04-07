@@ -2141,6 +2141,58 @@ class WebRequestHandler(BaseHTTPRequestHandler):
     #
 
 ###############################################################################
+# Breakpoints - Actions
+###############################################################################
+
+class Breakpoint(object):
+    """A breakpoint triggered when a packet matches a given filter
+
+    Breakpoints can either pause the capture, so the packet can be edited
+    manually, or modify it automatically with a previously defined action"""
+
+    _next_id = 0
+
+    def __init__(self, packet_filter, action = None, enabled = True):
+        self.packet_filter = packet_filter
+        self.action = action
+        self.enabled = enabled
+
+        self.id = Breakpoint._next_id
+        Breakpoint._next_id += 1
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
+    def is_enabled(self):
+        return self.enabled
+
+    def is_disabled(self):
+        return not self.enabled
+
+    def try_trigger(self, packet):
+        if(PacketFilter.match(packet, self.packet_filter)):
+            self._callback(packet)
+
+    def __repr__(self):
+        t = Template('Breakpoint $bid -> $pf -> $aid')
+        return t.substitute(bid = str(self.id), pf = self.packet_filter,
+                            aid = str(None))
+
+    def __str__(self):
+        t = Template("Breakpoint: $bid\n*PacketFilter: $pf\n*Action: $aid")
+        return t.substitute(bid = str(self.id), pf = self.packet_filter,
+                            aid = str(None))
+
+    def _callback(self, packet):
+        """Called when a packet matches the filter"""
+        logging_state_on()
+        logging_print(repr(self) + '\n' + trunc(repr(packet), 100))
+        logging_state_restore()
+
+###############################################################################
 # NFQueue
 ###############################################################################
 
@@ -2181,6 +2233,8 @@ class NFQueue(Thread):
         self.pkt_lock = Lock()
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
+        #breakpoints
+        self.breakpoints = list()
         self._timeout = 5
         # interesting events
         self._started = Event()
@@ -2375,6 +2429,8 @@ class NFQueue(Thread):
                 self.pkt_lock.acquire()
                 self.packets.append(packet)
                 self.pkt_lock.release()
+                for b in self.breakpoints:
+                    b.try_trigger(packet)
 
             logging_debug("nfqueue received packet #%s" % packet.identifier)
             if settings['effective_verbose_level'] > 1:
@@ -2580,7 +2636,6 @@ class Console(InteractiveConsole):
                 break
             for line in line.split(';'):
                 # parse the line and run the appropriate command
-
                 parser = self._command_parser()
                 tokens = tuple(parser.parseString(line))
                 if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
