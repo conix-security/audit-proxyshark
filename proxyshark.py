@@ -2888,8 +2888,12 @@ class Console(InteractiveConsole):
 
             return None
 
-        def set_packet_filter(value):
-            return str(NotImplemented)
+        def set_packet_filter(pfilter):
+            try:
+                PacketFilter.check_syntax(pfilter)
+                settings['packet_filter'] = pfilter
+            except(ParseBaseException):
+                return 'Invalid packet filter'
 
         def set_field_filter(value):
             return str(NotImplemented)
