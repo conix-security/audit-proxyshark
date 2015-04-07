@@ -2330,6 +2330,12 @@ class NFQueue(Thread):
         self._nfq_handle.set_mode(nfqueue.NFQNL_COPY_PACKET)
         self._nfq_channel = NFQChannel(self, self._nfq_handle)
 
+    def drop(self):
+        """empty the captured packet list"""
+        self.pkt_lock.acquire()
+        del self.packets[:]
+        self.pkt_lock.release()
+
     # Private methods #########################################################
     def _run(self):
         """A wrapper that runs a new capture effectively."""
@@ -2869,10 +2875,13 @@ class Console(InteractiveConsole):
 
             settings['web_proxy_port'] = iport
             return None
+
         def set_capture_filter(value):
             return str(NotImplemented)
+
         def set_packet_filter(value):
             return str(NotImplemented)
+
         def set_field_filter(value):
             return str(NotImplemented)
 
@@ -2998,6 +3007,9 @@ class Console(InteractiveConsole):
         not removed)"""
         cache_mng(summary=False, flush=True)
         #
+    def _cmd_drop(self):
+        """d|drop : remove packets from list"""
+        self.nfqueue.drop()
     #
 
 ###############################################################################
@@ -3251,4 +3263,3 @@ if __name__ == '__main__':
     finally:
         logging.shutdown()
         sys.exit(0 if result is True else 1)
-
