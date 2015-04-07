@@ -135,9 +135,9 @@ def cached(function):
 def cache_mng(summary = True, flush = False):
     """Manage the internal cache
 
-    If summary is set to True, return a strinb telling (at least) of many
+    If summary is True, return a strinb telling (at least) how many
     elements the cache contains.
-    If flush is set to True, the content of the cache will be removed, thus
+    If flush is True, the content of the cache will be removed, thus
     freeing memory.
     Both summary and flush can be True.
     """
