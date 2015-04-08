@@ -2536,7 +2536,7 @@ class Console(InteractiveConsole):
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
 
-        InteractiveConsole.__init__(self, locals=self.commands.copy())
+        InteractiveConsole.__init__(self)
 
         #
     def interact(self):
@@ -2613,8 +2613,13 @@ class Console(InteractiveConsole):
         """Return a parser for the custom commands."""
         printable = alphanums + string.punctuation
         command   = Word(string.ascii_lowercase)
+        slice_ctnt = printable.replace('[','').replace(']', '') + ' '
+        slice = '[' + Word(slice_ctnt) + ']' | '[' + \
+                                               quotedString(slice_ctnt) + ']'
+
         argument  = quotedString(printable + ' ') | Word(printable)
-        parser    = Optional(command + Optional(White() + OneOrMore(argument)))
+        parser    = Optional(command + Optional(slice) + \
+                    Optional( White() + OneOrMore(argument)))
         return StringStart() + parser + StringEnd()
         #
     def _interact(self, banner=None):
@@ -2640,12 +2645,15 @@ class Console(InteractiveConsole):
             for line in line.split(';'):
                 # parse the line and run the appropriate command
                 parser = self._command_parser()
-                tokens = tuple(parser.parseString(line))
+                try:
+                    tokens = tuple(parser.parseString(line))
+                except Exception as e:
+                    logging_error('Parsing error')
+                    continue
                 if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
                     self._save_history()
                     self._stopping.set()
                     return
-
                 try:
                     command = 'self.%s' % self.commands[tokens[0]].__name__
                 except:
@@ -2656,21 +2664,33 @@ class Console(InteractiveConsole):
                     continue
 
                 arguments = []
-                for token in tokens[2:]:
+                in_slice = False
+                slice_ctnt = ''
+                for token in tokens[1:]:
+                    #handle slice
+                    if(token == '['):
+                        in_slice = True
+                    elif(token == ']'):
+                        in_slice = False
+                        slice_ctnt = slice_ctnt.replace("'", '').replace('"','')
+                        arguments.append(repr(slice_ctnt+']'))
+                        continue
+                    if(in_slice):
+                        slice_ctnt += token
+                        continue
+
                     if token.startswith('"') and token.endswith('"'):
                         arguments.append(repr(token[1:-1]))
                     elif token.startswith('\'') and token.endswith('\''):
                         arguments.append(repr(token[1:-1]))
-                    else:
+                    elif token.strip() != '':
                         arguments.append(repr(token))
-
-
                 try:
                     self.current_line = line
                     exec '%s(%s)' % (command, ', '.join(arguments))
-
                 except:
                     logging_exception()
+
         #
     def _cmd_help(self, command=None):
         """h|help [<command>] : print a short help describing the available
@@ -3067,11 +3087,11 @@ class Console(InteractiveConsole):
             logging_state_restore()
         return result
         #
-    def _cmd_nfqueue(self):
+    def _cmd_nfqueue(self, slice = None):
         """q|queue|nfqueue : a reference to the netfilter queue"""
         self.runsource(self.current_line, '<console>')
         #
-    def _cmd_packet(self):
+    def _cmd_packet(self, slice = None):
         """pkt|packet : a reference to the last captured packet"""
         last_pkt = None
         if(len(self.nfqueue.packets) > 0):
