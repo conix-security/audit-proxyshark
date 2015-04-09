@@ -3182,7 +3182,7 @@ class Console(InteractiveConsole):
                     print type(breakpoints), type(ba)
                     breakpoints[bid] = ba
                 except ValueError as e:
-                    loggging_print(e.message)
+                    logging_print(e.message)
             logging_state_restore()
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
