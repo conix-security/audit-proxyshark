@@ -286,7 +286,7 @@ def _logging_print(string=''):
 
 def _logging_raw(string=''):
     """Print a raw string to "standard error"."""
-    sys.stderr.write("\001\033[0m\002%s\001\033[0m\002\n" % string)
+    sys.stderr.write("\033[0m%s\033[0m\n" % string)
     sys.stderr.flush()
     #
 
@@ -447,7 +447,7 @@ signal.signal(signal.SIGHUP, profile_print)
 # Capture filtering
 ###############################################################################
 
-class Netfilter:
+class Netfilter(object):
     """A set of static methods to generate and manage Netfilter rules."""
     _chain_prefix = 'PROXYSHARK'
     _existing_chains = []
@@ -860,7 +860,7 @@ class Netfilter:
 # Packet filtering
 ###############################################################################
 
-class PacketFilter:
+class PacketFilter(object):
     """A set of static methods to handle packet filters."""
     # Public methods ##########################################################
     @staticmethod
@@ -1107,7 +1107,7 @@ class DissectionException(Exception):
     pass
     #
 
-class DissectedPacket:
+class DissectedPacket(object):
     """A dissected packet as seen by Wireshark and tshark (a tree structure of
     protocols and fields)."""
     next_real_identifier = 0 # directly from tshark (-1)
@@ -1709,7 +1709,7 @@ class DissectedPacketSubList(DissectedPacketList):
     # Private methods #########################################################
     #
 
-class Dissector:
+class Dissector(object):
     """A packet dissector based on tshark."""
     # Public methods ##########################################################
     def __init__(self):
@@ -2625,7 +2625,7 @@ class Console(InteractiveConsole):
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
-        logging_print("\001\033[0;34m\002%s" % banner if banner else "\r")
+        logging_print("\033[0;34m%s" % banner if banner else "\r")
         logging_print("<interactive mode - press Ctrl-D to jump "
                       "in view mode>")
         while 1:
