@@ -2633,7 +2633,7 @@ class Console(InteractiveConsole):
                 # wait for the next command from the user
                 logging_state_off()
                 line = self.raw_input("\001\033[1;34m\002>>>\001\033[37m\002 ")
-                sys.stdout.write("\001\033[0m\002")
+                sys.stdout.write("\033[0m")
                 sys.stdout.flush()
             except EOFError:
                 # ctrl-d was pressed, switch to view mode
@@ -2648,8 +2648,14 @@ class Console(InteractiveConsole):
                 try:
                     tokens = tuple(parser.parseString(line))
                 except Exception as e:
-                    logging_error('Parsing error')
+                    #this line does not match the command's syntax,
+                    #but it coult still be a valid python expression
+                    try:
+                        self.runsource(line, '<console>')
+                    except:
+                        logging_error('Parsing error')
                     continue
+
                 if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
                     self._save_history()
                     self._stopping.set()
@@ -2657,10 +2663,9 @@ class Console(InteractiveConsole):
                 try:
                     command = 'self.%s' % self.commands[tokens[0]].__name__
                 except:
+                    #line is not a command, so try to execute it
                     if(len(tokens) > 0):
-                        logging_state_on()
-                        logging_print('Unknown command "%s"' % (tokens[0]))
-                        logging_state_restore()
+                        self.runsource(line, '<console>')
                     continue
 
                 arguments = []
