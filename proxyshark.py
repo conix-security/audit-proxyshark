@@ -2146,22 +2146,45 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 ###############################################################################
 # Breakpoints - Actions
 ###############################################################################
+class Action(object):
+
+    used_aid = list()
+
+    def __init__(self, aid, bid, expression):
+        if(aid in Action.used_aid):
+            t = Template('Action id $a already in use')
+            raise ValueError(t.substitute(a = aid))
+        self.aid = aid
+        self.bid = bid
+        self.expression = expression
+
+    def __repr__(self):
+        t = Template('Action $a, breakpoint $b expression $exp')
+        return t.substitute(a = self.aid, b = self.bid,
+                            exp = repr(trunc(self.expression)))
+    def __str__(self):
+        t = Template('Action id: $a\n  Breakpoint id: $b\n  Expression: $exp')
+        return t.substitute(a = self.aid, b = self.bid,
+                            exp = str(trunc(self.expression)))
 
 class Breakpoint(object):
     """A breakpoint triggered when a packet matches a given filter
 
     Breakpoints can either pause the capture, so the packet can be edited
-    manually, or modify it automatically with a previously defined action"""
+    manually, or modify it automatically with defined action"""
 
     _next_id = 0
 
-    def __init__(self, packet_filter, action = None, enabled = True):
+    def __init__(self, packet_filter, enabled = True):
         self.packet_filter = packet_filter
-        self.action = action
         self.enabled = enabled
 
         self.id = Breakpoint._next_id
         Breakpoint._next_id += 1
+
+    def set_action(self, action):
+        if(isinstance(action, Action)):
+            self.action = action
 
     def enable(self):
         self.enabled = True
@@ -2238,6 +2261,11 @@ class NFQueue(Thread):
         self.tmp_packets = DissectedPacketList()
         #breakpoints
         self.breakpoints = list()
+        self.actions = dict()
+        #self.actions['1'] = Action('1', 0, 'print \'haha\'')
+        #self.actions['2'] = Action('2', 0, 'print \'hoho\'')
+
+
         self._timeout = 5
         # interesting events
         self._started = Event()
@@ -2776,7 +2804,9 @@ class Console(InteractiveConsole):
             return 'Breakpoints: ' + str(NotImplemented)
 
         def info_actions():
-            return 'Action: ' + str(NotImplemented)
+            actions = self.nfqueue.actions
+            actions_repr = [str(actions[k]) for k in actions]
+            return 'Actions: \n' + '\n\n'.join(actions_repr)
 
         def info_cache():
             return 'Cache: ' + cache_mng(summary = True)
@@ -3114,6 +3144,22 @@ class Console(InteractiveConsole):
     def _cmd_drop(self):
         """d|drop : remove packets from list"""
         self.nfqueue.drop()
+
+    def _cmd_action(self, aid = None, bid = None, expr = None):
+        """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
+        or add a new action to an existing breakpoint"""
+
+        if(aid is None):
+            if (bid is None and expr is None):
+                self._cmd_info(parameter='actions')
+        else:
+            if (bid is None and expr is None):
+                #print breakpoint and expression
+                pass
+            elif(bid is not None and expr is not None):
+                #add a new action
+                pass
+
     #
 
 ###############################################################################
