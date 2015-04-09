@@ -2147,26 +2147,42 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 # Breakpoints - Actions
 ###############################################################################
 class Action(object):
+    """An action to be run when a packet triggers an enabled breakpoint
+
+    Actions must associated to an already existing breakpoint"""
 
     used_aid = list()
+    id_pattern = re_compile(r'^[\w\-.]+$')
 
-    def __init__(self, aid, bid, expression):
+    def __init__(self, aid, breakpoint, expression):
         if(aid in Action.used_aid):
             t = Template('Action id $a already in use')
             raise ValueError(t.substitute(a = aid))
+
+        if(Action.is_invalid_id(aid)):
+            raise ValueError('Invalid action id')
+
         self.aid = aid
-        self.bid = bid
+        self.breakpoint = breakpoint
         self.expression = expression
+        self.breakpoint.add_action(aid)
+        Action.used_aid.append(aid)
 
     def __repr__(self):
         t = Template('Action $a, bid $b -> $exp')
-        return t.substitute(a = self.aid, b = self.bid,
+        return t.substitute(a = self.aid, b = self.breakpoint.id,
                             exp = repr(trunc(self.expression)))
+
     def __str__(self):
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
-        return t.substitute(a = self.aid, b = self.bid,
-                            exp = str(trunc(self.expression)))
+        return t.substitute(a = self.aid, b = self.breakpoint.id,
+                            exp = repr(trunc(self.expression)))
+
+    @staticmethod
+    def is_invalid_id(aid):
+        return Action.id_pattern.match(aid) is None
+
 
 class Breakpoint(object):
     """A breakpoint triggered when a packet matches a given filter
@@ -2175,8 +2191,13 @@ class Breakpoint(object):
     manually, or modify it automatically with defined action"""
 
     id_pattern = re_compile(r'^[\w\-.]+$')
+    used_bid = list()
 
-    def __init__(self, bid, pfilter, enabled = True):
+    def __init__(self, bid, pfilter, enabled = False):
+        if(bid in Breakpoint.used_bid):
+            t = Template('Breakpoint id $b already in use')
+            raise ValueError(t.substitute(b = bid))
+
         if(Breakpoint.is_invalid_id(bid)):
             raise ValueError('Invalid breakpoint id')
 
@@ -2188,14 +2209,13 @@ class Breakpoint(object):
             self.packet_filter = pfilter
             self.enabled = enabled
             self.id = bid
+            self.action_ids = list()
+
+            Breakpoint.used_bid.append(bid)
 
     @staticmethod
     def is_invalid_id(bid):
         return Breakpoint.id_pattern.match(bid) is None
-
-    def set_action(self, action):
-        if(isinstance(action, Action)):
-            self.action = action
 
     def enable(self):
         self.enabled = True
@@ -2213,15 +2233,22 @@ class Breakpoint(object):
         if(PacketFilter.match(packet, self.packet_filter)):
             self._callback(packet)
 
+    def add_action(self, aid):
+        self.action_ids.append(aid)
+
     def __repr__(self):
-        t = Template('Breakpoint $bid -> $pf -> $aid')
+        enabled = "enabled" if self.enabled else "disabled"
+        t = Template('Breakpoint $bid $state, actions ($aid) -> $pf ')
         return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = str(None))
+                            aid = ', '.join(self.action_ids),
+                            state = str(enabled))
 
     def __str__(self):
-        t = Template("  id: $bid\n  packet filter: $pf\n  action: $aid")
+        t = Template("Breakpoint id: $bid\n  Packet filter: $pf" +
+                     "\n  Action id: $aid\n  Enabled: $state")
         return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = str(None))
+                            aid = ', '.join(self.action_ids),
+                            state = self.enabled)
 
     def _callback(self, packet):
         """Called when a packet matches the filter"""
@@ -2273,9 +2300,6 @@ class NFQueue(Thread):
         #breakpoints
         self.breakpoints = dict()
         self.actions = dict()
-        self.actions['1'] = Action('1', 0, 'print \'haha\'')
-        self.actions['2'] = Action('2', 0, 'print \'hoho\'')
-
 
         self._timeout = 5
         # interesting events
@@ -2813,13 +2837,17 @@ class Console(InteractiveConsole):
 
         def info_breakpoints():
             breakpoints = self.nfqueue.breakpoints
-            breakpoints_repr = [str(breakpoints[k]) for k in breakpoints]
-            return 'Breakpoints: \n' + '\n\n'.join(breakpoints_repr)
+            if(len(breakpoints) > 0):
+                breakpoints_repr = [repr(breakpoints[k]) for k in breakpoints]
+                return 'Breakpoints: \n*' + '\n*'.join(breakpoints_repr)
+            return ''
 
         def info_actions():
             actions = self.nfqueue.actions
-            actions_repr = [str(actions[k]) for k in actions]
-            return 'Actions: \n' + '\n\n'.join(actions_repr)
+            if(len(actions) > 0):
+                actions_repr = [repr(actions[k]) for k in actions]
+                return 'Actions: \n*' + '\n*'.join(actions_repr)
+            return ''
 
         def info_cache():
             return 'Cache: ' + cache_mng(summary = True)
@@ -3172,15 +3200,14 @@ class Console(InteractiveConsole):
                 #display only the packet filter
                 try:
                     output = self.nfqueue.breakpoints[bid]
-                    logging_print(output)
+                    logging_print(str(output))
                 except:
                     logging_print('Unknown breakpoint id')
             else:
                 #add a new breakpoint
                 try:
-                    ba = Breakpoint(bid, packet_filter, False)
-                    print type(breakpoints), type(ba)
-                    breakpoints[bid] = ba
+                    b = Breakpoint(bid, packet_filter, False)
+                    breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
             logging_state_restore()
@@ -3193,12 +3220,28 @@ class Console(InteractiveConsole):
             if (bid is None and expr is None):
                 self._cmd_info(parameter='actions')
         else:
+            logging_state_on()
             if (bid is None and expr is None):
-                #print breakpoint and expression
-                pass
+
+                try:
+                    action = self.nfqueue.actions[aid]
+                except KeyError as e:
+                    logging_print('Unknown action id')
+                else:
+                    breakpoint = action.breakpoint
+                    t = Template('Action\n$a')
+                    logging_print(t.substitute(a = str(action)))
+
             elif(bid is not None and expr is not None):
-                #add a new action
-                pass
+                try:
+                    b = self.nfqueue.breakpoints[bid]
+                    a = Action(aid, b, expr)
+                    self.nfqueue.actions[aid] = a
+                except ValueError as v:
+                    logging_print(v.message)
+                except KeyError as k:
+                    logging_print('Unknown breakpoint id')
+            logging_state_restore()
 
     #
 
