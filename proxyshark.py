@@ -2159,11 +2159,12 @@ class Action(object):
         self.expression = expression
 
     def __repr__(self):
-        t = Template('Action $a, breakpoint $b expression $exp')
+        t = Template('Action $a, bid $b -> $exp')
         return t.substitute(a = self.aid, b = self.bid,
                             exp = repr(trunc(self.expression)))
     def __str__(self):
-        t = Template('Action id: $a\n  Breakpoint id: $b\n  Expression: $exp')
+        t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
+                     '  Expression: $exp')
         return t.substitute(a = self.aid, b = self.bid,
                             exp = str(trunc(self.expression)))
 
@@ -2173,14 +2174,24 @@ class Breakpoint(object):
     Breakpoints can either pause the capture, so the packet can be edited
     manually, or modify it automatically with defined action"""
 
-    _next_id = 0
+    id_pattern = re_compile(r'^[\w\-.]+$')
 
-    def __init__(self, packet_filter, enabled = True):
-        self.packet_filter = packet_filter
-        self.enabled = enabled
+    def __init__(self, bid, pfilter, enabled = True):
+        if(Breakpoint.is_invalid_id(bid)):
+            raise ValueError('Invalid breakpoint id')
 
-        self.id = Breakpoint._next_id
-        Breakpoint._next_id += 1
+        try:
+            PacketFilter.check_syntax(pfilter)
+        except:
+            raise ValueError('Invalid packet filter')
+        else:
+            self.packet_filter = pfilter
+            self.enabled = enabled
+            self.id = bid
+
+    @staticmethod
+    def is_invalid_id(bid):
+        return Breakpoint.id_pattern.match(bid) is None
 
     def set_action(self, action):
         if(isinstance(action, Action)):
@@ -2204,12 +2215,12 @@ class Breakpoint(object):
 
     def __repr__(self):
         t = Template('Breakpoint $bid -> $pf -> $aid')
-        return t.substitute(bid = str(self.id), pf = self.packet_filter,
+        return t.substitute(bid = self.id, pf = repr(self.packet_filter),
                             aid = str(None))
 
     def __str__(self):
-        t = Template("Breakpoint: $bid\n*PacketFilter: $pf\n*Action: $aid")
-        return t.substitute(bid = str(self.id), pf = self.packet_filter,
+        t = Template("  id: $bid\n  packet filter: $pf\n  action: $aid")
+        return t.substitute(bid = self.id, pf = repr(self.packet_filter),
                             aid = str(None))
 
     def _callback(self, packet):
@@ -2260,10 +2271,10 @@ class NFQueue(Thread):
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
         #breakpoints
-        self.breakpoints = list()
+        self.breakpoints = dict()
         self.actions = dict()
-        #self.actions['1'] = Action('1', 0, 'print \'haha\'')
-        #self.actions['2'] = Action('2', 0, 'print \'hoho\'')
+        self.actions['1'] = Action('1', 0, 'print \'haha\'')
+        self.actions['2'] = Action('2', 0, 'print \'hoho\'')
 
 
         self._timeout = 5
@@ -2801,7 +2812,9 @@ class Console(InteractiveConsole):
             return 'Field filter: %s' % repr((settings['field_filter']))
 
         def info_breakpoints():
-            return 'Breakpoints: ' + str(NotImplemented)
+            breakpoints = self.nfqueue.breakpoints
+            breakpoints_repr = [str(breakpoints[k]) for k in breakpoints]
+            return 'Breakpoints: \n' + '\n\n'.join(breakpoints_repr)
 
         def info_actions():
             actions = self.nfqueue.actions
@@ -3144,6 +3157,33 @@ class Console(InteractiveConsole):
     def _cmd_drop(self):
         """d|drop : remove packets from list"""
         self.nfqueue.drop()
+
+    def _cmd_breakpoint(self, bid = None, packet_filter = None):
+        """b|breakpoint [<breakpoint-id> [<packet-filter>]]: display,
+        or add a new breakpoint"""
+        breakpoints = self.nfqueue.breakpoints
+        if(bid is None):
+            if (packet_filter is None):
+                #print every breakpoints
+                self._cmd_info(parameter='breakpoints')
+        else:
+            logging_state_on()
+            if (packet_filter is None):
+                #display only the packet filter
+                try:
+                    output = self.nfqueue.breakpoints[bid]
+                    logging_print(output)
+                except:
+                    logging_print('Unknown breakpoint id')
+            else:
+                #add a new breakpoint
+                try:
+                    ba = Breakpoint(bid, packet_filter, False)
+                    print type(breakpoints), type(ba)
+                    breakpoints[bid] = ba
+                except ValueError as e:
+                    loggging_print(e.message)
+            logging_state_restore()
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
