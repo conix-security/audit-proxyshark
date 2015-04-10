@@ -2162,21 +2162,21 @@ class Action(object):
         if(Action.is_invalid_id(aid)):
             raise ValueError('Invalid action id')
 
-        self.aid = aid
+        self.id = aid
         self.breakpoint = breakpoint
         self.expression = expression
-        self.breakpoint.add_action(aid)
+        self.breakpoint.add_action(self)
         Action.used_aid.append(aid)
 
     def __repr__(self):
         t = Template('Action $a, bid $b -> $exp')
-        return t.substitute(a = self.aid, b = self.breakpoint.id,
+        return t.substitute(a = self.id, b = self.breakpoint.id,
                             exp = repr(trunc(self.expression)))
 
     def __str__(self):
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
-        return t.substitute(a = self.aid, b = self.breakpoint.id,
+        return t.substitute(a = self.id, b = self.breakpoint.id,
                             exp = repr(trunc(self.expression)))
 
     @staticmethod
@@ -2209,7 +2209,7 @@ class Breakpoint(object):
             self.packet_filter = pfilter
             self.enabled = enabled
             self.id = bid
-            self.action_ids = list()
+            self.actions = list()
 
             Breakpoint.used_bid.append(bid)
 
@@ -2230,32 +2230,34 @@ class Breakpoint(object):
         return not self.enabled
 
     def try_trigger(self, packet):
+        if(not self.enabled):
+            return
         if(PacketFilter.match(packet, self.packet_filter)):
             self._callback(packet)
 
-    def add_action(self, aid):
-        self.action_ids.append(aid)
+    def add_action(self, a):
+        self.actions.append(a)
 
     def __repr__(self):
         enabled = "enabled" if self.enabled else "disabled"
+        print type(self.actions[0])
+        action_ids = [a.id for a in self.actions]
         t = Template('Breakpoint $bid $state, actions ($aid) -> $pf ')
         return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = ', '.join(self.action_ids),
+                            aid = ', '.join(action_ids),
                             state = str(enabled))
 
     def __str__(self):
+        action_ids = [a.id for a in self.actions]
         t = Template("Breakpoint id: $bid\n  Packet filter: $pf" +
                      "\n  Action id: $aid\n  Enabled: $state")
         return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = ', '.join(self.action_ids),
+                            aid = ', '.join(action_ids),
                             state = self.enabled)
 
     def _callback(self, packet):
         """Called when a packet matches the filter"""
-        logging_state_on()
-        logging_print(repr(self) + '\n' + trunc(repr(packet), 100))
-        logging_state_restore()
-
+        pass
 ###############################################################################
 # NFQueue
 ###############################################################################
@@ -2758,7 +2760,6 @@ class Console(InteractiveConsole):
                     exec '%s(%s)' % (command, ', '.join(arguments))
                 except:
                     logging_exception()
-
         #
     def _cmd_help(self, command=None):
         """h|help [<command>] : print a short help describing the available
@@ -2892,9 +2893,10 @@ class Console(InteractiveConsole):
             info_fct = eval('info_%s' % (fparameter))
             output = info_fct()
 
-        logging_state_on()
-        logging_print(output)
-        logging_state_restore()
+        if(len(output) > 0):
+            logging_state_on()
+            logging_print(output)
+            logging_state_restore()
         #
     def _cmd_set(self, parameter = None, value = None):
         """set <parameter> <value> : set the value of a given parameter"""
