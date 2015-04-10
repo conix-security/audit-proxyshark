@@ -2243,13 +2243,7 @@ class Breakpoint(object):
 
         for a in self.actions:
             for line in a.expression.split(';'):
-                try:
-                    self._console.try_exec(line)
-                except:
-                    logging_state_on()
-                    logging_exception()
-                    logging_state_restore()
-
+                self._console.try_exec(line, is_action = True)
 
     def add_action(self, a):
         self.actions.append(a)
@@ -2595,6 +2589,7 @@ class Console(InteractiveConsole):
     def __init__(self):
         """Create a new interactive console."""
         # initialization
+        self.in_view_mode = False
         self.nfqueue = NFQueue()
         self._default_completer = readline.get_completer()
         readline.set_completer(self._completer)
@@ -2647,7 +2642,6 @@ class Console(InteractiveConsole):
                                              text)
 
         InteractiveConsole.__init__(self)
-
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
@@ -2664,6 +2658,7 @@ class Console(InteractiveConsole):
                 try:
                     signal.signal(signal.SIGINT, handler_sigint)
                     while not self._stopping.isSet():
+                        self.in_view_mode = True
                         time.sleep(0.1)
                 # interactive mode
                 except KeyboardInterrupt:
@@ -2732,10 +2727,12 @@ class Console(InteractiveConsole):
                     Optional( White() + OneOrMore(argument)))
         return StringStart() + parser + StringEnd()
         #
-    def try_exec(self, line):
+    def try_exec(self, line, is_action = False):
         """Try to execute a line
 
         line may be composed of several expressions"""
+        #will be passed to runsource
+        parent = not is_action
         for line in line.split(';'):
             # parse the line and run the appropriate command
             parser = self._command_parser()
@@ -2745,19 +2742,25 @@ class Console(InteractiveConsole):
                 #this line does not match the command's syntax,
                 #but it coult still be a valid python expression
                 try:
-                    self.runsource(line, '<console>')
+                    self.runsource(line, '<console>', use_parent = parent)
                 except:
-                    logging_error('Parsing error')
+                    if(self.in_view_mode):
+                        logging_exception()
                 continue
 
             if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
-                return 'x'
+                return tokens[0]
             try:
                 command = 'self.%s' % self.commands[tokens[0]].__name__
             except:
                 #line is not a command, so try to execute it
                 if(len(tokens) > 0):
-                    self.runsource(line, '<console>')
+                    try:
+                        self.runsource(line, '<console>', use_parent = parent)
+                    except:
+                        if(self.in_view_mode):
+                            logging_exception()
+
                 continue
 
             arguments = []
@@ -2786,21 +2789,33 @@ class Console(InteractiveConsole):
                 self.current_line = line
                 exec '%s(%s)' % (command, ', '.join(arguments))
             except:
-                logging_exception()
+                if(self.in_view_mode):
+                    logging_exception()
 
-            return ''
+            return
 
-    def runsource(self, source, filename='<input>', symbol='single'):
+    def runsource(self, source, filename='<input>', symbol='single',
+                  use_parent = True):
         last_pkt = None
         if(len(self.nfqueue.packets) > 0):
             last_pkt = self.nfqueue.packets[-1]
         self.locals['packet'] = last_pkt
         self.locals['pkt'] = last_pkt
-        InteractiveConsole.runsource(self, source, filename, symbol)
+
+        if(not use_parent):
+            #do not use InteractiveInterpreter.runsource in order to avoid
+            #having OverflowError, SyntaxError and ValueError
+            #displayed on screen automatically
+            #-> Display them only when in view mode
+            code = self.compile(source, filename, symbol)
+            exec code in self.locals
+        else:
+            InteractiveConsole.runsource(self, source, filename, symbol)
 
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
+        self.in_view_mode = False
         logging_print("\033[0;34m%s" % banner if banner else "\r")
         logging_print("<interactive mode - press Ctrl-D to jump "
                       "in view mode>")
@@ -2818,9 +2833,8 @@ class Console(InteractiveConsole):
                 logging_print("\n<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
                 break
-
             ret = self.try_exec(line)
-            if(ret == 'x'):
+            if(ret in ('x', 'exit')):
                 self._save_history()
                 self._stopping.set()
                 return
@@ -3266,7 +3280,7 @@ class Console(InteractiveConsole):
             else:
                 #add a new breakpoint
                 try:
-                    b = Breakpoint(self, bid, packet_filter, False)
+                    b = Breakpoint(self, bid, packet_filter, True)
                     breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
@@ -3302,7 +3316,6 @@ class Console(InteractiveConsole):
                 except KeyError as k:
                     logging_print('Unknown breakpoint id')
             logging_state_restore()
-
     #
 
 ###############################################################################
