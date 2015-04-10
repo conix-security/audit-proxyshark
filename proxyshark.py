@@ -2193,7 +2193,7 @@ class Breakpoint(object):
     id_pattern = re_compile(r'^[\w\-.]+$')
     used_bid = list()
 
-    def __init__(self, bid, pfilter, enabled = False):
+    def __init__(self, console, bid, pfilter, enabled = False):
         if(bid in Breakpoint.used_bid):
             t = Template('Breakpoint id $b already in use')
             raise ValueError(t.substitute(b = bid))
@@ -2206,6 +2206,7 @@ class Breakpoint(object):
         except:
             raise ValueError('Invalid packet filter')
         else:
+            self._console = console
             self.packet_filter = pfilter
             self.enabled = enabled
             self.id = bid
@@ -2230,17 +2231,33 @@ class Breakpoint(object):
         return not self.enabled
 
     def try_trigger(self, packet):
+        """Try to trigger this breakpoint
+
+        All of its actions will be run if the breakpoint is enabled,
+        and if the given packet matches its filter"""
+
         if(not self.enabled):
             return
-        if(PacketFilter.match(packet, self.packet_filter)):
-            self._callback(packet)
+        if(not PacketFilter.match(packet, self.packet_filter)):
+            return
+
+        for a in self.actions:
+            for line in a.expression.split(';'):
+                try:
+                    self._console.try_exec(line)
+                except:
+                    logging_state_on()
+                    logging_exception()
+                    logging_state_restore()
+
 
     def add_action(self, a):
         self.actions.append(a)
 
     def __repr__(self):
+        """Return a one-line representation of this breakpoint"""
+
         enabled = "enabled" if self.enabled else "disabled"
-        print type(self.actions[0])
         action_ids = [a.id for a in self.actions]
         t = Template('Breakpoint $bid $state, actions ($aid) -> $pf ')
         return t.substitute(bid = self.id, pf = repr(self.packet_filter),
@@ -2248,6 +2265,7 @@ class Breakpoint(object):
                             state = str(enabled))
 
     def __str__(self):
+        """Return a multiline representation of this breakpoint"""
         action_ids = [a.id for a in self.actions]
         t = Template("Breakpoint id: $bid\n  Packet filter: $pf" +
                      "\n  Action id: $aid\n  Enabled: $state")
@@ -2255,9 +2273,6 @@ class Breakpoint(object):
                             aid = ', '.join(action_ids),
                             state = self.enabled)
 
-    def _callback(self, packet):
-        """Called when a packet matches the filter"""
-        pass
 ###############################################################################
 # NFQueue
 ###############################################################################
@@ -2329,7 +2344,7 @@ class NFQueue(Thread):
         if self.isAlive():
             logging_warning("nfqueue already started")
             return False
-        self.__init__()
+        self._reinit()
         Thread.start(self)
         self._started.wait(self._timeout)
         if self.isAlive():
@@ -2497,8 +2512,6 @@ class NFQueue(Thread):
                 self.pkt_lock.acquire()
                 self.packets.append(packet)
                 self.pkt_lock.release()
-                for b in self.breakpoints:
-                    b.try_trigger(packet)
 
             logging_debug("nfqueue received packet #%s" % packet.identifier)
             if settings['effective_verbose_level'] > 1:
@@ -2530,14 +2543,46 @@ class NFQueue(Thread):
                     connection.getresponse()
                 except:
                     pass
+
+            for b in self.breakpoints:
+                self.breakpoints[b].try_trigger(packet)
+
             # otherwise, accept all packets by default
             else:
                 packet.accept()
         # accept the packet in case of error
         except:
+            logging_state_on()
             logging_exception()
+            logging_state_restore()
             nfq_data.set_verdict(nfqueue.NF_ACCEPT)
         #
+    def _reinit(self):
+        """Reinitialize several instance attributes
+
+        Called before running a new capture"""
+        # initialization
+        Thread.__init__(self, name='NFQueueThread')
+        self.dissector = None
+        self.web_server = None
+        self.pkt_lock = Lock()
+        self.packets = DissectedPacketList()
+        self.tmp_packets = DissectedPacketList()
+
+        self._timeout = 5
+        # interesting events
+        self._started = Event()
+        self._stopping = Event()
+        self._stopped = Event()
+        self._paused = Event()
+
+        # nfqueue handlers
+        self._nfq_handle = None
+        self._nfq_channel = None
+
+        # re-initialize the packet identifiers
+        DissectedPacket.next_real_identifier = 0
+        DissectedPacket.next_identifier = 0
     #
 
 ###############################################################################
@@ -2687,6 +2732,72 @@ class Console(InteractiveConsole):
                     Optional( White() + OneOrMore(argument)))
         return StringStart() + parser + StringEnd()
         #
+    def try_exec(self, line):
+        """Try to execute a line
+
+        line may be composed of several expressions"""
+        for line in line.split(';'):
+            # parse the line and run the appropriate command
+            parser = self._command_parser()
+            try:
+                tokens = tuple(parser.parseString(line))
+            except:
+                #this line does not match the command's syntax,
+                #but it coult still be a valid python expression
+                try:
+                    self.runsource(line, '<console>')
+                except:
+                    logging_error('Parsing error')
+                continue
+
+            if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
+                return 'x'
+            try:
+                command = 'self.%s' % self.commands[tokens[0]].__name__
+            except:
+                #line is not a command, so try to execute it
+                if(len(tokens) > 0):
+                    self.runsource(line, '<console>')
+                continue
+
+            arguments = []
+            in_slice = False
+            slice_ctnt = ''
+            for token in tokens[1:]:
+                #handle slice
+                if(token == '['):
+                    in_slice = True
+                elif(token == ']'):
+                    in_slice = False
+                    slice_ctnt = slice_ctnt.replace("'", '').replace('"','')
+                    arguments.append(repr(slice_ctnt+']'))
+                    continue
+                if(in_slice):
+                    slice_ctnt += token
+                    continue
+
+                if token.startswith('"') and token.endswith('"'):
+                    arguments.append(repr(token[1:-1]))
+                elif token.startswith('\'') and token.endswith('\''):
+                    arguments.append(repr(token[1:-1]))
+                elif token.strip() != '':
+                    arguments.append(repr(token))
+            try:
+                self.current_line = line
+                exec '%s(%s)' % (command, ', '.join(arguments))
+            except:
+                logging_exception()
+
+            return ''
+
+    def runsource(self, source, filename='<input>', symbol='single'):
+        last_pkt = None
+        if(len(self.nfqueue.packets) > 0):
+            last_pkt = self.nfqueue.packets[-1]
+        self.locals['packet'] = last_pkt
+        self.locals['pkt'] = last_pkt
+        InteractiveConsole.runsource(self, source, filename, symbol)
+
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
@@ -2707,59 +2818,12 @@ class Console(InteractiveConsole):
                 logging_print("\n<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
                 break
-            for line in line.split(';'):
-                # parse the line and run the appropriate command
-                parser = self._command_parser()
-                try:
-                    tokens = tuple(parser.parseString(line))
-                except Exception as e:
-                    #this line does not match the command's syntax,
-                    #but it coult still be a valid python expression
-                    try:
-                        self.runsource(line, '<console>')
-                    except:
-                        logging_error('Parsing error')
-                    continue
 
-                if len(tokens) == 1 and tokens[0] in ['x', 'exit']:
-                    self._save_history()
-                    self._stopping.set()
-                    return
-                try:
-                    command = 'self.%s' % self.commands[tokens[0]].__name__
-                except:
-                    #line is not a command, so try to execute it
-                    if(len(tokens) > 0):
-                        self.runsource(line, '<console>')
-                    continue
-
-                arguments = []
-                in_slice = False
-                slice_ctnt = ''
-                for token in tokens[1:]:
-                    #handle slice
-                    if(token == '['):
-                        in_slice = True
-                    elif(token == ']'):
-                        in_slice = False
-                        slice_ctnt = slice_ctnt.replace("'", '').replace('"','')
-                        arguments.append(repr(slice_ctnt+']'))
-                        continue
-                    if(in_slice):
-                        slice_ctnt += token
-                        continue
-
-                    if token.startswith('"') and token.endswith('"'):
-                        arguments.append(repr(token[1:-1]))
-                    elif token.startswith('\'') and token.endswith('\''):
-                        arguments.append(repr(token[1:-1]))
-                    elif token.strip() != '':
-                        arguments.append(repr(token))
-                try:
-                    self.current_line = line
-                    exec '%s(%s)' % (command, ', '.join(arguments))
-                except:
-                    logging_exception()
+            ret = self.try_exec(line)
+            if(ret == 'x'):
+                self._save_history()
+                self._stopping.set()
+                return
         #
     def _cmd_help(self, command=None):
         """h|help [<command>] : print a short help describing the available
@@ -3171,12 +3235,6 @@ class Console(InteractiveConsole):
         #
     def _cmd_packet(self, slice = None):
         """pkt|packet : a reference to the last captured packet"""
-        last_pkt = None
-        if(len(self.nfqueue.packets) > 0):
-            last_pkt = self.nfqueue.packets[-1]
-
-        self.locals['packet'] = last_pkt
-        self.locals['pkt'] = last_pkt
         self.runsource(self.current_line, '<console>')
         #
     def _cmd_flush(self):
@@ -3208,7 +3266,7 @@ class Console(InteractiveConsole):
             else:
                 #add a new breakpoint
                 try:
-                    b = Breakpoint(bid, packet_filter, False)
+                    b = Breakpoint(self, bid, packet_filter, False)
                     breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
