@@ -2234,16 +2234,25 @@ class Breakpoint(object):
         """Try to trigger this breakpoint
 
         All of its actions will be run if the breakpoint is enabled,
-        and if the given packet matches its filter"""
+        and if the given packet matches its filter
+
+        - Return -1 if the breakpoint is disabled, or the filter does not match
+        - Return 0 if there's no action to run
+        - Return 1 if at least one action is run"""
 
         if(not self.enabled):
-            return
+            return -1
         if(not PacketFilter.match(packet, self.packet_filter)):
-            return
+            return -1
+
+        if(len(self.actions) == 0):
+            return 0
 
         for a in self.actions:
             for line in a.expression.split(';'):
                 self._console.try_exec(line, is_action = True)
+
+        return 1
 
     def add_action(self, a):
         self.actions.append(a)
@@ -2538,11 +2547,14 @@ class NFQueue(Thread):
                 except:
                     pass
 
+            accept_pkt = False
             for b in self.breakpoints:
-                self.breakpoints[b].try_trigger(packet)
+                if(self.breakpoints[b].try_trigger(packet) == 0):
+                    accept_pkt = False
+
 
             # otherwise, accept all packets by default
-            else:
+            if(accept_pkt):
                 packet.accept()
         # accept the packet in case of error
         except:
