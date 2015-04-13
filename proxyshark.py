@@ -2244,7 +2244,6 @@ class Breakpoint(object):
             return -1
         if(not PacketFilter.match(packet, self.packet_filter)):
             return -1
-
         if(len(self.actions) == 0):
             return 0
 
@@ -2497,8 +2496,9 @@ class NFQueue(Thread):
         # if we go there then the queue is stopping, so destroy it properly
         self.close()
         #
+
     def _callback(self, nfq_data):
-        """Handle the packets received from Netfilter."""
+        """Dissect and store the packets received from netfilter"""
         try:
             # apply the packet filter
             packet = self.dissector.dissect(nfq_data)
@@ -2515,53 +2515,69 @@ class NFQueue(Thread):
                 self.pkt_lock.acquire()
                 self.packets.append(packet)
                 self.pkt_lock.release()
+                self._process_packet(packet)
 
-            logging_debug("nfqueue received packet #%s" % packet.identifier)
-            if settings['effective_verbose_level'] > 1:
-                logging_print(packet)
-            elif settings['effective_verbose_level'] > 0:
-                logging_print(repr(packet))
-            # build the item list
-            items = packet.read_items()
-            if not items:
-                packet.accept()
-                return
-            # in web driven mode, send an http request to the web service
-            if settings['web_driven']:
-                host = '%s:%s' % (settings['web_server_host'],
-                                  settings['web_server_port'])
-                post_headers = { 'Host'           : host,
-                                 'User-Agent'     : __version__,
-                                 'Accept-Encoding': 'identity', }
-                connection = httplib.HTTPConnection(settings['web_proxy'],
-                                                    settings['web_proxy_port'],
-                                                    False,
-                                                    1)
-                connection.request('POST',
-                                   '/edit-packet/%s' % packet.identifier,
-                                   r(r' +').sub('', repr(items)),
-                                   post_headers)
-                try:
-                    # send the packet, but we don't need the response
-                    connection.getresponse()
-                except:
-                    pass
-
-            accept_pkt = False
-            for b in self.breakpoints:
-                if(self.breakpoints[b].try_trigger(packet) == 0):
-                    accept_pkt = False
-
-
-            # otherwise, accept all packets by default
-            if(accept_pkt):
-                packet.accept()
         # accept the packet in case of error
         except:
             logging_state_on()
             logging_exception()
             logging_state_restore()
             nfq_data.set_verdict(nfqueue.NF_ACCEPT)
+
+    def _process_packet(self, packet):
+        """Handle a dissected packet
+
+        Send it to the web proxy, if web mode is enabled
+        Try to trigger breakpoints
+        """
+        logging_debug("nfqueue received packet #%s" % packet.identifier)
+        if settings['effective_verbose_level'] > 1:
+            logging_print(packet)
+        elif settings['effective_verbose_level'] > 0:
+            logging_print(repr(packet))
+        # build the item list
+        items = packet.read_items()
+        if not items:
+            packet.accept()
+            return
+        # in web driven mode, send an http request to the web service
+        if settings['web_driven']:
+            host = '%s:%s' % (settings['web_server_host'],
+                              settings['web_server_port'])
+            post_headers = { 'Host'           : host,
+                             'User-Agent'     : __version__,
+                             'Accept-Encoding': 'identity', }
+            connection = httplib.HTTPConnection(settings['web_proxy'],
+                                                settings['web_proxy_port'],
+                                                False,
+                                                1)
+            connection.request('POST',
+                               '/edit-packet/%s' % packet.identifier,
+                               r(r' +').sub('', repr(items)),
+                               post_headers)
+            try:
+                # send the packet, but we don't need the response
+                connection.getresponse()
+            except:
+                pass
+
+        accept_pkt = True
+        for b in self.breakpoints:
+            if(self.breakpoints[b].try_trigger(packet) == 0):
+                accept_pkt = False
+
+
+        #accept packet, since we have either run at least one action,
+        #or the packet didn't match any breakpoint
+        if(accept_pkt):
+            packet.accept()
+        #no action was run, but the packet matched at least one breakpoint
+        else:
+            sys.stdout.write("\033[0m")
+            sys.stdout.write("\nBreakpoint triggered: edit packet manually\n")
+            sys.stdout.write("\033[1;34m>>>\033[37m ")
+            sys.stdout.flush()
+            result = self.pause()
         #
     def _reinit(self):
         """Reinitialize several instance attributes
