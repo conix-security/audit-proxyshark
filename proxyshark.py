@@ -2307,8 +2307,11 @@ class NFQueue(Thread):
     """A Netfilter queue that receives packets, dissects them and makes them
     available to the user."""
     # Public methods ##########################################################
-    def __init__(self):
+    def __init__(self, console):
         """Create a new Netfilter queue."""
+
+        self._console = console
+
         # initialization
         Thread.__init__(self, name='NFQueueThread')
         self.dissector = None
@@ -2431,13 +2434,18 @@ class NFQueue(Thread):
             logging_warning("nfqueue already running")
             return False
 
+        self.pkt_lock.acquire()
+        #process all pending packets
+        for p in self.tmp_packets:
+            self._process_packet(p)
+
         #merge the primary list with the temporary one
         self._paused.clear()
         if(len(self.tmp_packets) - 1 > 0):
-            self.pkt_lock.acquire()
             self.packets.extend(self.tmp_packets)
             self.tmp_packets = DissectedPacketList()
-            self.pkt_lock.release()
+
+        self.pkt_lock.release()
 
         return True
         #
@@ -2509,13 +2517,13 @@ class NFQueue(Thread):
                 return
 
             #if the pause is set, append new packets to a temporary list
+            self.pkt_lock.acquire()
             if(self.isPaused()):
                 self.tmp_packets.append(packet)
             else:
-                self.pkt_lock.acquire()
                 self.packets.append(packet)
-                self.pkt_lock.release()
                 self._process_packet(packet)
+            self.pkt_lock.release()
 
         # accept the packet in case of error
         except:
@@ -2569,12 +2577,13 @@ class NFQueue(Thread):
 
         #accept packet, since we have either run at least one action,
         #or the packet didn't match any breakpoint
-        if(accept_pkt):
+        if(accept_pkt or self._console.in_view_mode):
             packet.accept()
         #no action was run, but the packet matched at least one breakpoint
         else:
             sys.stdout.write("\033[0m")
-            sys.stdout.write("\nBreakpoint triggered: edit packet manually\n")
+            sys.stdout.write("\nBreakpoint triggered: captured paused\n")
+            sys.stdout.write(repr(packet)+'\n')
             sys.stdout.write("\033[1;34m>>>\033[37m ")
             sys.stdout.flush()
             result = self.pause()
@@ -2618,7 +2627,7 @@ class Console(InteractiveConsole):
         """Create a new interactive console."""
         # initialization
         self.in_view_mode = False
-        self.nfqueue = NFQueue()
+        self.nfqueue = NFQueue(self)
         self._default_completer = readline.get_completer()
         readline.set_completer(self._completer)
         self._load_history()
