@@ -2640,7 +2640,6 @@ class Console(InteractiveConsole):
                 self.commands[shortcut] = eval('self.%s' % method)
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
-
         InteractiveConsole.__init__(self)
         #
     def interact(self):
@@ -2848,7 +2847,8 @@ class Console(InteractiveConsole):
         # build a list of selected commands
         commands = [command] if command else ['help', 'info', 'set', 'run',
                                               'pause', 'cont', 'stop',
-                                              'nfqueue', 'packet', 'flush']
+                                              'nfqueue', 'packet', 'flush',
+                                              'drop', 'breakpoint', 'action']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -3262,7 +3262,24 @@ class Console(InteractiveConsole):
 
     def _cmd_breakpoint(self, bid = None, packet_filter = None):
         """b|breakpoint [<breakpoint-id> [<packet-filter>]]: display,
-        or add a new breakpoint"""
+        or add a new breakpoint
+
+        Breakpoints are triggered when a given packet filter matches a
+        captured packet. In view mode, you need to define
+        an action to be run when the breakpoint is triggered.
+        In interactive mode, you can either define an action
+        or alter the packet manually, accept it, drop it, replay it, etc.
+
+        *If no argument is given, print a list of all existing breakpoints
+        (equivalent to info breakpoints)
+
+        *If <breakpoint-id> is given, print the packet filter associated
+        to this breakpoint. The breakpoint identifier must be an
+        arbitrary string containing letters, digits, dashes, dots or underscores
+
+        *If <packet-filter> is given, create a new breakpoint
+        based on the given identifier and filter."""
+
         breakpoints = self.nfqueue.breakpoints
         if(bid is None):
             if (packet_filter is None):
@@ -3273,8 +3290,8 @@ class Console(InteractiveConsole):
             if (packet_filter is None):
                 #display only the packet filter
                 try:
-                    output = self.nfqueue.breakpoints[bid]
-                    logging_print(str(output))
+                    output = self.nfqueue.breakpoints[bid].packet_filter
+                    logging_print(repr(output))
                 except:
                     logging_print('Unknown breakpoint id')
             else:
@@ -3288,7 +3305,23 @@ class Console(InteractiveConsole):
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
-        or add a new action to an existing breakpoint"""
+        or add a new action to an existing breakpoint
+
+        Actions are Python expressions to be run when a breakpoint is triggered.
+        Commands available in interactive mode are also
+        available in such expressions.
+
+        *If no argument is given, print a list of all existing actions
+        (equivalent to info actions).
+
+        *If an action identifier is given, print the breakpoint
+        and the Python expression associated to this action
+        The action identifier must be an arbitrary string containing
+        letters, digits, dashes, dots or underscores.
+
+        *If a breakpoint identifier and a Python expression are given,
+        create a new action based on the given expression and identifiers.
+        """
 
         if(aid is None):
             if (bid is None and expr is None):
@@ -3299,12 +3332,13 @@ class Console(InteractiveConsole):
 
                 try:
                     action = self.nfqueue.actions[aid]
+                    breakpoint = action.breakpoint
+                    expr = action.expression
                 except KeyError as e:
                     logging_print('Unknown action id')
                 else:
-                    breakpoint = action.breakpoint
-                    t = Template('Action\n$a')
-                    logging_print(t.substitute(a = str(action)))
+                    t = Template('$b\n\n$e')
+                    logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
             elif(bid is not None and expr is not None):
                 try:
