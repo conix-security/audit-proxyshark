@@ -2630,7 +2630,7 @@ class Console(InteractiveConsole):
             docstring_short = r(r'\n[^\n]\s*').sub(' ', docstring_short)
             text = r(r'(^|\n) {8}').sub('\g<1>    ', text)
             # retrieve shortcuts, parameters and title
-            regex = r'^\s*([a-z|]+)\s*(.*?)\s*:\s*(.*?)\s*$'
+            regex = r'^\s*([a-z_|]+)\s*(.*?)\s*:\s*(.*?)\s*$'
             findings = r(regex).findall(docstring_short)
             if not findings:
                 continue
@@ -2640,6 +2640,7 @@ class Console(InteractiveConsole):
                 self.commands[shortcut] = eval('self.%s' % method)
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
+
         InteractiveConsole.__init__(self)
         #
     def interact(self):
@@ -2716,7 +2717,7 @@ class Console(InteractiveConsole):
     def _command_parser(self):
         """Return a parser for the custom commands."""
         printable = alphanums + string.punctuation
-        command   = Word(string.ascii_lowercase)
+        command   =  Word(string.ascii_lowercase + '_')
         slice_ctnt = printable.replace('[','').replace(']', '') + ' '
         slice = '[' + Word(slice_ctnt) + ']' | '[' + \
                                                quotedString(slice_ctnt) + ']'
@@ -2848,7 +2849,9 @@ class Console(InteractiveConsole):
         commands = [command] if command else ['help', 'info', 'set', 'run',
                                               'pause', 'cont', 'stop',
                                               'nfqueue', 'packet', 'flush',
-                                              'drop', 'breakpoint', 'action']
+                                              'drop', 'breakpoint', 'action',
+                                              'enable', 'disable',
+                                              'delete_action']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -3338,8 +3341,7 @@ class Console(InteractiveConsole):
         letters, digits, dashes, dots or underscores.
 
         *If a breakpoint identifier and a Python expression are given,
-        create a new action based on the given expression and identifiers.
-        """
+        create a new action based on the given expression and identifiers."""
 
         if(aid is None):
             if (bid is None and expr is None):
@@ -3368,6 +3370,29 @@ class Console(InteractiveConsole):
                 except KeyError as k:
                     logging_print('Unknown breakpoint id')
             logging_state_restore()
+
+    def _cmd_delete_action(self, aid, remove='all'):
+        """da|delete_action <action-id> [remove = assoc]: Delete an existing
+        action.
+
+        if remove is given, and starts with, delete only the association
+        between the action and its breakpoint"""
+
+        try:
+            action = self.nfqueue.actions[aid]
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown action id')
+            logging_state_restore()
+        else:
+            try:
+                action.breakpoint.actions.remove(action)
+            except:
+                #the association has already been removed
+                pass
+
+            if (not remove.lower().startswith('assoc')):
+                del self.nfqueue.actions[aid]
     #
 
 ###############################################################################
