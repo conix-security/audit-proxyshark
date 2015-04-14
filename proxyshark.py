@@ -2470,6 +2470,7 @@ class NFQueue(Thread):
         """empty the captured packet list"""
         self.pkt_lock.acquire()
         del self.packets[:]
+        self.packets.add(NotImplemented)
         self.pkt_lock.release()
 
     # Private methods #########################################################
