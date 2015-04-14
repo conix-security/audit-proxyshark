@@ -2788,7 +2788,7 @@ class Console(InteractiveConsole):
                 self.current_line = line
                 exec '%s(%s)' % (command, ', '.join(arguments))
             except:
-                if(self.in_view_mode):
+                if(not is_action or self.in_view_mode):
                     logging_exception()
 
             return
@@ -3301,6 +3301,24 @@ class Console(InteractiveConsole):
                     breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
+            logging_state_restore()
+
+    def _cmd_enable(self, bid):
+        """en|enable <breakpoint-id>: Enable an existing breakpoint"""
+        try:
+            self.nfqueue.breakpoints[bid].enabled = True
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
+            logging_state_restore()
+
+    def _cmd_disable(self, bid):
+        """dis|disable <breakpoint-id>: Disable an existing breakpoint"""
+        try:
+            self.nfqueue.breakpoints[bid].enabled = False
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
             logging_state_restore()
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
