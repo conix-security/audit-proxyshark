@@ -1672,7 +1672,8 @@ class DissectedPacketList(list):
         #
     def __len__(self):
         """First element is always NotImplemented"""
-        return super(DissectedPacketList, self).__len__() -1
+        length = super(DissectedPacketList, self).__len__()
+        return length -1 if length > 0 else 0
     # Private methods #########################################################
     #
 
