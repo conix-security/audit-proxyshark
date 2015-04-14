@@ -2170,13 +2170,15 @@ class Action(object):
 
     def __repr__(self):
         t = Template('Action $a, bid $b -> $exp')
-        return t.substitute(a = self.id, b = self.breakpoint.id,
+        bpoint = self.breakpoint.id if self.breakpoint is not None else None
+        return t.substitute(a = self.id, b = bpoint,
                             exp = repr(trunc(self.expression)))
 
     def __str__(self):
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
-        return t.substitute(a = self.id, b = self.breakpoint.id,
+        bpoint = self.breakpoint.id if self.breakpoint is not None else None
+        return t.substitute(a = self.id, b = bpoint,
                             exp = repr(trunc(self.expression)))
 
     @staticmethod
@@ -3340,7 +3342,10 @@ class Console(InteractiveConsole):
         The action identifier must be an arbitrary string containing
         letters, digits, dashes, dots or underscores.
 
-        *If a breakpoint identifier and a Python expression are given,
+        *If an action id and a breakpoint id are given, rebind an existing
+        action to an existing breakpoint
+
+        *If a action id, a breakpoint id and a Python expression are given,
         create a new action based on the given expression and identifiers."""
 
         if(aid is None):
@@ -3360,22 +3365,37 @@ class Console(InteractiveConsole):
                     t = Template('$b\n\n$e')
                     logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
-            elif(bid is not None and expr is not None):
+            elif(bid is not None):
                 try:
                     b = self.nfqueue.breakpoints[bid]
-                    a = Action(aid, b, expr)
-                    self.nfqueue.actions[aid] = a
-                except ValueError as v:
-                    logging_print(v.message)
                 except KeyError as k:
                     logging_print('Unknown breakpoint id')
+                else:
+                    #create a new action
+                    if(expr is not None):
+                        try:
+                            a = Action(aid, b, expr)
+                            self.nfqueue.actions[aid] = a
+                        except ValueError as v:
+                            logging_print(v.message)
+
+                    #the action should already exist ; bind it to the breakpoint
+                    else:
+                        try:
+                            a = self.nfqueue.actions[aid]
+                        except KeyError:
+                            logging_print('Unknown action id')
+                        else:
+                            b.add_action(a)
+                            a.breakpoint = b
+
             logging_state_restore()
 
     def _cmd_delete_action(self, aid, remove='all'):
         """da|delete_action <action-id> [remove = assoc]: Delete an existing
         action.
 
-        if remove is given, and starts with, delete only the association
+        if remove is given, and starts with assoc, delete only the association
         between the action and its breakpoint"""
 
         try:
@@ -3386,13 +3406,19 @@ class Console(InteractiveConsole):
             logging_state_restore()
         else:
             try:
+                #remove action in breakpoint,
+                #and breakpoint in action
                 action.breakpoint.actions.remove(action)
+                action.breakpoint = None
             except:
                 #the association has already been removed
                 pass
 
             if (not remove.lower().startswith('assoc')):
+                #remove action aid from actions dictionnary,
+                #delete action object
                 del self.nfqueue.actions[aid]
+                del action
     #
 
 ###############################################################################
