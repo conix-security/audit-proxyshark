@@ -3262,7 +3262,7 @@ class Console(InteractiveConsole):
         cache_mng(summary=False, flush=True)
         #
     def _cmd_drop(self):
-        """d|drop : remove packets from list"""
+        """dr|drop : remove packets from list"""
         self.nfqueue.drop()
 
     def _cmd_breakpoint(self, bid = None, packet_filter = None):
@@ -3325,6 +3325,26 @@ class Console(InteractiveConsole):
             logging_state_on()
             logging_print('Unknown breakpoint id')
             logging_state_restore()
+
+    def _cmd_delete_breakpoint(self, bid):
+        """d|delete_breakpoint <breakpoint-id>: delete an existing breakpoint
+
+        Associations between the breakpoint and any existing action are also
+        removed."""
+        try:
+            bpoint = self.nfqueue.breakpoints[bid]
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
+            logging_state_restore()
+        else:
+            for a in bpoint.actions:
+                a.breakpoint = None
+
+            del bpoint.actions[:]
+            del self.nfqueue.breakpoints[bid]
+            del bpoint
+
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
@@ -3413,7 +3433,6 @@ class Console(InteractiveConsole):
             except:
                 #the association has already been removed
                 pass
-
             if (not 'association'.startswith(remove.lower())):
                 #remove action aid from actions dictionnary,
                 #delete action object
