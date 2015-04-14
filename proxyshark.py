@@ -3414,7 +3414,7 @@ class Console(InteractiveConsole):
                 #the association has already been removed
                 pass
 
-            if (not remove.lower().startswith('assoc')):
+            if (not 'association'.startswith(remove.lower())):
                 #remove action aid from actions dictionnary,
                 #delete action object
                 del self.nfqueue.actions[aid]
