@@ -3347,6 +3347,7 @@ class Console(InteractiveConsole):
             del self.nfqueue.breakpoints[bid]
             del bpoint
 
+            Breakpoint.used_bid.remove(bid)
 
     def _cmd_action(self, aid = None, bid = None, expr = None):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
@@ -3440,6 +3441,8 @@ class Console(InteractiveConsole):
                 #delete action object
                 del self.nfqueue.actions[aid]
                 del action
+
+                Action.used_aid.remove(aid)
     #
 
 ###############################################################################
