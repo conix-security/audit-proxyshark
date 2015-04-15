@@ -2441,6 +2441,12 @@ class NFQueue(Thread):
         #process all pending packets
         for p in self.tmp_packets:
             self._process_packet(p)
+            #wait until a verdict is set.
+            while(p.verdict is None):
+                if(self._stopping.isSet() or self._stopped.isSet()):
+                    p.accept()
+                    return False
+                time.sleep(.1)
 
         #merge the primary list with the temporary one
         self._paused.clear()
@@ -2450,6 +2456,11 @@ class NFQueue(Thread):
 
         self.pkt_lock.release()
 
+        logging_state_on()
+        logging_print("\nCapture continuing...")
+        logging_state_restore()
+        sys.stdout.write("\033[1;34m>>>\033[37m ")
+        sys.stdout.flush()
         return True
         #
     def stop(self):
@@ -2508,7 +2519,6 @@ class NFQueue(Thread):
         # if we go there then the queue is stopping, so destroy it properly
         self.close()
         #
-
     def _callback(self, nfq_data):
         """Dissect and store the packets received from netfilter"""
         try:
@@ -2521,12 +2531,18 @@ class NFQueue(Thread):
                 return
 
             #if the pause is set, append new packets to a temporary list
-            self.pkt_lock.acquire()
+            #make sure the thread won't block indefinitely when stopping
+            while(not self.pkt_lock.acquire(False)):
+                if(self._stopped.isSet() or self._stopping.isSet()):
+                    packet.accept()
+                    return
+                time.sleep(.1)
+
             if(self.isPaused()):
                 self.tmp_packets.append(packet)
             else:
                 self.packets.append(packet)
-                self._process_packet(packet)
+                self._process_packet(packet, from_shell = False)
             self.pkt_lock.release()
 
         # accept the packet in case of error
@@ -2536,7 +2552,7 @@ class NFQueue(Thread):
             logging_state_restore()
             nfq_data.set_verdict(nfqueue.NF_ACCEPT)
 
-    def _process_packet(self, packet):
+    def _process_packet(self, packet, from_shell = True):
         """Handle a dissected packet
 
         Send it to the web proxy, if web mode is enabled
@@ -2586,11 +2602,20 @@ class NFQueue(Thread):
         #no action was run, but the packet matched at least one breakpoint
         else:
             sys.stdout.write("\033[0m")
-            sys.stdout.write("\nBreakpoint triggered: captured paused\n")
-            sys.stdout.write(repr(packet)+'\n')
-            sys.stdout.write("\033[1;34m>>>\033[37m ")
+            sys.stdout.write("\nBreakpoint triggered")
+            if(not self.isPaused()):
+                result = self.pause()
+                sys.stdout.write(': capture paused')
+
+            sys.stdout.write('\n'+repr(packet)+'\n')
+
+            #if _process_packet was called by nfqueue.cont()
+            #(i.e by user from shell),
+            #do not display the prompt, since it will be displayed by
+            #Console._interact()
+            if(not from_shell):
+                sys.stdout.write("\033[1;34m>>>\033[37m ")
             sys.stdout.flush()
-            result = self.pause()
         #
     def _reinit(self):
         """Reinitialize several instance attributes
@@ -2837,11 +2862,19 @@ class Console(InteractiveConsole):
 
     def runsource(self, source, filename='<input>', symbol='single',
                   use_parent = True):
-        last_pkt = None
-        if(len(self.nfqueue.packets) > 0):
-            last_pkt = self.nfqueue.packets[-1]
-        self.locals['packet'] = last_pkt
-        self.locals['pkt'] = last_pkt
+        pkt = None
+        if(not self.nfqueue.isPaused() and len(self.nfqueue.packets) > 0):
+            pkt = self.nfqueue.packets[-1]
+        elif(self.nfqueue.isPaused()):
+            #last pkt is the first packet having no verdict
+            for p in self.nfqueue.tmp_packets:
+                if(p.verdict is None):
+                    pkt = p
+                    break
+
+        self.locals['packet'] = pkt
+        self.locals['pkt'] = pkt
+        self.locals['tmp'] = self.nfqueue.tmp_packets
 
         if(not use_parent):
             #do not use InteractiveInterpreter.runsource in order to avoid
@@ -3270,12 +3303,10 @@ class Console(InteractiveConsole):
         #
     def _cmd_cont(self):
         """c|cont : continue the current capture"""
-        result = self.nfqueue.cont()
-        if result:
-            logging_state_on()
-            logging_print("Capture continuing...")
-            logging_state_restore()
-        return result
+        #use a thread to avoid blocking
+        #when temporary packets need to be handled in nfqueue.cont()
+        t = Thread(target = self.nfqueue.cont)
+        t.start()
         #
     def _cmd_stop(self):
         """s|stop : stop the current capture (drop previously captured
