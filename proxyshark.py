@@ -1672,7 +1672,8 @@ class DissectedPacketList(list):
         #
     def __len__(self):
         """First element is always NotImplemented"""
-        return super(DissectedPacketList, self).__len__() -1
+        length = super(DissectedPacketList, self).__len__()
+        return length -1 if length > 0 else 0
     # Private methods #########################################################
     #
 
@@ -2170,13 +2171,15 @@ class Action(object):
 
     def __repr__(self):
         t = Template('Action $a, bid $b -> $exp')
-        return t.substitute(a = self.id, b = self.breakpoint.id,
+        bpoint = self.breakpoint.id if self.breakpoint is not None else None
+        return t.substitute(a = self.id, b = bpoint,
                             exp = repr(trunc(self.expression)))
 
     def __str__(self):
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
-        return t.substitute(a = self.id, b = self.breakpoint.id,
+        bpoint = self.breakpoint.id if self.breakpoint is not None else None
+        return t.substitute(a = self.id, b = bpoint,
                             exp = repr(trunc(self.expression)))
 
     @staticmethod
@@ -2483,6 +2486,7 @@ class NFQueue(Thread):
         """empty the captured packet list"""
         self.pkt_lock.acquire()
         del self.packets[:]
+        self.packets.add(NotImplemented)
         self.pkt_lock.release()
 
     # Private methods #########################################################
@@ -2667,7 +2671,7 @@ class Console(InteractiveConsole):
             docstring_short = r(r'\n[^\n]\s*').sub(' ', docstring_short)
             text = r(r'(^|\n) {8}').sub('\g<1>    ', text)
             # retrieve shortcuts, parameters and title
-            regex = r'^\s*([a-z|]+)\s*(.*?)\s*:\s*(.*?)\s*$'
+            regex = r'^\s*([a-z_|]+)\s*(.*?)\s*:\s*(.*?)\s*$'
             findings = r(regex).findall(docstring_short)
             if not findings:
                 continue
@@ -2677,6 +2681,7 @@ class Console(InteractiveConsole):
                 self.commands[shortcut] = eval('self.%s' % method)
                 self.docstrings[shortcut] = (shortcuts, parameters, title,
                                              text)
+
         InteractiveConsole.__init__(self)
         #
     def interact(self):
@@ -2753,7 +2758,7 @@ class Console(InteractiveConsole):
     def _command_parser(self):
         """Return a parser for the custom commands."""
         printable = alphanums + string.punctuation
-        command   = Word(string.ascii_lowercase)
+        command   =  Word(string.ascii_lowercase + '_')
         slice_ctnt = printable.replace('[','').replace(']', '') + ' '
         slice = '[' + Word(slice_ctnt) + ']' | '[' + \
                                                quotedString(slice_ctnt) + ']'
@@ -2825,7 +2830,7 @@ class Console(InteractiveConsole):
                 self.current_line = line
                 exec '%s(%s)' % (command, ', '.join(arguments))
             except:
-                if(self.in_view_mode):
+                if(not is_action or self.in_view_mode):
                     logging_exception()
 
             return
@@ -2885,7 +2890,9 @@ class Console(InteractiveConsole):
         commands = [command] if command else ['help', 'info', 'set', 'run',
                                               'pause', 'cont', 'stop',
                                               'nfqueue', 'packet', 'flush',
-                                              'drop', 'breakpoint', 'action']
+                                              'drop', 'breakpoint', 'action',
+                                              'enable', 'disable',
+                                              'delete_action']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -3294,7 +3301,7 @@ class Console(InteractiveConsole):
         cache_mng(summary=False, flush=True)
         #
     def _cmd_drop(self):
-        """d|drop : remove packets from list"""
+        """dr|drop : remove packets from list"""
         self.nfqueue.drop()
 
     def _cmd_breakpoint(self, bid = None, packet_filter = None):
@@ -3340,6 +3347,45 @@ class Console(InteractiveConsole):
                     logging_print(e.message)
             logging_state_restore()
 
+    def _cmd_enable(self, bid):
+        """en|enable <breakpoint-id>: Enable an existing breakpoint"""
+        try:
+            self.nfqueue.breakpoints[bid].enabled = True
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
+            logging_state_restore()
+
+    def _cmd_disable(self, bid):
+        """dis|disable <breakpoint-id>: Disable an existing breakpoint"""
+        try:
+            self.nfqueue.breakpoints[bid].enabled = False
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
+            logging_state_restore()
+
+    def _cmd_delete_breakpoint(self, bid):
+        """d|delete_breakpoint <breakpoint-id>: delete an existing breakpoint
+
+        Associations between the breakpoint and any existing action are also
+        removed."""
+        try:
+            bpoint = self.nfqueue.breakpoints[bid]
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown breakpoint id')
+            logging_state_restore()
+        else:
+            for a in bpoint.actions:
+                a.breakpoint = None
+
+            del bpoint.actions[:]
+            del self.nfqueue.breakpoints[bid]
+            del bpoint
+
+            Breakpoint.used_bid.remove(bid)
+
     def _cmd_action(self, aid = None, bid = None, expr = None):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
         or add a new action to an existing breakpoint
@@ -3356,9 +3402,11 @@ class Console(InteractiveConsole):
         The action identifier must be an arbitrary string containing
         letters, digits, dashes, dots or underscores.
 
-        *If a breakpoint identifier and a Python expression are given,
-        create a new action based on the given expression and identifiers.
-        """
+        *If an action id and a breakpoint id are given, rebind an existing
+        action to an existing breakpoint
+
+        *If a action id, a breakpoint id and a Python expression are given,
+        create a new action based on the given expression and identifiers."""
 
         if(aid is None):
             if (bid is None and expr is None):
@@ -3377,16 +3425,61 @@ class Console(InteractiveConsole):
                     t = Template('$b\n\n$e')
                     logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
-            elif(bid is not None and expr is not None):
+            elif(bid is not None):
                 try:
                     b = self.nfqueue.breakpoints[bid]
-                    a = Action(aid, b, expr)
-                    self.nfqueue.actions[aid] = a
-                except ValueError as v:
-                    logging_print(v.message)
                 except KeyError as k:
                     logging_print('Unknown breakpoint id')
+                else:
+                    #create a new action
+                    if(expr is not None):
+                        try:
+                            a = Action(aid, b, expr)
+                            self.nfqueue.actions[aid] = a
+                        except ValueError as v:
+                            logging_print(v.message)
+
+                    #the action should already exist ; bind it to the breakpoint
+                    else:
+                        try:
+                            a = self.nfqueue.actions[aid]
+                        except KeyError:
+                            logging_print('Unknown action id')
+                        else:
+                            b.add_action(a)
+                            a.breakpoint = b
+
             logging_state_restore()
+
+    def _cmd_delete_action(self, aid, remove='all'):
+        """da|delete_action <action-id> [remove = assoc]: Delete an existing
+        action.
+
+        if remove is given, and starts with assoc, delete only the association
+        between the action and its breakpoint"""
+
+        try:
+            action = self.nfqueue.actions[aid]
+        except KeyError:
+            logging_state_on()
+            logging_print('Unknown action id')
+            logging_state_restore()
+        else:
+            try:
+                #remove action in breakpoint,
+                #and breakpoint in action
+                action.breakpoint.actions.remove(action)
+                action.breakpoint = None
+            except:
+                #the association has already been removed
+                pass
+            if (not 'association'.startswith(remove.lower())):
+                #remove action aid from actions dictionnary,
+                #delete action object
+                del self.nfqueue.actions[aid]
+                del action
+
+                Action.used_aid.remove(aid)
     #
 
 ###############################################################################
