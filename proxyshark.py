@@ -2196,7 +2196,7 @@ class Breakpoint(object):
     id_pattern = re_compile(r'^[\w\-.]+$')
     used_bid = list()
 
-    def __init__(self, console, bid, pfilter, enabled = False):
+    def __init__(self, bid, pfilter, enabled = False, console = None):
         if(bid in Breakpoint.used_bid):
             t = Template('Breakpoint id $b already in use')
             raise ValueError(t.substitute(b = bid))
@@ -2249,12 +2249,17 @@ class Breakpoint(object):
             return -1
         if(len(self.actions) == 0):
             return 0
+        if(self._console is None):
+            raise AttributeError('Breakpoint is None, cannot trigger')
 
         for a in self.actions:
             for line in a.expression.split(';'):
                 self._console.try_exec(line, is_action = True)
 
         return 1
+
+    def set_console(self, console):
+        self._console = console
 
     def add_action(self, a):
         self.actions.append(a)
@@ -2324,6 +2329,8 @@ class NFQueue(Thread):
         self.tmp_packets = DissectedPacketList()
         #breakpoints
         self.breakpoints = dict()
+        if(isinstance(settings['default-breakpoint'], Breakpoint)):
+            self.breakpoints['default']  = settings['default-breakpoint']
         self.actions = dict()
 
         self._timeout = 5
@@ -2591,7 +2598,12 @@ class NFQueue(Thread):
 
         accept_pkt = True
         for b in self.breakpoints:
-            if(self.breakpoints[b].try_trigger(packet) == 0):
+            try:
+                rc = self.breakpoints[b].try_trigger(packet)
+            except AttributeError:
+                logging_exception()
+                continue
+            if(rc == 0):
                 accept_pkt = False
 
 
@@ -3372,7 +3384,8 @@ class Console(InteractiveConsole):
             else:
                 #add a new breakpoint
                 try:
-                    b = Breakpoint(self, bid, packet_filter, True)
+                    b = Breakpoint(bid, packet_filter, enabled = True,
+                                   console = self)
                     breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
@@ -3657,7 +3670,7 @@ def process_arguments():
             settings['run_at_start'] = True
         # -b | --default-breakpoint <packet-filter>
         elif opt in ['-b', '--default-breakpoint']:
-            raise NotImplementedError("breakpoints are not implemented yet")
+            settings['default-breakpoint'] = Breakpoint('default', arg, True)
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
             raise NotImplementedError("actions are not implemented yet")
