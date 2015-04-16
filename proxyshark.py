@@ -2609,7 +2609,8 @@ class NFQueue(Thread):
 
         #accept packet, since we have either run at least one action,
         #or the packet didn't match any breakpoint
-        if(accept_pkt or self._console.in_view_mode):
+        if((accept_pkt or self._console.in_view_mode)
+            and packet.verdict is None):
             packet.accept()
         #no action was run, but the packet matched at least one breakpoint
         else:
