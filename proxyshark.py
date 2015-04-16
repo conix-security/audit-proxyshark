@@ -1615,10 +1615,7 @@ class DissectedPacketList(list):
     def __init__(self, *args):
         """Create a new dissected packet list."""
         super(DissectedPacketList, self).__init__(*args)
-        # packet identifiers start at index 1 so we have to append a dummy
-        # element in position 0
-        self.append(NotImplemented)
-        #
+
     def __getitem__(self, key):
         """Evaluates 'self[key]'. The key can be a slice or a packet filter."""
         # if the key is a slice
@@ -1628,7 +1625,7 @@ class DissectedPacketList(list):
                 key = slice(key.start, key.stop, 1)
             if key.step >= 0:
                 if not key.start:
-                    key = slice(1, key.stop, key.step)
+                    key = slice(0, key.stop, key.step)
             else:
                 if not key.stop:
                     key = slice(key.start, 0, key.step)
@@ -1642,7 +1639,10 @@ class DissectedPacketList(list):
             result = DissectedPacketSubList()
             for packet in self.__iter__():
                 # if the evaluation matches, store the packet
-                results = packet.evaluate(key)
+                try:
+                    results = packet.evaluate(key)
+                except AttributeError:
+                    continue
                 if bool(results):
                     result.append(packet)
             # return a sublist containing the packets that match
@@ -1656,24 +1656,22 @@ class DissectedPacketList(list):
         return self.__getitem__(slice(i, j, None))
         #
     def __iter__(self):
-        """Implements a custom iterator that skips the first element."""
+        """Implements a custom iterator"""
         iteraror = super(DissectedPacketList, self).__iter__()
-        # don't return the first element (NotImplemented)
-        iteraror.next()
         return iteraror
         #
     def __repr__(self):
         """Prints the packet list as a well-formatted string."""
-        return "\n".join([repr(x) for x in self[1:]])
+        return "\n".join([repr(x) for x in self])
         #
     def __str__(self):
         """Prints the packet list as a well-formatted string."""
-        return "\n".join([str(x) for x in self[1:]])
+        return "\n".join([str(x) for x in self])
         #
     def __len__(self):
-        """First element is always NotImplemented"""
+        """Returns the length of the packet list"""
         length = super(DissectedPacketList, self).__len__()
-        return length -1 if length > 0 else 0
+        return length
     # Private methods #########################################################
     #
 
@@ -2518,12 +2516,25 @@ class NFQueue(Thread):
         self._nfq_handle.set_mode(nfqueue.NFQNL_COPY_PACKET)
         self._nfq_channel = NFQChannel(self, self._nfq_handle)
 
-    def drop(self):
-        """empty the captured packet list"""
+    def drop(self, key = None):
+        """empty the captured packet list
+
+        key must be a packet filter"""
+        rc = True
+
         self.pkt_lock.acquire()
-        del self.packets[:]
-        self.packets.add(NotImplemented)
+        if(key is None):
+            del self.packets[:]
+        else:
+            try:
+                l = DissectedPacketList(self.packets).__getitem__(key)
+                for p in l:
+                    self.packets.remove(p)
+            except Exception as e:
+                rc = False
         self.pkt_lock.release()
+
+        return rc
 
     # Private methods #########################################################
     def _run(self):
@@ -3364,9 +3375,14 @@ class Console(InteractiveConsole):
         not removed)"""
         cache_mng(summary=False, flush=True)
         #
-    def _cmd_drop(self):
-        """dr|drop : remove packets from list"""
-        self.nfqueue.drop()
+    def _cmd_drop(self, key = None):
+        """dr|drop [key]: remove packets from primary list
+
+        key must be a packet filter"""
+        if(not self.nfqueue.drop(key)):
+            logging_state_on()
+            logging_print('Invalid packet filter')
+            logging_state_restore()
 
     def _cmd_breakpoint(self, bid = None, packet_filter = None):
         """b|breakpoint [<breakpoint-id> [<packet-filter>]]: display,
