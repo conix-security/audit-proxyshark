@@ -2155,7 +2155,7 @@ class Action(object):
     used_aid = list()
     id_pattern = re_compile(r'^[\w\-.]+$')
 
-    def __init__(self, aid, breakpoint, expression):
+    def __init__(self, aid, expression, breakpoint = None):
         if(aid in Action.used_aid):
             t = Template('Action id $a already in use')
             raise ValueError(t.substitute(a = aid))
@@ -2166,7 +2166,9 @@ class Action(object):
         self.id = aid
         self.breakpoint = breakpoint
         self.expression = expression
-        self.breakpoint.add_action(self)
+        if(self.breakpoint is not None):
+            self.breakpoint.add_action(self)
+
         Action.used_aid.append(aid)
 
     def __repr__(self):
@@ -2181,6 +2183,9 @@ class Action(object):
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
         return t.substitute(a = self.id, b = bpoint,
                             exp = repr(trunc(self.expression)))
+
+    def add_breakpoint(self, breakpoint):
+        self.breakpoint = breakpoint
 
     @staticmethod
     def is_invalid_id(aid):
@@ -2242,7 +2247,6 @@ class Breakpoint(object):
         - Return -1 if the breakpoint is disabled, or the filter does not match
         - Return 0 if there's no action to run
         - Return 1 if at least one action is run"""
-
         if(not self.enabled):
             return -1
         if(not PacketFilter.match(packet, self.packet_filter)):
@@ -2250,8 +2254,7 @@ class Breakpoint(object):
         if(len(self.actions) == 0):
             return 0
         if(self._console is None):
-            raise AttributeError('Breakpoint is None, cannot trigger')
-
+            raise AttributeError('Console is None, cannot trigger breakpoint')
         for a in self.actions:
             for line in a.expression.split(';'):
                 self._console.try_exec(line, is_action = True)
@@ -2327,11 +2330,23 @@ class NFQueue(Thread):
         self.pkt_lock = Lock()
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
+
         #breakpoints
+        default_breakpoint = False
         self.breakpoints = dict()
-        if(isinstance(settings['default-breakpoint'], Breakpoint)):
-            self.breakpoints['default']  = settings['default-breakpoint']
         self.actions = dict()
+
+        if(isinstance(settings['default_breakpoint'], Breakpoint)):
+            self.breakpoints['default']  = settings['default_breakpoint']
+            self.breakpoints['default'].set_console(self._console)
+            default_breakpoint = True
+        if(isinstance(settings['default_action'], Action)
+           and default_breakpoint):
+
+            self.actions['default'] = settings['default_action']
+            self.actions['default'].add_breakpoint(self.breakpoints['default'])
+            self.breakpoints['default'].add_action(self.actions['default'])
+
 
         self._timeout = 5
         # interesting events
@@ -2658,6 +2673,8 @@ class NFQueue(Thread):
         # re-initialize the packet identifiers
         DissectedPacket.next_real_identifier = 0
         DissectedPacket.next_identifier = 0
+
+
     #
 
 ###############################################################################
@@ -3479,7 +3496,7 @@ class Console(InteractiveConsole):
                     #create a new action
                     if(expr is not None):
                         try:
-                            a = Action(aid, b, expr)
+                            a = Action(aid, expr, b)
                             self.nfqueue.actions[aid] = a
                         except ValueError as v:
                             logging_print(v.message)
@@ -3671,10 +3688,11 @@ def process_arguments():
             settings['run_at_start'] = True
         # -b | --default-breakpoint <packet-filter>
         elif opt in ['-b', '--default-breakpoint']:
-            settings['default-breakpoint'] = Breakpoint('default', arg, True)
+            settings['default_breakpoint'] = Breakpoint('default', arg, True)
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
-            raise NotImplementedError("actions are not implemented yet")
+            #add a new action, without any breakpoint
+            settings['default_action'] = Action('default', arg, None)
     # ensure that we have a tshark directory
     if not settings['tshark_directory']:
         raise ValueError("tshark was not found")
