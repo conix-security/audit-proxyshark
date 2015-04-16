@@ -2354,6 +2354,7 @@ class NFQueue(Thread):
         self._stopping = Event()
         self._stopped = Event()
         self._paused = Event()
+        self._unpausing = Event()
         # nfqueue settings
         self._snaplen = 65535
         self._sock_family = socket.AF_INET
@@ -2452,13 +2453,14 @@ class NFQueue(Thread):
         #
     def cont(self):
         """Continue the current capture."""
+        if(not self.isPaused or self._unpausing.isSet()):
+            logging_warning('capture is not paused')
+            return False
         if not self.isAlive():
             logging_warning("nfqueue not started")
             return False
-        if self.isRunning():
-            logging_warning("nfqueue already running")
-            return False
 
+        self._unpausing.set()
         self.pkt_lock.acquire()
         #process all pending packets
         for p in self.tmp_packets:
@@ -2470,13 +2472,14 @@ class NFQueue(Thread):
                     return False
                 time.sleep(.1)
 
-        #merge the primary list with the temporary one
         self._paused.clear()
+        #merge the primary list with the temporary one
         if(len(self.tmp_packets) - 1 > 0):
             self.packets.extend(self.tmp_packets)
             self.tmp_packets = DissectedPacketList()
 
         self.pkt_lock.release()
+        self._unpausing.clear()
 
         logging_state_on()
         logging_print("\nCapture continuing...")
