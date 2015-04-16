@@ -2605,6 +2605,8 @@ class NFQueue(Thread):
                 continue
             if(rc == 0):
                 accept_pkt = False
+                self._console.locals['bpkt'] = packet
+
 
 
         #accept packet, since we have either run at least one action,
@@ -2879,11 +2881,7 @@ class Console(InteractiveConsole):
         if(not self.nfqueue.isPaused() and len(self.nfqueue.packets) > 0):
             pkt = self.nfqueue.packets[-1]
         elif(self.nfqueue.isPaused()):
-            #last pkt is the first packet having no verdict
-            for p in self.nfqueue.tmp_packets:
-                if(p.verdict is None):
-                    pkt = p
-                    break
+            pkt = self.nfqueue.tmp_packets[-1]
 
         self.locals['packet'] = pkt
         self.locals['pkt'] = pkt
@@ -3301,8 +3299,10 @@ class Console(InteractiveConsole):
         self.locals['q'] = self.nfqueue.packets
         self.locals['queue'] =  self.nfqueue.packets
         self.locals['nfqueue'] =  self.nfqueue.packets
+        self.locals['tmp'] = self.nfqueue.tmp_packets
         self.locals['pkt'] = None
         self.locals['packet'] = None
+        self.locals['bpkt'] = None
         return result
         #
     def _cmd_pause(self):
