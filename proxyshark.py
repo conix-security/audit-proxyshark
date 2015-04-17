@@ -2907,7 +2907,10 @@ class Console(InteractiveConsole):
         if(not self.nfqueue.isPaused() and len(self.nfqueue.packets) > 0):
             pkt = self.nfqueue.packets[-1]
         elif(self.nfqueue.isPaused()):
-            pkt = self.nfqueue.tmp_packets[-1]
+            if(len(self.nfqueue.tmp_packets) > 0):
+                pkt = self.nfqueue.tmp_packets[-1]
+            else:
+                pkt = self.nfqueue.packets[-1]
 
         self.locals['packet'] = pkt
         self.locals['pkt'] = pkt
