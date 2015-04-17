@@ -2459,7 +2459,7 @@ class NFQueue(Thread):
 
         self._paused.clear()
         #merge the primary list with the temporary one
-        if(len(self.tmp_packets) - 1 > 0):
+        if(len(self.tmp_packets) > 0):
             self.packets.extend(self.tmp_packets)
             self.tmp_packets = DissectedPacketList()
 
@@ -2613,9 +2613,13 @@ class NFQueue(Thread):
                 pass
 
         accept_pkt = True
+        rc = -2
         for b in self.breakpoints:
             try:
-                rc = self.breakpoints[b].try_trigger(packet)
+                if(packet.verdict is None):
+                    rc = self.breakpoints[b].try_trigger(packet)
+                else:
+                    accept_pkt = False
             except AttributeError:
                 logging_exception()
                 continue
@@ -2627,7 +2631,7 @@ class NFQueue(Thread):
 
         #accept packet, since we have either run at least one action,
         #or the packet didn't match any breakpoint
-        if(laccept_pkt and packet.verdict is None):
+        if(accept_pkt and packet.verdict is None):
             packet.accept()
         #no action was run, but the packet matched at least one breakpoint
         else:
@@ -2635,21 +2639,22 @@ class NFQueue(Thread):
                 self._console.in_view_mode = False
                 time.sleep(.1)
 
-            sys.stdout.write("\033[0m")
-            sys.stdout.write("\nBreakpoint triggered")
-            if(not self.isPaused()):
-                result = self.pause()
-                sys.stdout.write(': capture paused')
+            if(packet.verdict is None):
+                sys.stdout.write("\033[0m")
+                sys.stdout.write("\nBreakpoint triggered")
+                if(not self.isPaused()):
+                    result = self.pause()
+                    sys.stdout.write(': capture paused')
 
-            sys.stdout.write('\n'+repr(packet)+'\n')
+                sys.stdout.write('\n'+repr(packet)+'\n')
 
-            #if _process_packet was called by nfqueue.cont()
-            #(i.e by user from shell),
-            #do not display the prompt, since it will be displayed by
-            #Console._interact()
-            if(not from_shell):
-                sys.stdout.write("\033[1;34m>>>\033[37m ")
-            sys.stdout.flush()
+                #if _process_packet was called by nfqueue.cont()
+                #(i.e by user from shell),
+                #do not display the prompt, since it will be displayed by
+                #Console._interact()
+                if(not from_shell):
+                    sys.stdout.write("\033[1;34m>>>\033[37m ")
+                sys.stdout.flush()
         #
     def _reinit(self):
         """Reinitialize several instance attributes
