@@ -20,15 +20,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#TODO: make packet identifiers start at 0 => also in subpacketlist
-#TODO: pause and cont commands
 #TODO: generate statistics about captured packets
 #TODO: print status after each command
 #TODO: implement .where(), .select(), .group(), .sort(), max(), min(), ...
-#TODO: Breakpoint -> execute (if defined) the appropriate action.
-#TODO: Breakpoint -> enable pause when appropriate (interactive mode)
 #TODO: Breakpoint -> Handle modified packet (nfqueue verdict)
-#TODO: Handle any python expression in proxyshark Console
 __version__ = 'Proxyshark 1.0b'
 
 # ignore signals to let all the stuff load properly without user interrupt, we
