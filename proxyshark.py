@@ -1650,10 +1650,6 @@ class DissectedPacketList(list):
         """Implemented for compatibiliy."""
         return self.__getitem__(slice(i, j, None))
         #
-    def __iter__(self):
-        """Implements a custom iterator"""
-        iteraror = super(DissectedPacketList, self).__iter__()
-        return iteraror
         #
     def __repr__(self):
         """Prints the packet list as a well-formatted string."""
@@ -1663,10 +1659,6 @@ class DissectedPacketList(list):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([str(x) for x in self])
         #
-    def __len__(self):
-        """Returns the length of the packet list"""
-        length = super(DissectedPacketList, self).__len__()
-        return length
     # Private methods #########################################################
     #
 
@@ -2635,7 +2627,7 @@ class NFQueue(Thread):
 
         #accept packet, since we have either run at least one action,
         #or the packet didn't match any breakpoint
-        if(accept_pkt and packet.verdict is None):
+        if(laccept_pkt and packet.verdict is None):
             packet.accept()
         #no action was run, but the packet matched at least one breakpoint
         else:
