@@ -2844,7 +2844,7 @@ class Console(InteractiveConsole):
         line may be composed of several expressions"""
         #will be passed to runsource
         parent = not is_action
-        for line in line.split(';'):
+        for line in [x.strip() for x in line.split(';')]:
             # parse the line and run the appropriate command
             parser = self._command_parser()
             try:
@@ -2903,7 +2903,7 @@ class Console(InteractiveConsole):
                 if(not is_action or self.in_view_mode):
                     logging_exception()
 
-            return
+        return
 
     def runsource(self, source, filename='<input>', symbol='single',
                   use_parent = True):
