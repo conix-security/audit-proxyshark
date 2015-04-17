@@ -2967,9 +2967,10 @@ class Console(InteractiveConsole):
         commands = [command] if command else ['help', 'info', 'set', 'run',
                                               'pause', 'cont', 'stop',
                                               'nfqueue', 'packet', 'flush',
-                                              'drop', 'breakpoint', 'action',
+                                              'drop', 'breakpoint',
+                                              'delete_breakpoint', 'action',
                                               'enable', 'disable',
-                                              'delete_action']
+                                              'delete_action', 'pending']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -3563,7 +3564,44 @@ class Console(InteractiveConsole):
                 del action
 
                 Action.used_aid.remove(aid)
-    #
+
+    def _cmd_pending(self):
+        """pe|pending : returns a list of all packets without verdict"""
+        pe_main = [x for x in self.nfqueue.packets if x.verdict is None]
+        pe_tmp = [x for x in self.nfqueue.tmp_packets if x.verdict is None]
+        self.locals['_'] = DissectedPacketList(pe_main + pe_tmp)
+        self.runsource('_', '<console>')
+
+    def _cmd_verdict(self, verdict, key):
+        """v|verdict <accept|drop> <filter>: set a given verdict to all packets
+        matching the given filter"""
+        accepted_verdict = ['accept', 'drop']
+        verdict = verdict.strip().lower()
+
+        output = None
+
+        if(verdict.strip().lower() not in accepted_verdict):
+            output = 'Verdict should be ' + ' or '.join(accepted_verdict)
+        else:
+            try:
+                main = self.nfqueue.packets
+                tmp = self.nfqueue.tmp_packets
+                l = DissectedPacketList(main)[key] + \
+                    DissectedPacketList(tmp)[key]
+
+            except Exception as e:
+                output = 'Invalid packet filter'
+            else:
+                for p in (l):
+                    if(verdict == 'accept' and p.verdict is None):
+                        p.accept()
+                    elif(p.verdict is None):
+                        p.drop()
+
+        if(output):
+            logging_state_on()
+            logging_print(output)
+            logging_state_restore()
 
 ###############################################################################
 # Main entry point
