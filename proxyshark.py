@@ -2635,11 +2635,14 @@ class NFQueue(Thread):
 
         #accept packet, since we have either run at least one action,
         #or the packet didn't match any breakpoint
-        if((accept_pkt or self._console.in_view_mode)
-            and packet.verdict is None):
+        if(accept_pkt and packet.verdict is None):
             packet.accept()
         #no action was run, but the packet matched at least one breakpoint
         else:
+            if(self._console.in_view_mode):
+                self._console.in_view_mode = False
+                time.sleep(.1)
+
             sys.stdout.write("\033[0m")
             sys.stdout.write("\nBreakpoint triggered")
             if(not self.isPaused()):
@@ -2762,10 +2765,14 @@ class Console(InteractiveConsole):
                 self._interact("Welcome to %s" % __version__)
             while not self._stopping.isSet():
                 # view mode
+                self.in_view_mode = True
                 try:
                     signal.signal(signal.SIGINT, handler_sigint)
                     while not self._stopping.isSet():
-                        self.in_view_mode = True
+                        #some other thread requests interactive mode
+                        #(happens when breakpoint without action)
+                        if(not self.in_view_mode):
+                            raise KeyboardInterrupt
                         time.sleep(0.1)
                 # interactive mode
                 except KeyboardInterrupt:
