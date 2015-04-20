@@ -2510,7 +2510,7 @@ class NFQueue(Thread):
         rc = True
 
         self.pkt_lock.acquire()
-        if(key is None):
+        if(key is None or key.strip().lower() == 'all'):
             del self.packets[:]
         else:
             try:
