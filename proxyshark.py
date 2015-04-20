@@ -3572,7 +3572,7 @@ class Console(InteractiveConsole):
         self.locals['_'] = DissectedPacketList(pe_main + pe_tmp)
         self.runsource('_', '<console>')
 
-    def _cmd_verdict(self, verdict, key):
+    def _cmd_verdict(self, verdict, key = None):
         """v|verdict <accept|drop> <filter>: set a given verdict to all packets
         matching the given filter"""
         accepted_verdict = ['accept', 'drop']
@@ -3586,8 +3586,12 @@ class Console(InteractiveConsole):
             try:
                 main = self.nfqueue.packets
                 tmp = self.nfqueue.tmp_packets
-                l = DissectedPacketList(main)[key] + \
-                    DissectedPacketList(tmp)[key]
+
+                if(key is None or key.strip().lower() == 'all'):
+                    l = main + tmp
+                else:
+                    l = DissectedPacketList(main)[key] + \
+                        DissectedPacketList(tmp)[key]
 
             except Exception as e:
                 output = 'Invalid packet filter'
