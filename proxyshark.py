@@ -2516,6 +2516,8 @@ class NFQueue(Thread):
             try:
                 l = DissectedPacketList(self.packets).__getitem__(key)
                 for p in l:
+                    if(p.verdict is None):
+                        p.drop()
                     self.packets.remove(p)
             except Exception as e:
                 rc = False
