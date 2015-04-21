@@ -1122,7 +1122,7 @@ class DissectedPacket(object):
         # create a dictionary of committed fields and a dictionary of fields
         # to commit, fields are written with 'self.__setitem__()' and
         # 'self.commit()'
-        self._items_committed = {}
+        self._committed_items = {}
         self._items_to_commit = copy.deepcopy(self.read_items())
         # get raw data and packet length
         self.data = nfq_data.get_data()
@@ -1312,7 +1312,7 @@ class DissectedPacket(object):
         """Return a list of dictionaries representing all the protocols and
         fields. Items are taken either from the XML tree or from the last
         committed items."""
-        items = self._items_committed
+        items = self._committed_items
         return items if items else self._read_items()
         #
     def commit(self, items_to_commit=None):
