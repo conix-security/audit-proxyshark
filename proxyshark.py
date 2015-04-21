@@ -3367,14 +3367,6 @@ class Console(InteractiveConsole):
             logging_state_restore()
         return result
         #
-    def _cmd_nfqueue(self, slice = None):
-        """q|queue|nfqueue : a reference to the netfilter queue"""
-        self.runsource(self.current_line, '<console>')
-        #
-    def _cmd_packet(self, slice = None):
-        """pkt|packet : a reference to the last captured packet"""
-        self.runsource(self.current_line, '<console>')
-        #
     def _cmd_flush(self):
         """f|flush : flush internal cache to free memory (captured packets are
         not removed)"""
