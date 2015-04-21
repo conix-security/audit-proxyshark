@@ -41,6 +41,7 @@ import getopt
 import httplib
 import nfqueue
 import asyncore #asynchronous socket programming
+import select
 import logging
 import os
 import pprint # debug
@@ -2288,31 +2289,6 @@ class Breakpoint(object):
 ###############################################################################
 # NFQueue
 ###############################################################################
-
-class NFQChannel(asyncore.file_dispatcher):
-
-    """A file dispatcher used to easily monitor the nfqueue socket
-    """
-    def __init__(self, queue, nfq_hdl):
-        self._nfq = queue
-        self._nfq_hdl = nfq_hdl
-        self._fd = nfq_hdl.get_fd()
-        asyncore.file_dispatcher.__init__(self, self._fd)
-
-    def handle_read(self):
-        """Process at most 100 event
-
-        it might be required to tune this value
-        """
-        self._nfq_hdl.process_pending(100)
-
-    def writable(self):
-        """Set us as not writable
-
-        Prevents asyncore.poll from using 100% CPU
-        """
-        return False
-
 class NFQueue(Thread):
     """A Netfilter queue that receives packets, dissects them and makes them
     available to the user."""
@@ -2496,7 +2472,6 @@ class NFQueue(Thread):
             return False
         self._stopping.set()
         self._paused.clear()
-        self._nfq_channel.close()
 
         if self._stopped.wait(self._timeout):
             return True
@@ -2504,17 +2479,26 @@ class NFQueue(Thread):
         return self._stopped.wait()
         #
     def close(self):
-        self._nfq_handle.unbind(socket.AF_INET)
+        try:
+            self._nfq_handle.unbind(socket.AF_INET)
+        except Exception as e:
+            #unbinding often fails somehow,
+            #but seems not critical
+            pass
         self._nfq_handle.close()
 
     def open(self):
         self._nfq_handle = nfqueue.queue()
+
         self._nfq_handle.open()
         self._nfq_handle.bind(self._sock_family)
         self._nfq_handle.set_callback(self._callback)
         self._nfq_handle.create_queue(settings['queue_number'])
         self._nfq_handle.set_mode(nfqueue.NFQNL_COPY_PACKET)
-        self._nfq_channel = NFQChannel(self, self._nfq_handle)
+
+        #use asyncore's file wrapper to make a simple integer fd
+        #look like a socket object
+        self._nfq_socket = asyncore.file_wrapper(self._nfq_handle.get_fd())
 
     def drop(self, key = None):
         """empty the captured packet list
@@ -2550,11 +2534,22 @@ class NFQueue(Thread):
         logging_state_restore()
         self._started.set()
         try:
-            #
-            asyncore.loop(timeout=0.1)
-        except Exception as e:
-            pass
-        # if we go there then the queue is stopping, so destroy it properly
+
+            while not self._stopping.isSet():
+                r, w, e = select.select([self._nfq_socket], [], [], .1)
+                if(len(r) > 0):
+                    self._nfq_handle.process_pending(100)
+            self._nfq_socket.close()
+
+            #drop all pending packets
+            l = self.packets + self.tmp_packets
+            for p in l:
+                if(p.verdict is None):
+                    p.drop()
+        except:
+            logging_exception()
+
+        #the queue is stopping, so destroy it properly
         self.close()
         #
     def _callback(self, nfq_data):
@@ -3382,8 +3377,6 @@ class Console(InteractiveConsole):
             logging_print("Capture stopped.")
             logging_state_restore()
 
-        #drop all pending packets
-        self._cmd_verdict("drop", "all")
         return result
         #
     def _cmd_flush(self):
