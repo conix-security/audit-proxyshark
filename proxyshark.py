@@ -2467,7 +2467,6 @@ class NFQueue(Thread):
             #wait until a verdict is set.
             while(p.verdict is None):
                 if(self._stopping.isSet() or self._stopped.isSet()):
-                    p.accept()
                     return False
                 time.sleep(.1)
 
