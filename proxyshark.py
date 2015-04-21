@@ -1157,9 +1157,11 @@ class DissectedPacket(object):
     def __repr__(self):
         """Return a short packet description."""
         result = "Packet #%s/%s" % (self.identifier, self.real_identifier+1)
+        result += " (%s)" % self._get_verdict_str()
         if self.stream is not None: # can be 0
             result += " (stream %s)" % self.stream
         result += ", %s" % self.description
+
         return result
         #
     def __str__(self):
@@ -1602,6 +1604,18 @@ class DissectedPacket(object):
         self.nfq_data.set_verdict(verdict)
         self.verdict = verdict
         #
+    def _get_verdict_str(self):
+        ret = ''
+        if(self.verdict is None):
+            ret = 'pending'
+        elif(self.verdict == nfqueue.NF_ACCEPT):
+            ret = 'accepted'
+        elif(self.verdict == nfqueue.NF_DROP):
+            ret = 'dropped'
+
+        return ret
+
+
     #
 
 class DissectedPacketList(list):
