@@ -2957,6 +2957,9 @@ class Console(InteractiveConsole):
             if(ret in ('x', 'exit')):
                 self._save_history()
                 self._stopping.set()
+
+                #drop all pending packets
+                self._cmd_verdict("drop", "all")
                 return
         #
     def _cmd_help(self, command=None):
@@ -3365,6 +3368,9 @@ class Console(InteractiveConsole):
             logging_state_on()
             logging_print("Capture stopped.")
             logging_state_restore()
+
+        #drop all pending packets
+        self._cmd_verdict("drop", "all")
         return result
         #
     def _cmd_flush(self):
