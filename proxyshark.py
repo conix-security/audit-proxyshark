@@ -2591,6 +2591,9 @@ class NFQueue(Thread):
         Try to trigger breakpoints
         """
 
+        if(self._stopping.isSet()):
+            return
+
         logging_debug("nfqueue received packet #%s" % packet.identifier)
         if settings['effective_verbose_level'] > 1:
             logging_print(packet)
