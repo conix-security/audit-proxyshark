@@ -173,7 +173,6 @@ r = re_compile
 ###############################################################################
 # Logging
 ###############################################################################
-
 class LoggingFilter(logging.Filter):
     """A filter that allows any record to be processed if logging is enabled
     and only records from the main thread otherwise."""
@@ -1674,8 +1673,6 @@ class DissectedPacketList(list):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([str(x) for x in self])
         #
-    # Private methods #########################################################
-    #
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
@@ -2255,6 +2252,7 @@ class Breakpoint(object):
             return 0
         if(self._console is None):
             raise AttributeError('Console is None, cannot trigger breakpoint')
+
         for a in self.actions:
             for line in a.expression.split(';'):
                 self._console.try_exec(line, is_action = True)
@@ -2458,8 +2456,7 @@ class NFQueue(Thread):
         logging_state_on()
         logging_print("\nCapture continuing...")
         logging_state_restore()
-        sys.stdout.write("\033[1;34m>>>\033[37m ")
-        sys.stdout.flush()
+
         return True
         #
     def stop(self):
@@ -2591,6 +2588,7 @@ class NFQueue(Thread):
         Send it to the web proxy, if web mode is enabled
         Try to trigger breakpoints
         """
+
         logging_debug("nfqueue received packet #%s" % packet.identifier)
         if settings['effective_verbose_level'] > 1:
             logging_print(packet)
@@ -2650,21 +2648,16 @@ class NFQueue(Thread):
                 time.sleep(.1)
 
             if(packet.verdict is None):
-                sys.stdout.write("\033[0m")
-                sys.stdout.write("\nBreakpoint triggered")
+                output =  "\n\033[0mBreakpoint triggered"
+
                 if(not self.isPaused()):
                     result = self.pause()
-                    sys.stdout.write(': capture paused')
+                    output += ": capture paused"
 
-                sys.stdout.write('\n'+repr(packet)+'\n')
-
-                #if _process_packet was called by nfqueue.cont()
-                #(i.e by user from shell),
-                #do not display the prompt, since it will be displayed by
-                #Console._interact()
-                if(not from_shell):
-                    sys.stdout.write("\033[1;34m>>>\033[37m ")
-                sys.stdout.flush()
+                output += '\n'+repr(packet)+'\n'
+                sys.stderr.write(output)
+            if(not from_shell):
+                self._console.print_prompt()
         #
     def _reinit(self):
         """Reinitialize several instance attributes
@@ -2940,20 +2933,23 @@ class Console(InteractiveConsole):
         else:
             InteractiveConsole.runsource(self, source, filename, symbol)
 
+    def print_prompt(self):
+        sys.stderr.write("o\n\001\033[1;34m\002>>>\001\033[37m\002 ")
+        sys.stderr.flush()
+
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
         self.in_view_mode = False
         logging_print("\033[0;34m%s" % banner if banner else "\r")
-        logging_print("<interactive mode - press Ctrl-D to jump "
-                      "in view mode>")
+        logging_print("<interactive mode - press Ctrl-D to jump in view mode>")
         while 1:
             try:
                 # wait for the next command from the user
                 logging_state_off()
                 line = self.raw_input("\001\033[1;34m\002>>>\001\033[37m\002 ")
-                sys.stdout.write("\033[0m")
-                sys.stdout.flush()
+                sys.stderr.write("\001\033[0m\002")
+                sys.stderr.flush()
             except EOFError:
                 # ctrl-d was pressed, switch to view mode
                 self._save_history()
