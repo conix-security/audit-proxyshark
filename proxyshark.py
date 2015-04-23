@@ -2253,6 +2253,7 @@ class Breakpoint(object):
         if(self._console is None):
             raise AttributeError('Console is None, cannot trigger breakpoint')
 
+        self._console.locals['bpkt'] = packet
         for a in self.actions:
             for line in a.expression.split(';'):
                 self._console.try_exec(line, is_action = True)
