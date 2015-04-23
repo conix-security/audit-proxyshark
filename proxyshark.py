@@ -2470,6 +2470,7 @@ class NFQueue(Thread):
             return False
         self._stopping.set()
         self._paused.clear()
+        self._unpausing.clear()
 
         if self._stopped.wait(self._timeout):
             return True
