@@ -3477,7 +3477,7 @@ class Console(InteractiveConsole):
 
             Breakpoint.used_bid.remove(bid)
 
-    def _cmd_action(self, aid = None, bid = None, expr = None):
+    def _cmd_action(self, aid = None, bid = None, *expr):
         """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
         or add a new action to an existing breakpoint
 
@@ -3500,7 +3500,7 @@ class Console(InteractiveConsole):
         create a new action based on the given expression and identifiers."""
 
         if(aid is None):
-            if (bid is None and expr is None):
+            if (bid is None and len(expr) != 0):
                 self._cmd_info(parameter='actions')
         else:
             logging_state_on()
@@ -3525,7 +3525,7 @@ class Console(InteractiveConsole):
                     #create a new action
                     if(expr is not None):
                         try:
-                            a = Action(aid, expr, b)
+                            a = Action(aid, ' ; '.join(expr), b)
                             self.nfqueue.actions[aid] = a
                         except ValueError as v:
                             logging_print(v.message)
