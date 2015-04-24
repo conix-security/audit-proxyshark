@@ -1118,6 +1118,7 @@ class DissectedPacket(object):
         self.etree_packet = etree_packet
         #self.indev = network_devices(libnfq.get_indev(nfq_data))
         #self.outdev = network_devices(libnfq.get_outdev(nfq_data))
+        self.modified = False
         self.verdict = None
         # create a dictionary of committed fields and a dictionary of fields
         # to commit, fields are written with 'self.__setitem__()' and
@@ -1345,6 +1346,8 @@ class DissectedPacket(object):
             logging_print(repr(items_to_commit))
         offset = 0 # global offset (in case of field size variation)
         updated_data = self.data
+
+        item_was_modified = False
         packet_was_modified = False
         for current_item, item_to_commit in zip(current_items,
                                                 items_to_commit):
@@ -1436,8 +1439,9 @@ class DissectedPacket(object):
             # to reflect the potential shift due to other field size variations
             attr_pos = str(item_pos+offset)
             attr_size = str(len(item_value_ascii))
-            packet_was_modified = (item_value != current_item.get('value'))
-            if packet_was_modified:
+            item_was_modified = (item_value != current_item.get('value'))
+            if item_was_modified:
+                packet_was_modified = True
                 attr_value = item_value
                 attr_show = '<<%s>>' % trunc_repr(item_value_ascii)[1:-1]
                 attr_showname = ('<<%s: %s>>' # ex: '<<Src: 1.2.3.4>>'
@@ -1461,6 +1465,12 @@ class DissectedPacket(object):
                     if item_showname:
                         item.set('showname', attr_showname)
                     item.set('modified', '1')
+
+                # build the new payload
+
+                updated_data = (updated_data[:item_pos+offset] +
+                                item_value_ascii +
+                                updated_data[item_pos+item_size+offset:])
             else:
                 # update the committed item
                 item_to_commit['pos'] = attr_pos
@@ -1471,11 +1481,9 @@ class DissectedPacket(object):
                 for item in items:
                     item.set('pos', attr_pos)
                     item.set('size', attr_size)
-            # build the new payload
-            updated_data = (updated_data[:item_pos+offset] +
-                            item_value_ascii +
-                            updated_data[item_pos+item_size+offset:])
+
             offset += len(item_value_ascii) - item_size
+
         # calculate the checksums of the new payload
         scapy_packet = IP(updated_data)
         scapy_packet[IP].len += offset
@@ -1491,18 +1499,21 @@ class DissectedPacket(object):
             logging_print(repr(self.data))
             logging_print("new payload:")
             logging_print(repr(updated_data))
+
         # save the new payload
         self.data = updated_data
         self.data_length += offset
         # save the committed items
         self._committed_items = items_to_commit
         self._items_to_commit = copy.deepcopy(self._committed_items)
+
+        self.modified = packet_was_modified
         # return the modification state
         return packet_was_modified
         #
     def accept(self):
         """Accept the packet."""
-        self._set_verdict(nfqueue.NF_ACCEPT)
+        self._set_verdict(nfqueue.NF_ACCEPT, self.modified)
         #
     def drop(self):
         """Drop the packet."""
@@ -1596,12 +1607,17 @@ class DissectedPacket(object):
                 continue
         return items
         #
-    def _set_verdict(self, verdict):
+    def _set_verdict(self, verdict, modified = False):
         """Set the verdict (NF_ACCEPT or NF_DROP)."""
         if self.verdict:
             raise IOError("verdict already set for packet #%s"
                           % self.identifier)
-        self.nfq_data.set_verdict(verdict)
+        if(modified):
+            self.nfq_data.set_verdict_modified(verdict, self.data,
+                                               len(self.data))
+        else:
+            self.nfq_data.set_verdict(verdict)
+
         self.verdict = verdict
         #
     def _get_verdict_str(self):
