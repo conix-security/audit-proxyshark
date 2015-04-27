@@ -1513,6 +1513,7 @@ class DissectedPacket(object):
         #
     def accept(self):
         """Accept the packet."""
+        self.commit()
         self._set_verdict(nfqueue.NF_ACCEPT, self.modified)
         #
     def drop(self):
@@ -2955,7 +2956,7 @@ class Console(InteractiveConsole):
             InteractiveConsole.runsource(self, source, filename, symbol)
 
     def print_prompt(self):
-        sys.stderr.write("o\n\001\033[1;34m\002>>>\001\033[37m\002 ")
+        sys.stderr.write("\n\001\033[1;34m\002>>>\001\033[37m\002 ")
         sys.stderr.flush()
 
     def _interact(self, banner=None):
