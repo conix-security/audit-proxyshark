@@ -2788,6 +2788,10 @@ class Console(InteractiveConsole):
                                              text)
 
         InteractiveConsole.__init__(self)
+
+        #automatically import the socket module, which the user might need
+        #quite frequently (inet_aton, inet_nota, ...)
+        self.runsource('import socket')
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
