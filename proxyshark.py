@@ -2529,7 +2529,7 @@ class NFQueue(Thread):
     def drop(self, key = None):
         """empty the captured packet list
 
-        key must be a packet filter"""
+        key must be a packet filter, or 'all'"""
         rc = True
 
         self.pkt_lock.acquire()
@@ -3021,12 +3021,12 @@ class Console(InteractiveConsole):
                     description about it"""
         # build a list of selected commands
         commands = [command] if command else ['help', 'info', 'set', 'run',
-                                              'pause', 'cont', 'stop',
-                                              'nfqueue', 'packet', 'flush',
-                                              'drop', 'breakpoint',
+                                              'pause', 'cont', 'stop', 'flush',
+                                              'remove', 'breakpoint',
                                               'delete_breakpoint', 'action',
                                               'enable', 'disable',
-                                              'delete_action', 'pending']
+                                              'delete_action', 'pending',
+                                              'verdict', 'accept', 'drop']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -3435,10 +3435,10 @@ class Console(InteractiveConsole):
         not removed)"""
         cache_mng(summary=False, flush=True)
         #
-    def _cmd_drop(self, key = None):
-        """dr|drop [key]: remove packets from primary list
+    def _cmd_rm(self, key = None):
+        """rm|remove [key]: remove packets from primary list
 
-        key must be a packet filter"""
+        key must be a packet filter, or 'all'"""
         if(not self.nfqueue.drop(key)):
             logging_state_on()
             logging_print('Invalid packet filter')
@@ -3629,9 +3629,24 @@ class Console(InteractiveConsole):
         self.locals['_'] = DissectedPacketList(pe_main + pe_tmp)
         self.runsource('_', '<console>')
 
+    def _cmd_accecpt(self, key = None):
+        """acc|accept <key>: accept packets matching the given filter
+
+        key can be None, 'all', or any packet filter"""
+        self._cmd_verdict('accept', key)
+
+    def _cmd_drop(self, key = None):
+        """dr|drop <key>: drop packets matching the given filter
+
+        key can be None, 'all', or any packet filter"""
+        self._cmd_verdict('drop', key)
+
     def _cmd_verdict(self, verdict, key = None):
         """v|verdict <accept|drop> <filter>: set a given verdict to all packets
-        matching the given filter"""
+        matching the given filter
+
+        accepted verdicts are: 'accept', 'drop'
+        key can be None, 'all', or any packet filter"""
         accepted_verdict = ['accept', 'drop']
         verdict = verdict.strip().lower()
 
