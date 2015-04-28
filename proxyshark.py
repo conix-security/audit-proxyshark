@@ -2531,19 +2531,22 @@ class NFQueue(Thread):
 
         key must be a packet filter, or 'all'"""
         rc = True
+        l = None
 
-        self.pkt_lock.acquire()
         if(key is None or key.strip().lower() == 'all'):
-            del self.packets[:]
+            l = DissectedPacketList(self.packets)
         else:
             try:
                 l = DissectedPacketList(self.packets).__getitem__(key)
-                for p in l:
-                    if(p.verdict is None):
-                        p.drop()
-                    self.packets.remove(p)
             except Exception as e:
                 rc = False
+
+        self.pkt_lock.acquire()
+        if(rc is not None):
+            for p in reversed(l):
+                if(p.verdict is None):
+                    p.drop()
+                self.packets.remove(p)
         self.pkt_lock.release()
 
         return rc
