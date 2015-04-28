@@ -39,7 +39,7 @@ import copy
 import cProfile
 import getopt
 import httplib
-import nfqueue
+import psnfqueue as nfqueue
 import asyncore #asynchronous socket programming
 import select
 import logging
