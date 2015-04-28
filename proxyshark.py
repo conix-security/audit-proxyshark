@@ -79,6 +79,7 @@ alphanums += '-._'
 from SocketServer import ThreadingMixIn
 from subprocess import Popen, PIPE
 from threading import currentThread, Event, RLock, Lock, Thread
+
 from xml.etree.cElementTree import XMLParser
 
 logging.getLogger('scapy.runtime').setLevel(logging.ERROR)
@@ -1631,8 +1632,6 @@ class DissectedPacket(object):
             ret = 'dropped'
 
         return ret
-
-
     #
 
 class DissectedPacketList(list):
@@ -2451,6 +2450,8 @@ class NFQueue(Thread):
             logging_warning("nfqueue not started")
             return False
 
+        delayed = False
+
         self._unpausing.set()
         self.pkt_lock.acquire()
         #process all pending packets
@@ -2461,6 +2462,7 @@ class NFQueue(Thread):
                 if(self._stopping.isSet() or self._stopped.isSet()):
                     return False
                 time.sleep(.1)
+                delayed = True
 
         self._paused.clear()
         #merge the primary list with the temporary one
@@ -2471,9 +2473,17 @@ class NFQueue(Thread):
         self.pkt_lock.release()
         self._unpausing.clear()
 
-        logging_state_on()
-        logging_print("\nCapture continuing...")
-        logging_state_restore()
+        if(not (self._stopping.isSet() or self._stopped.isSet())):
+            output = "\001\033[0m\002Capture continuing...\n"
+
+            if(delayed):
+                #packets were received during pause, the main thread
+                #surely reached the raw_input function again.
+                #wake it up from its slumber
+                self._console.print_queue = "\n"+output
+                signal.setitimer(signal.ITIMER_REAL, 0.01)
+            else:
+                self._console.print_queue = output
 
         return True
         #
@@ -2667,6 +2677,7 @@ class NFQueue(Thread):
         else:
             if(self._console.in_view_mode):
                 self._console.in_view_mode = False
+                #wait long enough for the main thread to enter interactive mode
                 time.sleep(.1)
 
             if(packet.verdict is None):
@@ -2677,9 +2688,9 @@ class NFQueue(Thread):
                     output += ": capture paused"
 
                 output += '\n'+repr(packet)+'\n'
-                sys.stderr.write(output)
-            if(not from_shell):
-                self._console.print_prompt()
+                self._console.print_queue += output
+                #make the main thread exit the raw_input function
+                signal.setitimer(signal.ITIMER_REAL, .01)
         #
     def _reinit(self):
         """Reinitialize several instance attributes
@@ -2709,12 +2720,9 @@ class NFQueue(Thread):
         DissectedPacket.next_identifier = 0
 
 
-    #
-
 ###############################################################################
 # Interactive shell
 ###############################################################################
-
 class Console(InteractiveConsole):
     """An interactive console to use Proxyshark from the command line."""
     # Public methods ##########################################################
@@ -2726,6 +2734,9 @@ class Console(InteractiveConsole):
         self._default_completer = readline.get_completer()
         readline.set_completer(self._completer)
         self._load_history()
+
+        signal.signal(signal.SIGALRM, self._alarm_handler)
+        self.print_queue = ''
         # interesting events
         self._stopping = Event()
         # readline settings
@@ -2955,10 +2966,6 @@ class Console(InteractiveConsole):
         else:
             InteractiveConsole.runsource(self, source, filename, symbol)
 
-    def print_prompt(self):
-        sys.stderr.write("\n\001\033[1;34m\002>>>\001\033[37m\002 ")
-        sys.stderr.flush()
-
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
         # print the banner
@@ -2966,9 +2973,15 @@ class Console(InteractiveConsole):
         logging_print("\033[0;34m%s" % banner if banner else "\r")
         logging_print("<interactive mode - press Ctrl-D to jump in view mode>")
         while 1:
+
+            if(len(self.print_queue) > 0):
+                sys.stdout.write(self.print_queue)
+                self.print_queue = ''
+                sys.stdout.flush()
             try:
                 # wait for the next command from the user
                 logging_state_off()
+                line = ''
                 line = self.raw_input("\001\033[1;34m\002>>>\001\033[37m\002 ")
                 sys.stderr.write("\001\033[0m\002")
                 sys.stderr.flush()
@@ -2979,15 +2992,27 @@ class Console(InteractiveConsole):
                 logging_print("\n<view mode - press Ctrl-C to jump "
                               "in interactive mode>")
                 break
-            ret = self.try_exec(line)
-            if(ret in ('x', 'exit')):
-                self._save_history()
-                self._stopping.set()
+            except KeyboardInterrupt:
+                pass
 
-                #drop all pending packets
-                self._cmd_verdict("drop", "all")
-                return
+            if(line is not None):
+                ret = self.try_exec(line)
+                if(ret in ('x', 'exit')):
+                    self._save_history()
+                    self._stopping.set()
+
+                    #drop all pending packets
+                    self._cmd_verdict("drop", "all")
+                    return
         #
+    def _alarm_handler(self, signum, frame):
+        """Raise KeyboardInterrupt whenever SIGALRM is catched
+
+        This is a work-around to exit the raw_input function when necessary.
+        Console.interact MUST be run by the main thread in order
+        to make it work"""
+        raise KeyboardInterrupt
+
     def _cmd_help(self, command=None):
         """h|help [<command>] : print a short help describing the available
         commands
@@ -3381,10 +3406,18 @@ class Console(InteractiveConsole):
         #
     def _cmd_cont(self):
         """c|cont : continue the current capture"""
-        #use a thread to avoid blocking
-        #when temporary packets need to be handled in nfqueue.cont()
-        t = Thread(target = self.nfqueue.cont)
-        t.start()
+        #use a thread to avoid blocking.
+        #
+        #when temporary packets need to be handled in nfqueue.cont(),
+        #nfqueue.cont might make the main thread raise a KeyboardException
+        #(thus exitingout of the raw_input in Console.interact.
+        #Try to catch it here, in case the exception is raised before intended
+        try:
+            t = Thread(target = self.nfqueue.cont)
+            t.start()
+            time.sleep(.1)
+        except KeyboardInterrupt:
+            pass
         #
     def _cmd_stop(self):
         """s|stop : stop the current capture (drop previously captured
