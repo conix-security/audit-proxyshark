@@ -2620,6 +2620,12 @@ class NFQueue(Thread):
         Send it to the web proxy, if web mode is enabled
         Try to trigger breakpoints
         """
+        def sendrq(connection):
+            try:
+                # send the packet, but we don't need the response
+                connection.getresponse()
+            except Exception:
+                pass
 
         if(self._stopping.isSet()):
             return
@@ -2646,14 +2652,14 @@ class NFQueue(Thread):
                                                 False,
                                                 1)
             connection.request('POST',
-                               '/edit-packet/%s' % packet.identifier,
+                               'http://%s/edit-packet/%s' % (host,
+                                                             packet.identifier),
                                r(r' +').sub('', repr(items)),
                                post_headers)
-            try:
-                # send the packet, but we don't need the response
-                connection.getresponse()
-            except:
-                pass
+
+            #avoid blocking until timeout
+            Thread(target=sendrq, args=(connection,)).start()
+
 
         accept_pkt = True
         rc = -2
@@ -3162,7 +3168,62 @@ class Console(InteractiveConsole):
             logging_state_restore()
         #
     def _cmd_set(self, parameter = None, value = None):
-        """set <parameter> <value> : set the value of a given parameter"""
+        """set <parameter> <value> : set the value of a given parameter
+
+        * set verbosity <0|1|2|3>: set the verbosity level to one of the
+        following values:
+            0 for errors only (quiet mode)
+            1 for information and warnings
+            2 for debug
+            3 for debug, raw data and XML dissection
+
+
+        * set ethernet <off|on|0|1>: If enabled, an Ethernet layer will be
+        automatically generated for all captured packets.
+        Otherwise, packets will start at layer 3 (IP).Enabling this mode
+        is required only if you plan to replay packets at layer 2
+
+
+        * set queue-num <queue-num>: This option specifies which queue to use
+        and to send the queue'd data to. The queue number is a 16 bit
+        unsigned integer, which means it can take any value between 0 and 65535
+
+
+        * set tshark-dir <tshark-dir>: Set the location of the tshark binary
+        to use for packet dissection. If not found, tshark is taken from $PATH
+
+
+        * set web-driven <off|on|0|1>: In this mode, an embedded web server will
+        wait for incoming requests from proxyshark itself. The idea is to ask
+        proxyshark to call this web service each time a packet is captured
+        so that we can use a tool such as Burp Suite Pro to handle it
+
+
+        * set bind ip <bind-ip> | set bind port <bind-port>
+         set proxy ip <proxy-ip> | set proxy port <proxy-port>: Set parameters
+        of the web-driven mode
+
+
+        * set capture filter <capture-filter>: Set the current capture filter.
+        This filter acts at a netfilter level to select which packets
+        have to be captured. Basically, you just have to provide a BPF filter
+        and proxyshark will use it to generate appropriate iptables rules
+        targeting the NFQUEUE target
+
+
+        * set packet filter <packet-filter>: Set the current packet filter.
+        This filter is almost like a Wireshark display filter. You can use it
+        to select captured packets based on dissection criteria
+
+
+        * set field filter <field-filter>: Set the current field filter.
+        This filter is only available in web-driven mode. It's just a
+        regular expression to select which protocols and fields are sent to
+        the web proxy (ie which ones will be editable/repeatable
+        through the GUI).
+        Note that if no ^ or $ characters are found, they will be automatically
+        added at the beginning or at the end of the filter.
+        """
         def set_verbosity(value):
             global settings
             accepted_val = [str(x) for x in range(0,3)]
