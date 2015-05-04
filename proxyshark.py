@@ -3505,11 +3505,11 @@ class Console(InteractiveConsole):
         not removed)"""
         cache_mng(summary=False, flush=True)
         #
-    def _cmd_rm(self, key = None):
-        """rm|remove [<packet-filter>]: remove packets from primary list
+    def _cmd_rm(self, pfilter = None):
+        """rm|remove [<packet-filter>]: remove packets from queue
 
-        key must be a packet filter, or 'all'"""
-        if(not self.nfqueue.drop(key)):
+        <packet-filter> must be a valid packet filter, or 'all'"""
+        if(not self.nfqueue.drop(pfilter)):
             logging_state_on()
             logging_print('Invalid packet filter')
             logging_state_restore()
@@ -3746,18 +3746,18 @@ class Console(InteractiveConsole):
         self.locals['_'] = DissectedPacketList(pe_main + pe_tmp)
         self.runsource('_', '<console>')
 
-    def _cmd_accept(self, key = None):
+    def _cmd_accept(self, pfilter = None):
         """acc|accept [<packet-filter>]: accept packets matching the given
         filter
 
-        key can be None, 'all', or any packet filter"""
-        self._cmd_verdict('accept', key)
+        <packet-filter> can be None, 'all', or any packet filter"""
+        self._cmd_verdict('accept', pfilter)
 
-    def _cmd_drop(self, key = None):
+    def _cmd_drop(self, pfilter = None):
         """dr|drop [<packet-filter>]: drop packets matching the given filter
 
-        key can be None, 'all', or any packet filter"""
-        self._cmd_verdict('drop', key)
+        <packet-filter> can be None, 'all', or any packet filter"""
+        self._cmd_verdict('drop', pfilter)
 
     def _cmd_verdict(self, verdict, key = None):
         """v|verdict <accept|drop> <packet-filter>: set a given verdict to
