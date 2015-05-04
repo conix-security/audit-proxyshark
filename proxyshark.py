@@ -2640,6 +2640,7 @@ class NFQueue(Thread):
         if not items:
             packet.accept()
             return
+
         # in web driven mode, send an http request to the web service
         if settings['web_driven']:
             host = '%s:%s' % (settings['web_server_host'],
@@ -2659,6 +2660,7 @@ class NFQueue(Thread):
 
             #avoid blocking until timeout
             Thread(target=sendrq, args=(connection,)).start()
+            return
 
 
         accept_pkt = True
@@ -3504,7 +3506,7 @@ class Console(InteractiveConsole):
         cache_mng(summary=False, flush=True)
         #
     def _cmd_rm(self, key = None):
-        """rm|remove [key]: remove packets from primary list
+        """rm|remove [<packet-filter>]: remove packets from primary list
 
         key must be a packet filter, or 'all'"""
         if(not self.nfqueue.drop(key)):
@@ -3698,20 +3700,20 @@ class Console(InteractiveConsole):
         self.runsource('_', '<console>')
 
     def _cmd_accecpt(self, key = None):
-        """acc|accept <key>: accept packets matching the given filter
+        """acc|accept <packet-filter>: accept packets matching the given filter
 
         key can be None, 'all', or any packet filter"""
         self._cmd_verdict('accept', key)
 
     def _cmd_drop(self, key = None):
-        """dr|drop <key>: drop packets matching the given filter
+        """dr|drop <packet-filter>: drop packets matching the given filter
 
         key can be None, 'all', or any packet filter"""
         self._cmd_verdict('drop', key)
 
     def _cmd_verdict(self, verdict, key = None):
-        """v|verdict <accept|drop> <filter>: set a given verdict to all packets
-        matching the given filter
+        """v|verdict <accept|drop> <packet-filter>: set a given verdict to
+        all packets matching the given filter
 
         accepted verdicts are: 'accept', 'drop'
         key can be None, 'all', or any packet filter"""
