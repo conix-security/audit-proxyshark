@@ -3515,7 +3515,7 @@ class Console(InteractiveConsole):
             logging_state_restore()
 
     def _cmd_breakpoint(self, bid = None, packet_filter = None):
-        """b|breakpoint [<breakpoint-id> [<packet-filter>]]: display,
+        """b|breakpoint [<breakpoint-id>] [<packet-filter>]: display,
         or add a new breakpoint
 
         Breakpoints are triggered when a given packet filter matches a
@@ -3598,7 +3598,7 @@ class Console(InteractiveConsole):
             Breakpoint.used_bid.remove(bid)
 
     def _cmd_action(self, aid = None, bid = None, *expr):
-        """a|action [<action-id> [<breakpoint-id> <expression>]]: display,
+        """a|action [<action-id>] [<breakpoint-id>] [<expression>]: display,
         or add a new action to an existing breakpoint
 
         Actions are Python expressions to be run when a breakpoint is triggered.
@@ -3663,11 +3663,17 @@ class Console(InteractiveConsole):
             logging_state_restore()
 
     def _cmd_delete_action(self, aid, remove='all'):
-        """da|delete_action <action-id> [remove = assoc]: Delete an existing
+        """da|delete_action <action-id> [assoc]: Delete an existing
         action.
 
-        if remove is given, and starts with assoc, delete only the association
-        between the action and its breakpoint"""
+        If the second parameter is given, and is a subset of 'association',
+        unbind the action to its breakpoint
+
+        Examples:
+        da some_action assoc
+        da some_action as
+        da some_action association
+        """
 
         try:
             action = self.nfqueue.actions[aid]
@@ -3699,14 +3705,15 @@ class Console(InteractiveConsole):
         self.locals['_'] = DissectedPacketList(pe_main + pe_tmp)
         self.runsource('_', '<console>')
 
-    def _cmd_accecpt(self, key = None):
-        """acc|accept <packet-filter>: accept packets matching the given filter
+    def _cmd_accept(self, key = None):
+        """acc|accept [<packet-filter>]: accept packets matching the given
+        filter
 
         key can be None, 'all', or any packet filter"""
         self._cmd_verdict('accept', key)
 
     def _cmd_drop(self, key = None):
-        """dr|drop <packet-filter>: drop packets matching the given filter
+        """dr|drop [<packet-filter>]: drop packets matching the given filter
 
         key can be None, 'all', or any packet filter"""
         self._cmd_verdict('drop', key)
