@@ -4059,8 +4059,8 @@ def process_arguments():
         trunc_repr(settings['packet_filter']),
         trunc_repr(settings['field_filter']),
         settings['run_at_start'],
-        settings['default_breakpoint'],
-        settings['default_action'],
+        trunc_repr(settings['default_breakpoint'].packet_filter),
+        trunc_repr(settings['default_action'].expression),
         settings['default_script'],
     ))
     #
