@@ -1680,7 +1680,6 @@ class DissectedPacketList(list):
         """Implemented for compatibiliy."""
         return self.__getitem__(slice(i, j, None))
         #
-        #
     def __repr__(self):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([repr(x) for x in self])
@@ -1689,6 +1688,41 @@ class DissectedPacketList(list):
         """Prints the packet list as a well-formatted string."""
         return "\n".join([str(x) for x in self])
         #
+    def verdict(self, verdict, pfilter = None):
+        """Set a verdict on all the packets matching the given filter"""
+
+        accepted_verdict = ['accept', 'drop']
+        verdict = verdict.strip().lower()
+        output = None
+
+        if(verdict.strip().lower() not in accepted_verdict):
+            output = 'Verdict should be ' + ' or '.join(accepted_verdict)
+        else:
+            try:
+                if(pfilter is None or pfilter.strip().lower() == 'all'):
+                    l = self
+                else:
+                    l = self[pfilter]
+
+            except Exception as e:
+                print e
+                output = 'Invalid packet filter'
+            else:
+                for p in (l):
+                    if(verdict == 'accept' and p.verdict is None):
+                        p.accept()
+                    elif(p.verdict is None):
+                        p.drop()
+
+        return output
+
+    def accept(pfilter = None):
+        """Accept the packets matching the given filter"""
+        return self.verdict('accept', pfilter)
+
+    def drop(pfilter = None):
+        """Drop the packets matching the given filter"""
+        return self.verdict('drop', pfilter)
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
@@ -2661,7 +2695,6 @@ class NFQueue(Thread):
             #avoid blocking until timeout
             Thread(target=sendrq, args=(connection,)).start()
             return
-
 
         accept_pkt = True
         rc = -2
@@ -3759,43 +3792,19 @@ class Console(InteractiveConsole):
         <packet-filter> can be None, 'all', or any packet filter"""
         self._cmd_verdict('drop', pfilter)
 
-    def _cmd_verdict(self, verdict, key = None):
+    def _cmd_verdict(self, verdict, pfilter = None):
         """v|verdict <accept|drop> <packet-filter>: set a given verdict to
         all packets matching the given filter
 
         accepted verdicts are: 'accept', 'drop'
-        key can be None, 'all', or any packet filter"""
-        accepted_verdict = ['accept', 'drop']
-        verdict = verdict.strip().lower()
-
-        output = None
-
-        if(verdict.strip().lower() not in accepted_verdict):
-            output = 'Verdict should be ' + ' or '.join(accepted_verdict)
-        else:
-            try:
-                main = self.nfqueue.packets
-                tmp = self.nfqueue.tmp_packets
-
-                if(key is None or key.strip().lower() == 'all'):
-                    l = main + tmp
-                else:
-                    l = DissectedPacketList(main)[key] + \
-                        DissectedPacketList(tmp)[key]
-
-            except Exception as e:
-                output = 'Invalid packet filter'
-            else:
-                for p in (l):
-                    if(verdict == 'accept' and p.verdict is None):
-                        p.accept()
-                    elif(p.verdict is None):
-                        p.drop()
-
+        packet-filter can be None, 'all', or any packet filter"""
+        output = self.nfqueue.packets.verdict(verdict, pfilter)
         if(output):
             logging_state_on()
             logging_print(output)
             logging_state_restore()
+        else:
+            self.nfqueue.tmp_packets.verdict(verdict, pfilter)
 
 ###############################################################################
 # Main entry point
