@@ -2576,18 +2576,18 @@ class NFQueue(Thread):
         #look like a socket object
         self._nfq_socket = asyncore.file_wrapper(self._nfq_handle.get_fd())
 
-    def drop(self, key = None):
+    def drop(self, pfilter = None):
         """empty the captured packet list
 
-        key must be a packet filter, or 'all'"""
+        pfilter must be a packet filter, or 'all'"""
         rc = True
         l = None
 
-        if(key is None or key.strip().lower() == 'all'):
+        if(pfilter is None or pfilter.strip().lower() == 'all'):
             l = DissectedPacketList(self.packets)
         else:
             try:
-                l = DissectedPacketList(self.packets).__getitem__(key)
+                l = DissectedPacketList(self.packets).__getitem__(pfilter)
             except Exception as e:
                 rc = False
 
