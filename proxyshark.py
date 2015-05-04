@@ -3102,7 +3102,25 @@ class Console(InteractiveConsole):
         logging_state_restore()
         #
     def _cmd_info(self, parameter=None):
-        """i|info : print information about the current program state"""
+        """i|info : print information about the current program state
+
+        Available parmeters are:
+
+        * verbosity
+        * ethernet
+        * queue-num
+        * tshark-dir
+        * web-driven
+        * bind ip
+        * bind port
+        * proxy ip
+        * proxy port
+        * capture filter
+        * packet filter
+        * field filter
+        * breakpoints
+        * actions
+        * cache"""
 
         def info_verbosity():
             return 'Verbose level: %s' % (settings['effective_verbose_level'])
@@ -3213,45 +3231,45 @@ class Console(InteractiveConsole):
             3 for debug, raw data and XML dissection
 
 
-        * set ethernet <off|on|0|1>: If enabled, an Ethernet layer will be
+        * set ethernet <off|on|0|1>: if enabled, an Ethernet layer will be
         automatically generated for all captured packets.
         Otherwise, packets will start at layer 3 (IP).Enabling this mode
         is required only if you plan to replay packets at layer 2
 
 
-        * set queue-num <queue-num>: This option specifies which queue to use
+        * set queue-num <queue-num>: this option specifies which queue to use
         and to send the queue'd data to. The queue number is a 16 bit
         unsigned integer, which means it can take any value between 0 and 65535
 
 
-        * set tshark-dir <tshark-dir>: Set the location of the tshark binary
+        * set tshark-dir <tshark-dir>: set the location of the tshark binary
         to use for packet dissection. If not found, tshark is taken from $PATH
 
 
-        * set web-driven <off|on|0|1>: In this mode, an embedded web server will
+        * set web-driven <off|on|0|1>: in this mode, an embedded web server will
         wait for incoming requests from proxyshark itself. The idea is to ask
         proxyshark to call this web service each time a packet is captured
         so that we can use a tool such as Burp Suite Pro to handle it
 
 
         * set bind ip <bind-ip> | set bind port <bind-port>
-         set proxy ip <proxy-ip> | set proxy port <proxy-port>: Set parameters
+         set proxy ip <proxy-ip> | set proxy port <proxy-port>: set parameters
         of the web-driven mode
 
 
-        * set capture filter <capture-filter>: Set the current capture filter.
+        * set capture filter <capture-filter>: set the current capture filter.
         This filter acts at a netfilter level to select which packets
         have to be captured. Basically, you just have to provide a BPF filter
         and proxyshark will use it to generate appropriate iptables rules
         targeting the NFQUEUE target
 
 
-        * set packet filter <packet-filter>: Set the current packet filter.
+        * set packet filter <packet-filter>: set the current packet filter.
         This filter is almost like a Wireshark display filter. You can use it
         to select captured packets based on dissection criteria
 
 
-        * set field filter <field-filter>: Set the current field filter.
+        * set field filter <field-filter>: set the current field filter.
         This filter is only available in web-driven mode. It's just a
         regular expression to select which protocols and fields are sent to
         the web proxy (ie which ones will be editable/repeatable
@@ -3629,7 +3647,7 @@ class Console(InteractiveConsole):
         logging_state_restore()
 
     def _cmd_enable(self, bid):
-        """en|enable <breakpoint-id>: Enable an existing breakpoint"""
+        """en|enable <breakpoint-id>: enable an existing breakpoint"""
         try:
             self.nfqueue.breakpoints[bid].enabled = True
         except KeyError:
@@ -3638,7 +3656,7 @@ class Console(InteractiveConsole):
             logging_state_restore()
 
     def _cmd_disable(self, bid):
-        """dis|disable <breakpoint-id>: Disable an existing breakpoint"""
+        """dis|disable <breakpoint-id>: disable an existing breakpoint"""
         try:
             self.nfqueue.breakpoints[bid].enabled = False
         except KeyError:
@@ -3796,7 +3814,7 @@ class Console(InteractiveConsole):
         """v|verdict <accept|drop> <packet-filter>: set a given verdict to
         all packets matching the given filter
 
-        accepted verdicts are: 'accept', 'drop'
+        Accepted verdicts are: 'accept', 'drop'
         packet-filter can be None, 'all', or any packet filter"""
         output = self.nfqueue.packets.verdict(verdict, pfilter)
         if(output):
