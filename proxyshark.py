@@ -3634,9 +3634,9 @@ class Console(InteractiveConsole):
 
             Breakpoint.used_bid.remove(bid)
 
-    def _cmd_action(self, aid = None, bid = None, *expr):
-        """a|action [<action-id>] [<breakpoint-id>] [<expression>]: display,
-        or add a new action to an existing breakpoint
+    def _cmd_action(self, operation = None, aid = None, bid = None, *expr):
+        """a|action [add|del|bind|unbind] [<action-id>] [<breakpoint-id>]
+        [<expression>]: display, add, bind or unbind an action
 
         Actions are Python expressions to be run when a breakpoint is triggered.
         Commands available in interactive mode are also
@@ -3645,24 +3645,40 @@ class Console(InteractiveConsole):
         *If no argument is given, print a list of all existing actions
         (equivalent to info actions).
 
-        *If an action identifier is given, print the breakpoint
+        *If only an action identifier is given, print the breakpoint
         and the Python expression associated to this action
         The action identifier must be an arbitrary string containing
         letters, digits, dashes, dots or underscores.
 
-        *If an action id and a breakpoint id are given, rebind an existing
+        *If add, an action id, a breakpoint id and an expression are given,
+        create a new action based on the given expression and identifiers.
+
+        *If del and an action id are given, delete an existing action
+
+        *If bind, an action id and a breakpoint id are given, rebind an existing
         action to an existing breakpoint
 
-        *If a action id, a breakpoint id and a Python expression are given,
-        create a new action based on the given expression and identifiers."""
+        *If unbind, and an action id are given, unbind an
+        existing action from an existing breakpoint"""
 
-        if(aid is None):
-            if (bid is None):
-                self._cmd_info(parameter='actions')
-        else:
-            logging_state_on()
-            if (bid is None and expr is None):
+        operations = ['add', 'del', 'bind', 'unbind']
 
+        #the user did not request any legal operation: the operation parameter
+        #should actually contain an action id
+        if(operation not in operations and aid is None):
+            aid = operation
+            operation = None
+
+
+        logging_state_on()
+        if(operation is None):
+            #print every actions
+            if(aid is None):
+                if (bid is None):
+                    self._cmd_info(parameter='actions')
+
+            #print the requested action, and its breakpoint
+            else:
                 try:
                     action = self.nfqueue.actions[aid]
                     breakpoint = action.breakpoint
@@ -3673,31 +3689,76 @@ class Console(InteractiveConsole):
                     t = Template('$b\n\n$e')
                     logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
-            elif(bid is not None):
+
+        elif(operation == 'add'):
+            try:
+                b = self.nfqueue.breakpoints[bid]
+            except KeyError as k:
+                logging_print('Unknown breakpoint id')
+            else:
+                #create a new action
+                if(expr is not None):
+                    try:
+                        a = Action(aid, ' ; '.join(expr), b)
+                        self.nfqueue.actions[aid] = a
+                    except ValueError as v:
+                        logging_print(v.message)
+
+        elif(operation == 'del'):
+            try:
+
+                self._cmd_action('unbind', aid)
+
+                action = self.nfqueue.actions[aid]
+            except KeyError:
+                logging_print('Unknown action id')
+            else:
+                try:
+                    #remove action aid from actions dictionnary,
+                    #delete action object
+                    del self.nfqueue.actions[aid]
+                    del action
+
+                except:
+                    #the association has already been removed
+                    pass
+
+
+
+                Action.used_aid.remove(aid)
+
+        elif(operation == 'bind'):
+            try:
+                a = self.nfqueue.actions[aid]
+            except KeyError:
+                logging_print('Unknown action id')
+
+            else:
                 try:
                     b = self.nfqueue.breakpoints[bid]
                 except KeyError as k:
                     logging_print('Unknown breakpoint id')
                 else:
-                    #create a new action
-                    if(expr is not None):
-                        try:
-                            a = Action(aid, ' ; '.join(expr), b)
-                            self.nfqueue.actions[aid] = a
-                        except ValueError as v:
-                            logging_print(v.message)
+                    b.add_action(a)
+                    a.breakpoint = b
 
-                    #the action should already exist ; bind it to the breakpoint
-                    else:
-                        try:
-                            a = self.nfqueue.actions[aid]
-                        except KeyError:
-                            logging_print('Unknown action id')
-                        else:
-                            b.add_action(a)
-                            a.breakpoint = b
+        elif(operation == 'unbind'):
+            try:
+                action = self.nfqueue.actions[aid]
+            except KeyError:
+                logging_print('Unknown action id')
+            else:
+                try:
+                    #remove action in breakpoint,
+                    #and breakpoint in action
+                    action.breakpoint.actions.remove(action)
+                    action.breakpoint = None
+                except:
+                    #the association has already been removed
+                    pass
 
-            logging_state_restore()
+
+        logging_state_restore()
 
     def _cmd_delete_action(self, aid, remove='all'):
         """da|delete_action <action-id> [assoc]: Delete an existing
