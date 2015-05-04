@@ -3595,6 +3595,9 @@ class Console(InteractiveConsole):
         *If add, <breakpoint-id> and <packet-filter> are given, create a new
         breakpoint based on the given identifier and filter.
 
+        *If add and <packet-filter> are given, create a new breakpoint and name
+        it automatically
+
         *If del and <breakpoint-id> are given, delete the breakpoint
 
         Examples:
