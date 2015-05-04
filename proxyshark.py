@@ -3514,9 +3514,10 @@ class Console(InteractiveConsole):
             logging_print('Invalid packet filter')
             logging_state_restore()
 
-    def _cmd_breakpoint(self, bid = None, packet_filter = None):
-        """b|breakpoint [<breakpoint-id>] [<packet-filter>]: display,
-        or add a new breakpoint
+    def _cmd_breakpoint(self, operation = None, bid = None,
+                        packet_filter = None):
+        """b|breakpoint [add|del] [<breakpoint-id>] [<packet-filter>]: display,
+        add or delete a new breakpoint
 
         Breakpoints are triggered when a given packet filter matches a
         captured packet. In view mode, you need to define
@@ -3531,32 +3532,68 @@ class Console(InteractiveConsole):
         to this breakpoint. The breakpoint identifier must be an
         arbitrary string containing letters, digits, dashes, dots or underscores
 
-        *If <packet-filter> is given, create a new breakpoint
-        based on the given identifier and filter."""
+        *If add, <breakpoint-id> and <packet-filter> are given, create a new
+        breakpoint based on the given identifier and filter.
+
+        *If del and <breakpoint-id> are given, delete the breakpoint
+
+        Examples:
+
+        >>> breakpoint
+        >>> breakpoint bpid
+        >>> breakpoint add bp_icmp icmp"""
+
+        #the user did not request any legal operation: the operation parameter
+        #should actually contain a breakpoint id
+        if(operation != 'add' and operation != 'del' and bid is None):
+            bid = operation
+            operation = None
 
         breakpoints = self.nfqueue.breakpoints
-        if(bid is None):
-            if (packet_filter is None):
+
+        logging_state_on()
+        if(operation is None):
+            if(bid is None):
                 #print every breakpoints
                 self._cmd_info(parameter='breakpoints')
-        else:
-            logging_state_on()
-            if (packet_filter is None):
+            else:
                 #display only the packet filter
                 try:
                     output = self.nfqueue.breakpoints[bid].packet_filter
                     logging_print(repr(output))
                 except:
                     logging_print('Unknown breakpoint id')
-            else:
-                #add a new breakpoint
+
+        else:
+            if(operation == 'add' and bid is not None and
+               packet_filter is not None):
+
                 try:
                     b = Breakpoint(bid, packet_filter, enabled = True,
                                    console = self)
                     breakpoints[bid] = b
                 except ValueError as e:
                     logging_print(e.message)
-            logging_state_restore()
+
+            elif(operation == 'del' and bid is not None):
+                try:
+                    bpoint = self.nfqueue.breakpoints[bid]
+                except KeyError:
+                    logging_print('Unknown breakpoint id')
+                else:
+                    for a in bpoint.actions:
+                        a.breakpoint = None
+
+                    del bpoint.actions[:]
+                    del self.nfqueue.breakpoints[bid]
+                    del bpoint
+
+                    Breakpoint.used_bid.remove(bid)
+
+            else:
+                logging_print('Invalid call')
+
+        logging_state_restore()
 
     def _cmd_enable(self, bid):
         """en|enable <breakpoint-id>: Enable an existing breakpoint"""
@@ -3620,7 +3657,7 @@ class Console(InteractiveConsole):
         create a new action based on the given expression and identifiers."""
 
         if(aid is None):
-            if (bid is None and len(expr) != 0):
+            if (bid is None):
                 self._cmd_info(parameter='actions')
         else:
             logging_state_on()
