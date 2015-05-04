@@ -3613,27 +3613,6 @@ class Console(InteractiveConsole):
             logging_print('Unknown breakpoint id')
             logging_state_restore()
 
-    def _cmd_delete_breakpoint(self, bid):
-        """d|delete_breakpoint <breakpoint-id>: delete an existing breakpoint
-
-        Associations between the breakpoint and any existing action are also
-        removed."""
-        try:
-            bpoint = self.nfqueue.breakpoints[bid]
-        except KeyError:
-            logging_state_on()
-            logging_print('Unknown breakpoint id')
-            logging_state_restore()
-        else:
-            for a in bpoint.actions:
-                a.breakpoint = None
-
-            del bpoint.actions[:]
-            del self.nfqueue.breakpoints[bid]
-            del bpoint
-
-            Breakpoint.used_bid.remove(bid)
-
     def _cmd_action(self, operation = None, aid = None, bid = None, *expr):
         """a|action [add|del|bind|unbind] [<action-id>] [<breakpoint-id>]
         [<expression>]: display, add, bind or unbind an action
@@ -3759,42 +3738,6 @@ class Console(InteractiveConsole):
 
 
         logging_state_restore()
-
-    def _cmd_delete_action(self, aid, remove='all'):
-        """da|delete_action <action-id> [assoc]: Delete an existing
-        action.
-
-        If the second parameter is given, and is a subset of 'association',
-        unbind the action to its breakpoint
-
-        Examples:
-        da some_action assoc
-        da some_action as
-        da some_action association
-        """
-
-        try:
-            action = self.nfqueue.actions[aid]
-        except KeyError:
-            logging_state_on()
-            logging_print('Unknown action id')
-            logging_state_restore()
-        else:
-            try:
-                #remove action in breakpoint,
-                #and breakpoint in action
-                action.breakpoint.actions.remove(action)
-                action.breakpoint = None
-            except:
-                #the association has already been removed
-                pass
-            if (not 'association'.startswith(remove.lower())):
-                #remove action aid from actions dictionnary,
-                #delete action object
-                del self.nfqueue.actions[aid]
-                del action
-
-                Action.used_aid.remove(aid)
 
     def _cmd_pending(self):
         """pe|pending : returns a list of all packets without verdict"""
