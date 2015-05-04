@@ -2221,14 +2221,14 @@ class Action(object):
     def __repr__(self):
         t = Template('Action $a, bid $b -> $exp')
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
-        return t.substitute(a = self.id, b = bpoint,
+        return t.substitute(a = repr(self.id), b = repr(bpoint),
                             exp = repr(trunc(self.expression)))
 
     def __str__(self):
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
-        return t.substitute(a = self.id, b = bpoint,
+        return t.substitute(a = repr(self.id), b = repr(bpoint),
                             exp = repr(trunc(self.expression)))
 
     def add_breakpoint(self, breakpoint):
@@ -2247,9 +2247,18 @@ class Breakpoint(object):
 
     id_pattern = re_compile(r'^[\w\-.]+$')
     used_bid = list()
+    next_bid = 0
 
-    def __init__(self, bid, pfilter, enabled = False, console = None):
-        if(bid in Breakpoint.used_bid):
+    def __init__(self, pfilter, bid = None, enabled = False, console = None):
+
+        #set a breakpoint id automatically if none is given
+        if(bid is None):
+            while(str(Breakpoint.next_bid) in Breakpoint.used_bid):
+                Breakpoint.next_bid += 1
+            bid = str(Breakpoint.next_bid)
+            Breakpoint.next_bid += 1
+
+        elif(bid in Breakpoint.used_bid):
             t = Template('Breakpoint id $b already in use')
             raise ValueError(t.substitute(b = bid))
 
@@ -2322,8 +2331,8 @@ class Breakpoint(object):
         enabled = "enabled" if self.enabled else "disabled"
         action_ids = [a.id for a in self.actions]
         t = Template('Breakpoint $bid $state, actions ($aid) -> $pf ')
-        return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = ', '.join(action_ids),
+        return t.substitute(bid = repr(self.id), pf = repr(self.packet_filter),
+                            aid = ', '.join([repr(x) for x in action_ids]),
                             state = str(enabled))
 
     def __str__(self):
@@ -2331,8 +2340,8 @@ class Breakpoint(object):
         action_ids = [a.id for a in self.actions]
         t = Template("Breakpoint id: $bid\n  Packet filter: $pf" +
                      "\n  Action id: $aid\n  Enabled: $state")
-        return t.substitute(bid = self.id, pf = repr(self.packet_filter),
-                            aid = ', '.join(action_ids),
+        return t.substitute(bid = repr(self.id), pf = repr(self.packet_filter),
+                            aid = ', '.join([repr(x) for x in action_ids]),
                             state = self.enabled)
 
 ###############################################################################
@@ -3616,13 +3625,19 @@ class Console(InteractiveConsole):
                     logging_print('Unknown breakpoint id')
 
         else:
-            if(operation == 'add' and bid is not None and
-               packet_filter is not None):
+            if(operation == 'add' and bid is not None):
+
+                #in this case, no bid was specified. Current bid is actually
+                #a packet filter
+                #the breakpoint ID will be chosen automatically
+                if(packet_filter is None):
+                    packet_filter = bid
+                    bid = None
 
                 try:
-                    b = Breakpoint(bid, packet_filter, enabled = True,
+                    b = Breakpoint(packet_filter, bid, enabled = True,
                                    console = self)
-                    breakpoints[bid] = b
+                    breakpoints[b.id] = b
                 except ValueError as e:
                     logging_print(e.message)
 
@@ -3968,7 +3983,7 @@ def process_arguments():
             settings['run_at_start'] = True
         # -b | --default-breakpoint <packet-filter>
         elif opt in ['-b', '--default-breakpoint']:
-            settings['default_breakpoint'] = Breakpoint('default', arg, True)
+            settings['default_breakpoint'] = Breakpoint(arg, 'default', True)
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
             #add a new action, without any breakpoint
