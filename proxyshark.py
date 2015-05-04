@@ -2197,12 +2197,19 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 class Action(object):
     """An action to be run when a packet triggers an enabled breakpoint
 
-    Actions must associated to an already existing breakpoint"""
+    Each action is bound to a single breakpoint"""
 
     used_aid = list()
+    next_aid = 0
     id_pattern = re_compile(r'^[\w\-.]+$')
 
-    def __init__(self, aid, expression, breakpoint = None):
+    def __init__(self, expression, breakpoint = None, aid = None):
+        if(aid == None):
+            while(str(Action.next_aid) in Action.used_aid):
+                Action.next_aid += 1
+            aid = str(Action.next_aid)
+            Action.next_aid += 1
+
         if(aid in Action.used_aid):
             t = Template('Action id $a already in use')
             raise ValueError(t.substitute(a = aid))
@@ -3700,6 +3707,7 @@ class Console(InteractiveConsole):
 
         *If add, an action id, a breakpoint id and an expression are given,
         create a new action based on the given expression and identifiers.
+        The action will be named automatically if <action-id> is '--'
 
         *If del and an action id are given, delete an existing action
 
@@ -3737,8 +3745,10 @@ class Console(InteractiveConsole):
                     t = Template('$b\n\n$e')
                     logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
-
         elif(operation == 'add'):
+            if(aid == '--'):
+                aid = None
+
             try:
                 b = self.nfqueue.breakpoints[bid]
             except KeyError as k:
@@ -3747,8 +3757,8 @@ class Console(InteractiveConsole):
                 #create a new action
                 if(expr is not None):
                     try:
-                        a = Action(aid, ' ; '.join(expr), b)
-                        self.nfqueue.actions[aid] = a
+                        a = Action(' ; '.join(expr), b, aid)
+                        self.nfqueue.actions[a.id] = a
                     except ValueError as v:
                         logging_print(v.message)
 
@@ -3804,7 +3814,6 @@ class Console(InteractiveConsole):
                 except:
                     #the association has already been removed
                     pass
-
 
         logging_state_restore()
 
@@ -3990,7 +3999,7 @@ def process_arguments():
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
             #add a new action, without any breakpoint
-            settings['default_action'] = Action('default', arg, None)
+            settings['default_action'] = Action(arg, None, 'default')
     # ensure that we have a tshark directory
     if not settings['tshark_directory']:
         raise ValueError("tshark was not found")
