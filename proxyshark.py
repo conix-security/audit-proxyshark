@@ -3213,13 +3213,61 @@ class Console(InteractiveConsole):
             parameter = parameter.strip()
         #display all
         if(parameter is None):
-            output_list = []
-            fctstr_list = [f.replace(' ', '_').replace('-', '_')
-                        for f in param_list]
-            for fstr in fctstr_list:
-                fct = eval('info_%s' % (fstr))
-                output_list.append(fct())
-            output = '\n'.join(output_list)
+            web = 'disabled'
+            tp_web = None
+            tp = None
+            actions_str = 'None'
+            breakpoints_str = 'None'
+
+            if(len(self.nfqueue.actions) > 0):
+                actions = self.nfqueue.actions
+                actions_repr = [repr(actions[k]) for k in actions]
+                actions_str = '\n    ' + '\n    '.join(actions_repr)
+
+            if(len(self.nfqueue.breakpoints) > 0):
+                breakpoints = self.nfqueue.breakpoints
+                breakpoints_repr = [repr(breakpoints[k]) for k in breakpoints]
+                breakpoints_str = '\n    ' + '\n    '.join(breakpoints_repr)
+
+            tp_str  = "Current settings:\n"
+            tp_str += "- verbose level      = $v\n"
+            tp_str += "- ethernet layer     = $e\n"
+            tp_str += "- queue number       = $q\n"
+            tp_str += "- tshark directory   = $t\n"
+            tp_str += "- web driven         = $w\n"
+            tp_str += "- capture filter     = $c\n"
+            tp_str += "- packet filter      = $p\n"
+            tp_str += "- field filter       = $f\n"
+            tp_str += "- cache content      = $cache\n\n"
+            tp_str += "- breakpoints: $b\n\n"
+            tp_str += "- actions: $a"
+
+            tp = Template(tp_str)
+
+            if(settings['web_driven']):
+                tp_web = Template("enabled\n" +
+                                  "- web server         = $sh:$sp\n" +
+                                  "- web proxy          = $wh:$wp")
+                web = tp_web.substitute(
+                    sh = settings['web_server_host'],
+                    sp = settings['web_server_port'],
+                    wh = settings['web_proxy'],
+                    wp = settings['web_proxy_port']
+                )
+
+            output = tp.substitute(
+                v = settings['real_verbose_level'],
+               e = settings['ethernet_layer'],
+               q = settings['queue_number'],
+               t = trunc_repr(settings['tshark_directory']),
+               w = web,
+               c = trunc_repr(settings['capture_filter']),
+               p = trunc_repr(settings['packet_filter']),
+               f = trunc_repr(settings['field_filter']),
+               b = breakpoints_str,
+               a = actions_str,
+               cache = cache_mng(summary = True)
+            )
 
         #unknown
         elif(not parameter in param_list):
