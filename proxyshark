@@ -1,8 +1,0 @@
-#!/bin/bash
-
-wd=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd) 
-export LD_LIBRARY_PATH="$wd/libwireshark/"
-
-echo $@
-[ -x $wd/proxyshark ] && ./proxyshark.py $@
-
