@@ -3737,9 +3737,10 @@ class Console(InteractiveConsole):
             logging_print('Unknown breakpoint id')
             logging_state_restore()
 
-    def _cmd_action(self, operation = None, aid = None, bid = None, *expr):
-        """a|action [add|del|bind|unbind] [<action-id>] [<breakpoint-id>]
-        [<expression>]: display, add, bind or unbind an action
+    def _cmd_action(self, operation = None, aid = None, to = None, bid = None,
+                    *expr):
+        """a|action [add|del|bind|unbind] [<action-id>] [to] [<breakpoint-id>]
+        [<expressions> ...]: display, add, bind or unbind an action
 
         Actions are Python expressions to be run when a breakpoint is triggered.
         Commands available in interactive mode are also
@@ -3753,17 +3754,31 @@ class Console(InteractiveConsole):
         The action identifier must be an arbitrary string containing
         letters, digits, dashes, dots or underscores.
 
-        *If add, an action id, a breakpoint id and an expression are given,
-        create a new action based on the given expression and identifiers.
-        The action will be named automatically if <action-id> is '--'
-
         *If del and an action id are given, delete an existing action
 
         *If bind, an action id and a breakpoint id are given, rebind an existing
         action to an existing breakpoint
 
         *If unbind, and an action id are given, unbind an
-        existing action from an existing breakpoint"""
+        existing action from an existing breakpoint
+
+        *If add, an action id, the keyword 'to', a breakpoint id and
+        expressions, are given, create a new action based on the given
+        expressions and identifiers, and bind it to the breakpoint.
+        If the action id is omitted, the action will be named automatically.
+        The keyword 'to' and the breakpoint id can also be omitted: this will
+        create a new action, without binding it do any breakpoint
+
+        Examples:
+
+        >>> action add a1 "some expression" #do not bind
+        >>> action add to default "expr1" "expr2" "expr3"
+        >>> action add a2 to default "print 'triggered!'"
+        >>>
+        >>> action bind a1 default
+        >>> action unbind a1
+        >>>
+        >>> action del a2"""
 
         operations = ['add', 'del', 'bind', 'unbind']
 
@@ -3794,14 +3809,24 @@ class Console(InteractiveConsole):
                     logging_print(t.substitute(b=str(breakpoint), e=repr(expr)))
 
         elif(operation == 'add'):
-            if(aid == '--'):
-                aid = None
+            if(to != 'to'):
+                #usage: action add to bid
+                if(aid == 'to'):
+                    aid = None
+                    expr = [bid] + list(expr)
+                    bid = to
 
+                else:
+                    #usage: action add aid expr
+                    expr = [to] + [bid] + list(expr)
+                    to = None
+
+                expr = [x for x in expr if x is not None]
             try:
                 b = self.nfqueue.breakpoints[bid]
             except KeyError as k:
-                logging_print('Unknown breakpoint id')
-            else:
+                b = None
+            finally:
                 #create a new action
                 if(expr is not None):
                     try:
@@ -3834,6 +3859,9 @@ class Console(InteractiveConsole):
                 Action.used_aid.remove(aid)
 
         elif(operation == 'bind'):
+            if(bid == None):
+                bid = to
+
             try:
                 a = self.nfqueue.actions[aid]
             except KeyError:
