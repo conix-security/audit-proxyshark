@@ -3284,7 +3284,7 @@ class Console(InteractiveConsole):
             logging_print(output)
             logging_state_restore()
         #
-    def _cmd_set(self, parameter = None, value = None):
+    def _cmd_set(self, *args):
         """set <parameter> <value> : set the value of a given parameter
 
         * set verbosity <0|1|2|3>: set the verbosity level to one of the
@@ -3504,6 +3504,9 @@ class Console(InteractiveConsole):
             return output
 
         output = None
+        parameter = None
+        param_found = False
+        value = None
         param_list = [
             'verbosity',
             'ethernet',
@@ -3519,12 +3522,30 @@ class Console(InteractiveConsole):
             'field filter'
         ]
 
+        if(len(args) > 0):
+
+            parameter = args[0]
+            if(not parameter in param_list):
+                for i in range(1, len(args)):
+                    parameter += ' '+args[i]
+
+                    if(parameter in param_list):
+                        param_found = True
+                        value = ' '.join(args[i+1:])
+                        break
+            else:
+                param_found = True
+                value = ' '.join(args[1:])
+
+            if(not param_found):
+                parameter = None
+
 
         if(parameter is None):
             output = 'Available parameters:\n    $params'
             t = Template(output)
             output = t.substitute(params=',\n    '.join(param_list))
-        else:
+        elif(len(value.strip()) > 0):
             parameter = parameter.strip()
             if(value is None):
                 output = 'Value is missing'
