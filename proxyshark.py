@@ -1716,13 +1716,16 @@ class DissectedPacketList(list):
 
         return output
 
-    def accept(pfilter = None):
+    def accept(self, pfilter = None):
         """Accept the packets matching the given filter"""
         return self.verdict('accept', pfilter)
 
-    def drop(pfilter = None):
+    def drop(self, pfilter = None):
         """Drop the packets matching the given filter"""
         return self.verdict('drop', pfilter)
+
+    def pending(self):
+        return DissectedPacketList([x for x in self if x.verdict is None])
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
