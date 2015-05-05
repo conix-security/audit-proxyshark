@@ -3417,7 +3417,7 @@ class Console(InteractiveConsole):
 
         def set_web_driven(state):
             global settings
-            accepted_val = {
+            states = {
                 'off': False,
                 '0': False,
                 'on': True,
@@ -3428,11 +3428,49 @@ class Console(InteractiveConsole):
             if self.nfqueue.isAlive():
                 return 'Cannot (un)set web-driven mode while capture is running'
 
-            if(state not in accepted_val):
-                t =  Template('Accepted value are: $v')
-                return t.substitute(v = ', '.join(accepted_val.keys()))
+            if(state in states):
+                settings['web_driven'] = accepted_val[state]
 
-            settings['web_driven'] = accepted_val[state]
+            else:
+                #user is trying to set IP/ports
+                split = state.split(':')
+                if len(split) == 4:
+                    # web server host
+                    if split[0]:
+                        if resolv(split[0]):
+                            settings['web_server_host'] = split[0]
+                        else:
+                            return "invalid web server host"
+                    # web server port
+                    if split[1]:
+                        if (split[1].isdigit() and
+                            int(split[1]) > 0 and int(split[1]) <= 65535
+                        ):
+                            settings['web_server_port'] = int(split[1])
+                        else:
+                            return "invalid web server port"
+                    # web proxy host
+                    if split[2]:
+                        if split[2] and resolv(split[2]):
+                            settings['web_proxy'] = split[2]
+                        else:
+                            return "invalid web proxy host"
+                    # web proxy port
+                    if split[3]:
+                        if (split[3].isdigit() and
+                            int(split[3]) > 0 and int(split[3]) <= 65535
+                        ):
+                            settings['web_proxy_port'] = int(split[3])
+                        else:
+                            return "invalid web proxy port"
+                    #
+                    settings['web_driven'] = True
+                else:
+                    t =  Template('Accepted value are: $v, '
+                                 '[<server-host>]:[<server-port>]:'
+                                 '[<proxy-host>]:[<proxy-port>]')
+
+                    return t.substitute(v = ', '.join(states.keys()))
             return None
 
         def set_bind_ip(host):
