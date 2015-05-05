@@ -3222,12 +3222,12 @@ class Console(InteractiveConsole):
             if(len(self.nfqueue.actions) > 0):
                 actions = self.nfqueue.actions
                 actions_repr = [repr(actions[k]) for k in actions]
-                actions_str = '\n    ' + '\n    '.join(actions_repr)
+                actions_str = '\n- ' + '\n- '.join(actions_repr)
 
             if(len(self.nfqueue.breakpoints) > 0):
                 breakpoints = self.nfqueue.breakpoints
                 breakpoints_repr = [repr(breakpoints[k]) for k in breakpoints]
-                breakpoints_str = '\n    ' + '\n    '.join(breakpoints_repr)
+                breakpoints_str = '\n- ' + '\n- '.join(breakpoints_repr)
 
             tp_str  = "Current settings:\n"
             tp_str += "- verbose level      = $v\n"
@@ -3239,8 +3239,8 @@ class Console(InteractiveConsole):
             tp_str += "- packet filter      = $p\n"
             tp_str += "- field filter       = $f\n"
             tp_str += "- cache content      = $cache\n\n"
-            tp_str += "- breakpoints: $b\n\n"
-            tp_str += "- actions: $a"
+            tp_str += "Breakpoints: $b\n\n"
+            tp_str += "Actions: $a"
 
             tp = Template(tp_str)
 
