@@ -1639,6 +1639,7 @@ class DissectedPacketList(list):
     # Public methods ##########################################################
     def __init__(self, *args):
         """Create a new dissected packet list."""
+        self.lock = Lock()
         super(DissectedPacketList, self).__init__(*args)
 
     def __getitem__(self, key):
@@ -1723,6 +1724,35 @@ class DissectedPacketList(list):
     def drop(self, pfilter = None):
         """Drop the packets matching the given filter"""
         return self.verdict('drop', pfilter)
+
+    def remove(self, arg = None):
+        """remove all packets that matche the given packet filter"""
+
+        if(isinstance(arg, DissectedPacket)):
+            super(DissectedPacketList, self).remove(arg)
+
+        #arg is a packet filter
+        elif(isinstance(arg, basestring)):
+            rc = True
+            l = None
+
+            if(arg is None or arg.strip().lower() == 'all'):
+                l = DissectedPacketList(self)
+            else:
+                try:
+                    l = DissectedPacketList(self[arg])
+                except Exception as e:
+                    rc = False
+
+            self.lock.acquire()
+            if(rc):
+                for p in reversed(l):
+                    if(p.verdict is None):
+                        p.drop()
+                    self.remove(p)
+            self.lock.release()
+
+            return rc
 
     def pending(self):
         return DissectedPacketList([x for x in self if x.verdict is None])
@@ -2372,7 +2402,6 @@ class NFQueue(Thread):
         Thread.__init__(self, name='NFQueueThread')
         self.dissector = None
         self.web_server = None
-        self.pkt_lock = Lock()
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
 
@@ -2508,7 +2537,7 @@ class NFQueue(Thread):
         delayed = False
 
         self._unpausing.set()
-        self.pkt_lock.acquire()
+        self.packets.lock.acquire()
         #process all pending packets
         for p in self.tmp_packets:
             self._process_packet(p)
@@ -2525,7 +2554,7 @@ class NFQueue(Thread):
             self.packets.extend(self.tmp_packets)
             self.tmp_packets = DissectedPacketList()
 
-        self.pkt_lock.release()
+        self.packets.lock.release()
         self._unpausing.clear()
 
         if(not (self._stopping.isSet() or self._stopped.isSet())):
@@ -2581,30 +2610,11 @@ class NFQueue(Thread):
         #look like a socket object
         self._nfq_socket = asyncore.file_wrapper(self._nfq_handle.get_fd())
 
-    def drop(self, pfilter = None):
+    def remove(self, pfilter = None):
         """empty the captured packet list
 
         pfilter must be a packet filter, or 'all'"""
-        rc = True
-        l = None
-
-        if(pfilter is None or pfilter.strip().lower() == 'all'):
-            l = DissectedPacketList(self.packets)
-        else:
-            try:
-                l = DissectedPacketList(self.packets).__getitem__(pfilter)
-            except Exception as e:
-                rc = False
-
-        self.pkt_lock.acquire()
-        if(rc is not None):
-            for p in reversed(l):
-                if(p.verdict is None):
-                    p.drop()
-                self.packets.remove(p)
-        self.pkt_lock.release()
-
-        return rc
+        return self.packets.remove(pfilter)
 
     # Private methods #########################################################
     def _run(self):
@@ -2649,7 +2659,7 @@ class NFQueue(Thread):
 
             #if the pause is set, append new packets to a temporary list
             #make sure the thread won't block indefinitely when stopping
-            while(not self.pkt_lock.acquire(False)):
+            while(not self.packets.lock.acquire(False)):
                 if(self._stopped.isSet() or self._stopping.isSet()):
                     packet.accept()
                     return
@@ -2660,7 +2670,7 @@ class NFQueue(Thread):
             else:
                 self.packets.append(packet)
                 self._process_packet(packet, from_shell = False)
-            self.pkt_lock.release()
+            self.packets.lock.release()
 
         # accept the packet in case of error
         except:
@@ -2765,7 +2775,6 @@ class NFQueue(Thread):
         Thread.__init__(self, name='NFQueueThread')
         self.dissector = None
         self.web_server = None
-        self.pkt_lock = Lock()
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
 
@@ -2854,6 +2863,11 @@ class Console(InteractiveConsole):
         #automatically import the socket module, which the user might need
         #quite frequently (inet_aton, inet_nota, ...)
         self.runsource('import socket')
+
+        #make a few methods available in the console as functions
+        self.locals['pause'] = self._cmd_pause
+        self.locals['cont'] = self._cmd_cont
+        self.locals['continue'] = self._cmd_cont
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
@@ -3708,7 +3722,7 @@ class Console(InteractiveConsole):
         """rm|remove [<packet-filter>]: remove packets from queue
 
         <packet-filter> must be a valid packet filter, or 'all'"""
-        if(not self.nfqueue.drop(pfilter)):
+        if(not self.nfqueue.remove(pfilter)):
             logging_state_on()
             logging_print('Invalid packet filter')
             logging_state_restore()
