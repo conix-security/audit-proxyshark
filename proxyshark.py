@@ -2917,7 +2917,7 @@ class Console(InteractiveConsole):
             default_results = [self._default_completer(text, i) for i
                                in range(default_results_max_length)]
             result_index = index - default_results.index(None)
-            results = ['%s(' % key for key
+            results = ['%s' % key for key
                        in self.commands.keys()
                        if key.startswith(text)]
             if result_index < len(results):
