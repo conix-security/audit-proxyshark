@@ -3750,7 +3750,7 @@ class Console(InteractiveConsole):
         if(operation is None):
             if(bid is None):
                 #print every breakpoints
-                self._cmd_info(parameter='breakpoints')
+                self._cmd_info('breakpoints')
             else:
                 #display only the packet filter
                 try:
@@ -3871,7 +3871,7 @@ class Console(InteractiveConsole):
             #print every actions
             if(aid is None):
                 if (bid is None):
-                    self._cmd_info(parameter='actions')
+                    self._cmd_info('actions')
 
             #print the requested action, and its breakpoint
             else:
