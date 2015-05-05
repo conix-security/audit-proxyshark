@@ -2880,6 +2880,8 @@ class Console(InteractiveConsole):
         self.locals['pause'] = self._cmd_pause
         self.locals['cont'] = self._cmd_cont
         self.locals['continue'] = self._cmd_cont
+        self.locals['accept'] = self._cmd_accept
+        self.locals['drop'] = self._cmd_drop
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
