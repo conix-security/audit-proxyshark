@@ -3628,18 +3628,21 @@ class Console(InteractiveConsole):
         try:
             if capture_filter:
                 Netfilter.check_syntax(capture_filter)
+                settings['capture_filter'] = capture_filter
         except ParseException, exception:
             exception.msg = "invalid capture filter"
             raise exception
         try:
             if packet_filter:
                 PacketFilter.check_syntax(packet_filter)
+                settings['packet_filter'] = packet_filter
         except ParseException, exception:
             exception.msg = "invalid packet filter"
             raise exception
         try:
             if field_filter:
                 re.compile(field_filter)
+                settings['field_filter'] = field_filter
         except:
             raise ParseException("invalid field filter")
         result = self.nfqueue.start()
