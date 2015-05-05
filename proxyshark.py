@@ -1755,13 +1755,16 @@ class DissectedPacketList(list):
             return rc
 
     def pending(self):
+        """return all the packets without verdict"""
         return DissectedPacketList([x for x in self if x.verdict is None])
 
     def accepted(self):
+        """return all the accepted packets"""
         return DissectedPacketList([x for x in self \
                                     if x.verdict == nfqueue.NF_ACCEPT])
 
     def dropped(self):
+        """return all the dropped packets"""
         return DissectedPacketList([x for x in self \
                                     if x.verdict == nfqueue.NF_DROP])
 
@@ -4230,6 +4233,15 @@ def process_arguments():
         #FIXME: args[0] can contain more than one argument
         settings['default_script'] = args[0]
     # print current settings
+
+    bp_filter = settings['default_breakpoint'].packet_filter \
+                if settings['default_breakpoint'] \
+                else 'None'
+
+    a_expr = settings['default_action'].expression \
+            if settings['default_action'] \
+            else 'None'
+
     logging_info("""
         Current settings:
         - verbose level      = %s
@@ -4262,8 +4274,8 @@ def process_arguments():
         trunc_repr(settings['packet_filter']),
         trunc_repr(settings['field_filter']),
         settings['run_at_start'],
-        trunc_repr(settings['default_breakpoint'].packet_filter),
-        trunc_repr(settings['default_action'].expression),
+        trunc_repr(bp_filter),
+        trunc_repr(a_expr),
         settings['default_script'],
     ))
     #
