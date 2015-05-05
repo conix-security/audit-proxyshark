@@ -1757,6 +1757,15 @@ class DissectedPacketList(list):
     def pending(self):
         return DissectedPacketList([x for x in self if x.verdict is None])
 
+    def accepted(self):
+        return DissectedPacketList([x for x in self \
+                                    if x.verdict == nfqueue.NF_ACCEPT])
+
+    def dropped(self):
+        return DissectedPacketList([x for x in self \
+                                    if x.verdict == nfqueue.NF_DROP])
+
+
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
     packet list is that '__getitem__()' returns the item values and not the
