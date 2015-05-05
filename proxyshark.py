@@ -2199,7 +2199,7 @@ class Action(object):
 
     Each action is bound to a single breakpoint"""
 
-    used_aid = list()
+    used_aid = ['to']
     next_aid = 0
     id_pattern = re_compile(r'^[\w\-.]+$')
 
@@ -2211,7 +2211,7 @@ class Action(object):
             Action.next_aid += 1
 
         if(aid in Action.used_aid):
-            t = Template('Action id $a already in use')
+            t = Template('Action id $a already in use, or invalid')
             raise ValueError(t.substitute(a = aid))
 
         if(Action.is_invalid_id(aid)):
@@ -2243,7 +2243,8 @@ class Action(object):
 
     @staticmethod
     def is_invalid_id(aid):
-        return Action.id_pattern.match(aid) is None
+        return Action.id_pattern.match(aid) is None and \
+               aid not in Action.used_aid
 
 
 class Breakpoint(object):
@@ -2253,7 +2254,7 @@ class Breakpoint(object):
     manually, or modify it automatically with defined action"""
 
     id_pattern = re_compile(r'^[\w\-.]+$')
-    used_bid = list()
+    used_bid = ['to']
     next_bid = 0
 
     def __init__(self, pfilter, bid = None, enabled = False, console = None):
@@ -2266,7 +2267,7 @@ class Breakpoint(object):
             Breakpoint.next_bid += 1
 
         elif(bid in Breakpoint.used_bid):
-            t = Template('Breakpoint id $b already in use')
+            t = Template('Breakpoint id $b already in use, or invalid')
             raise ValueError(t.substitute(b = bid))
 
         if(Breakpoint.is_invalid_id(bid)):
@@ -2287,7 +2288,8 @@ class Breakpoint(object):
 
     @staticmethod
     def is_invalid_id(bid):
-        return Breakpoint.id_pattern.match(bid) is None
+        return Breakpoint.id_pattern.match(bid) is None and \
+               bid not in Breakpoint.used_bid
 
     def enable(self):
         self.enabled = True
@@ -3891,25 +3893,32 @@ class Console(InteractiveConsole):
                     aid = None
                     expr = [bid] + list(expr)
                     bid = to
-
+                    try:
+                        b = self.nfqueue.breakpoints[bid]
+                    except KeyError as k:
+                        logging_print('Unknown breakpoint id')
+                        return
                 else:
                     #usage: action add aid expr
                     expr = [to] + [bid] + list(expr)
                     to = None
+                    b = None
 
                 expr = [x for x in expr if x is not None]
-            try:
-                b = self.nfqueue.breakpoints[bid]
-            except KeyError as k:
-                b = None
-            finally:
-                #create a new action
-                if(expr is not None):
-                    try:
-                        a = Action(' ; '.join(expr), b, aid)
-                        self.nfqueue.actions[a.id] = a
-                    except ValueError as v:
-                        logging_print(v.message)
+            else:
+                #add aid to bid expr
+                try:
+                    b = self.nfqueue.breakpoints[bid]
+                except KeyError as k:
+                    b = None
+
+            #create a new action
+            if(expr is not None):
+                try:
+                    a = Action(' ; '.join(expr), b, aid)
+                    self.nfqueue.actions[a.id] = a
+                except ValueError as v:
+                    logging_print(v.message)
 
         elif(operation == 'del'):
             try:
