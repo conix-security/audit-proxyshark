@@ -3086,11 +3086,10 @@ class Console(InteractiveConsole):
         # build a list of selected commands
         commands = [command] if command else ['help', 'info', 'set', 'run',
                                               'pause', 'cont', 'stop', 'flush',
-                                              'remove', 'breakpoint',
-                                              'delete_breakpoint', 'action',
-                                              'enable', 'disable',
-                                              'delete_action', 'pending',
-                                              'verdict', 'accept', 'drop']
+                                              'remove', 'breakpoint', 'action',
+                                              'enable', 'disable', 'pending',
+                                              'verdict', 'accept', 'drop',
+                                              'queue', 'pkt', 'bpkt']
         # check commands availability and retrieve max length of the left part
         max_length = 0
         for command in commands:
@@ -4003,6 +4002,19 @@ class Console(InteractiveConsole):
             logging_state_restore()
         else:
             self.nfqueue.tmp_packets.verdict(verdict, pfilter)
+
+    def _cmd_queue(self, slice = ''):
+        """q|queue|nfqueue: a reference to the captured packet list"""
+        self.runsource(self.current_line, filename = '<console>')
+
+    def _cmd_pkt(self, slice = ''):
+        """pkt|packet: a reference to the last captured packet"""
+        self.runsource(self.current_line, filename = '<console>')
+
+    def _cmd_bpkt(self, slice = ''):
+        """bpkt: a reference to the last packet that triggered a breakpoint"""
+        self.runsource(self.current_line, filename = '<console>')
+
 
 ###############################################################################
 # Main entry point
