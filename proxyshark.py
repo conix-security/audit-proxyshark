@@ -3117,7 +3117,7 @@ class Console(InteractiveConsole):
         logging_print()
         logging_state_restore()
         #
-    def _cmd_info(self, parameter=None):
+    def _cmd_info(self, *args):
         """i|info : print information about the current program state
 
         Available parmeters are:
@@ -3192,6 +3192,8 @@ class Console(InteractiveConsole):
             return 'Cache: ' + cache_mng(summary = True)
 
         output = ''
+        parameter = None
+        param_found = False
         param_list = [
             'verbosity',
             'ethernet',
@@ -3209,6 +3211,22 @@ class Console(InteractiveConsole):
             'actions',
             'cache'
         ]
+
+        if(len(args) > 0):
+            parameter = args[0]
+            if(not parameter in param_list):
+                for i in range(1, len(args)):
+                    parameter += ' '+args[i]
+
+                    if(parameter in param_list):
+                        param_found = True
+                        break
+            else:
+                param_found = True
+
+            if(not param_found):
+                parameter = None
+
         if(parameter is not None):
             parameter = parameter.strip()
         #display all
