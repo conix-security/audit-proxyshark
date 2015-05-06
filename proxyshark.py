@@ -2348,6 +2348,16 @@ class Breakpoint(object):
     def is_disabled(self):
         return not self.enabled
 
+    def would_trigger(self, packet):
+        if(not self.enabled):
+            return -1
+        if(not PacketFilter.match(packet, self.packet_filter)):
+            return -1
+        if(len(self.actions) == 0):
+            return 0
+
+        return 1
+
     def try_trigger(self, packet, exec_action = True):
         """Try to trigger this breakpoint
 
@@ -2546,7 +2556,12 @@ class NFQueue(Thread):
         return True
         #
     def cont(self):
-        """Continue the current capture."""
+        """Continue the current capture.
+
+        exit the function when a new 'manual' breakpoint triggers. Otherwise,
+        merge all the packer captured during pause into the queue, and
+        execute all the necessary action"""
+
         if(not self.isPaused):
             logging_warning('capture is not paused')
             return False
@@ -2554,30 +2569,53 @@ class NFQueue(Thread):
             logging_warning("nfqueue not started")
             return False
 
-        process = False
+        #is True if a manual breakpoint would trigger on this packet
+        #This variable is used to know if we have to return : the capture
+        #does not continue
+        manual_trigger = False
+
+        bpkt = self._console.locals['bpkt']
+
+        #set a verdict on the last breakpoint packet, if necessary
+        if(bpkt is not None):
+            if(bpkt.verdict is None):
+                bpkt.accept()
 
         self.packets.lock.acquire()
-        self._paused.clear()
+        for p in DissectedPacketList(self.tmp_packets):
+            manual_trigger = False
 
-        #append the temporary packets to the main list
-        self.packets.extend(self.tmp_packets)
-        del self.tmp_packets[:]
+            #move the first packet of the temporary list into the main queue
+            self.packets.append(p)
+            self.tmp_packets.remove(p)
 
-        for p in self.packets:
-            if(process is not True):
-                if(p.identifier == self._paused_at.identifier):
-                    process = True
+            #figure out whether we have to return after processing this packet
+            #or not. Return only if a manual breakpoint will trigger during
+            #processing
+            for b in self.breakpoints:
+                try:
+                    breakpoint = self.breakpoints[b]
+                except AttributeError:
+                    continue
 
-            if(process is True):
-                self._process_packet(p)
-                if(p.identifier == self._paused_until.identifier):
-                    self._paused_at = None
-                    self._paused_until = None
-                    break
+                if(p.verdict is None):
+                    if(breakpoint.would_trigger(p) == 0):
+                        manual_trigger = True
+
+            self._process_packet(p)
+            if(manual_trigger):
+                #make sure the lock is released before returning
+                self.packets.lock.release()
+                return
+
+        #no manual breakpoint was triggered: release, unpause and return
         self.packets.lock.release()
 
+
         if(not (self._stopping.isSet() or self._stopped.isSet())):
-            output = "\001\033[0m\002Capture continuing...\n"
+            self._paused.clear()
+            self._console.print_queue += "\001\033[0m\002Capture continuing" + \
+                                         "...\n"
 
         return True
         #
@@ -2715,6 +2753,7 @@ class NFQueue(Thread):
             logging_print(packet)
         elif settings['effective_verbose_level'] > 0:
             logging_print(repr(packet))
+
         # build the item list
         items = packet.read_items()
         if not items:
@@ -2764,22 +2803,24 @@ class NFQueue(Thread):
         #no action was run, but the packet matched at least one breakpoint
         else:
             #do this only for the first packet that triggers a breakpoint
-            if(self._first_manual_break):
-                self._first_manual_break = False
-                self._console.locals['bpkt'] = packet
-                if(self._console.in_view_mode):
-                    self._console.in_view_mode = False
-                    #wait long enough for the main thread
-                    #to enter interactive mode
-                    time.sleep(.1)
+            self._console.locals['bpkt'] = packet
+            if(self._console.in_view_mode):
+                self._console.in_view_mode = False
+                #wait long enough for the main thread
+                #to enter interactive mode
+                time.sleep(.1)
 
-                if(packet.verdict is None):
-                    output =  "\n\033[0mBreakpoint triggered"
-                    output += '\n'+repr(packet)+'\n'
-                    self._console.print_queue += output
-                    if(self._console.in_raw_input):
-                        #make the main thread exit the raw_input function
-                        signal.setitimer(signal.ITIMER_REAL, .01)
+            if(packet.verdict is None):
+                output =  "\n\033[0mBreakpoint triggered. Capture paused..."
+                output += '\n'+repr(packet)+'\n'
+                self._console.print_queue += output
+
+                self._paused.set()
+
+                if(self._console.in_raw_input):
+                    #make the main thread exit the raw_input function
+                    #if necessary
+                    signal.setitimer(signal.ITIMER_REAL, .01)
         #
     def _reinit(self):
         """Reinitialize several instance attributes
@@ -4047,42 +4088,6 @@ class Console(InteractiveConsole):
     def _cmd_bpkt(self, slice = ''):
         """bpkt: a reference to the last packet that triggered a breakpoint"""
         self.runsource(self.current_line, filename = '<console>')
-
-    def _cmd_next(self):
-        """n|next: try to trigger the next manual breakpoint (i.e without
-        pre-defined action)"""
-
-        bpkt = self.locals['bpkt']
-        trigger = False
-        rc = -2
-        output = ''
-
-        if(bpkt is not None):
-            if(bpkt.verdict is None):
-                bpkt.accept()
-
-            for p in self.nfqueue.packets:
-
-                #we found the last packet that broke, try to trigger
-                #the following packets
-                if(trigger):
-                    for b in self.nfqueue.breakpoints:
-                        try:
-                            breakpoint = self.nfqueue.breakpoints[b]
-                        except AttributeError:
-                            continue
-
-                        if(p.verdict is None):
-                            if(breakpoint.try_trigger(p, False) == 0):
-                                self.locals['bpkt'] = p
-                                output =  "\n\033[0mBreakpoint triggered"
-                                output += '\n'+repr(p)+'\n'
-                                self.print_queue += output
-                                return
-
-                #try to find the last packet that broke
-                elif(p.identifier == bpkt.identifier):
-                    trigger = True
 
 ###############################################################################
 # Main entry point
