@@ -4058,6 +4058,9 @@ class Console(InteractiveConsole):
         output = ''
 
         if(bpkt is not None):
+            if(bpkt.verdict is None):
+                bpkt.accept()
+
             for p in self.nfqueue.packets:
 
                 #we found the last packet that broke, try to trigger
