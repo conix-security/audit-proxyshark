@@ -2918,6 +2918,14 @@ class Console(InteractiveConsole):
         self.locals['continue'] = self._cmd_cont
         self.locals['accept'] = self._cmd_accept
         self.locals['drop'] = self._cmd_drop
+
+        #instance references
+        self.locals['q'] = None
+        self.locals['queue'] =  None
+        self.locals['nfqueue'] =  None
+        self.locals['pkt'] = None
+        self.locals['packet'] = None
+        self.locals['bpkt'] = None
         #
     def interact(self):
         """Handle switching between view mode and interactive mode."""
