@@ -2431,15 +2431,10 @@ class NFQueue(Thread):
         self.packets = DissectedPacketList()
         self.tmp_packets = DissectedPacketList()
 
-        #a reference to the first and last packet received during pause
-        self._paused_at = None
-        self.paused_until = None
-
         #breakpoints
         default_breakpoint = False
         self.breakpoints = dict()
         self.actions = dict()
-        self._first_manual_break = True
 
         if(isinstance(settings['default_breakpoint'], Breakpoint)):
             self.breakpoints['default']  = settings['default_breakpoint']
@@ -2715,10 +2710,6 @@ class NFQueue(Thread):
             #when continuing
             if(self._paused.isSet()):
                 self.tmp_packets.append(packet)
-                if(self._paused_at is None):
-                    self._paused_at = packet
-
-                self._paused_until = packet
             else:
                 self.packets.append(packet)
                 self._process_packet(packet, from_shell = False)
@@ -2840,10 +2831,6 @@ class NFQueue(Thread):
         self._stopping = Event()
         self._stopped = Event()
         self._paused = Event()
-
-        self._paused_at = None
-        self._paused_until = None
-        self._first_manual_break = True
 
         # nfqueue handlers
         self._nfq_handle = None
