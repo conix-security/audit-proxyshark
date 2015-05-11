@@ -1105,6 +1105,8 @@ class DissectionException(Exception):
 
 class FieldValue(dict):
     pass
+    def __hash__(self):
+        return hash(frozenset(self.items()))
 
 class DissectedPacket(object):
     """A dissected packet as seen by Wireshark and tshark (a tree structure of
@@ -1832,12 +1834,21 @@ class DissectedPacketList(list):
         return result
 
     def select(self, packet_filter):
-        result = list()
+
+        class SelectedList(list):
+            """This class defines the return type of the select method
+
+            It (will) provides several methods itself, such as uniq"""
+            def uniq(self):
+                luniq = lambda x: SelectedList(set(reduce(list.__add__, x)))
+                return luniq(self)
+
+        result = SelectedList()
         item = []
         for packet in self.__iter__():
             item = packet.lookup(packet_filter)
             if(len(item) > 0):
-                result.extend(item)
+                result.append(item)
         return result
 
 class DissectedPacketSubList(DissectedPacketList):
