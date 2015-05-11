@@ -1103,6 +1103,9 @@ class DissectionException(Exception):
     pass
     #
 
+class FieldValue(dict):
+    pass
+
 class DissectedPacket(object):
     """A dissected packet as seen by Wireshark and tshark (a tree structure of
     protocols and fields)."""
@@ -1273,7 +1276,7 @@ class DissectedPacket(object):
         if attr_name:
             result = [x.attrib.get(attr_name) for x in items]
         else:
-            result = [x.attrib for x in items]
+            result = [FieldValue(x.attrib) for x in items]
         return result
         #
     def __iter__(self):
@@ -1619,18 +1622,20 @@ class DissectedPacket(object):
                 item_showname = item.get('showname')
                 # add a new field to the item list
                 if item_showname:
-                    attributes = { 'name'    : item_name,
+                    attributes = FieldValue({
+                                   'name'    : item_name,
                                    'pos'     : item_pos,
                                    'size'    : item_size,
                                    'value'   : urllib.quote(item_value),
                                    'show'    : urllib.quote(item_show),
-                                   'showname': urllib.quote(item_showname), }
+                                   'showname': urllib.quote(item_showname), })
                 else:
-                    attributes = { 'name' : item_name,
+                    attributes = FieldValue({
+                                   'name' : item_name,
                                    'pos'  : item_pos,
                                    'size' : item_size,
                                    'value': urllib.quote(item_value),
-                                   'show' : urllib.quote(item_show), }
+                                   'show' : urllib.quote(item_show), })
                 items.append(attributes)
             # is it a protocol?
             elif item.tag == 'proto':
@@ -1642,10 +1647,11 @@ class DissectedPacket(object):
                 if not item_showname:
                     continue
                 # add a new protocol to the item list
-                attributes = { 'name'    : item_name,
+                attributes = FieldValue({
+                               'name'    : item_name,
                                'pos'     : item_pos,
                                'size'    : item_size,
-                               'showname': urllib.quote(item_showname), }
+                               'showname': urllib.quote(item_showname), })
                 items.append(attributes)
                 last_proto_name = item_name
             else:
@@ -1817,33 +1823,8 @@ class DissectedPacketSubList(DissectedPacketList):
     packet list is that '__getitem__()' returns the item values and not the
     entire packets."""
     # Public methods ##########################################################
-    def __getitem__(self, key):
-        """Evaluates 'self[key]'. The key can be only a field name. Otherwise,
-        the default method is used."""
-        # ensure that we have a string
-        if isinstance(key, basestring):
-            # ensure that we have a field name (without space)
-            key = key.strip()
-            if ' ' in key:
-                raise KeyError("key %s must be a valid field name"
-                               % trunc_repr(key))
-            packet_filter = key
-            # evaluate the key for each packet (as a packet filter)
-            result = {}
-            for packet in self.__iter__():
-                results = packet.evaluate(packet_filter)
-                # make sure that we have a list as result, for consistency
-                if not isinstance(results, list):
-                    results = [results]
-                result[packet.identifier] = results
-            # return the list of results
-            return result
-        # otherwise, use the default method
-        else:
-            return super(DissectedPacketSubList, self).__getitem__(key)
+
         #
-    # Private methods #########################################################
-    #
 
 class Dissector(object):
     """A packet dissector based on tshark."""
