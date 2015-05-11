@@ -1840,8 +1840,12 @@ class DissectedPacketList(list):
 
             It (will) provides several methods itself, such as uniq"""
             def uniq(self):
+
                 luniq = lambda x: SelectedList(set(reduce(list.__add__, x)))
                 return luniq(self)
+
+            def length(self):
+                return len(self)
 
         result = SelectedList()
         item = []
@@ -1850,6 +1854,9 @@ class DissectedPacketList(list):
             if(len(item) > 0):
                 result.append(item)
         return result
+
+    def length(self):
+        return len(self)
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
