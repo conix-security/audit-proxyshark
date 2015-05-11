@@ -83,7 +83,7 @@ from threading import currentThread, Event, RLock, Lock, Thread
 from xml.etree.cElementTree import XMLParser
 
 logging.getLogger('scapy.runtime').setLevel(logging.ERROR)
-from scapy.all import conf as scapy_conf, L3RawSocket, IP, TCP, UDP
+from scapy.all import conf as scapy_conf, L3RawSocket, IP, TCP, UDP, send
                       # need python-scapy
 
 # global variables shared between all threads
@@ -1521,6 +1521,49 @@ class DissectedPacket(object):
         """Drop the packet."""
         self._set_verdict(nfqueue.NF_DROP)
         #
+    def replay(self, layer = 3, repeat = 1, inter = 0):
+        """Replay this packet.
+
+        Accepted layers are: 2, 3 4:
+        - layer 2 has the behaviour of layer 3, for the moment
+        - layer 3 will replay the packet starting from the IP protocol, without
+        caring about any connection state.
+        - layer 4 will make sure to enable a connection (if TCP is used)) before
+        replaying the packet, starting from layer 4. replaying TCP at layer 4
+        is currently broken.
+
+        The packet will be replayed 'repeat' times.
+
+        'inter' specifies the time interval to wait between two packets"""
+
+        if (not isinstance(repeat, int)):
+            try:
+                repeat = int(repeat)
+            except Exception as e:
+                return False
+
+        scapy_packet = IP(self.data)
+        if(layer == 2 or layer == 3):
+            for i in xrange(repeat):
+                send(scapy_packet, verbose = False, inter = inter)
+
+        if(layer == 4):
+            srcport = random.randint(1024, 0xFFFF)
+            dstport = scapy_packet.dport
+
+            ip = IP(dst = scapy_packet[IP].dst)
+            if(UDP in scapy_packet):
+                payload = scapy_packet[UDP].getlayer(1)
+                udp = UDP(dport = scapy_packet[UDP].dport, sport = srcport)
+
+                scapy_packet = ip / udp / payload
+                for i in xrange(repeat):
+                    send(scapy_packet, verbose = False, inter = inter)
+
+            elif(TCP in scapy_packet):
+                return False
+
+        return True
     # Private methods #########################################################
     @cached # these items won't be updated, even if the packet is modified
     def _read_items(self):
