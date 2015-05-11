@@ -1817,6 +1817,19 @@ class DissectedPacketList(list):
         return DissectedPacketList([x for x in self \
                                     if x.verdict == nfqueue.NF_DROP])
 
+    def where(self, packet_filter):
+        # evaluate the filter for each packet of the current list
+        result = DissectedPacketList()
+        for packet in self.__iter__():
+            # if the evaluation matches, store the packet
+            try:
+                results = packet.evaluate(packet_filter)
+            except AttributeError:
+                continue
+            if bool(results):
+                result.append(packet)
+        # return a list containing the packets that match
+        return result
 
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
