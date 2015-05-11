@@ -1831,6 +1831,15 @@ class DissectedPacketList(list):
         # return a list containing the packets that match
         return result
 
+    def select(self, packet_filter):
+        result = list()
+        item = []
+        for packet in self.__iter__():
+            item = packet.lookup(packet_filter)
+            if(len(item) > 0):
+                result.extend(item)
+        return result
+
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
     packet list is that '__getitem__()' returns the item values and not the
