@@ -2865,7 +2865,8 @@ class NFQueue(Thread):
         logging_debug("nfqueue received packet #%s" % packet.identifier)
         if settings['effective_verbose_level'] > 1:
             logging_print(packet)
-        elif settings['effective_verbose_level'] > 0:
+        elif(settings['effective_verbose_level'] > 0 or
+             self._console.in_view_mode):
             logging_print(repr(packet))
 
         # build the item list
