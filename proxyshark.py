@@ -2350,6 +2350,9 @@ class Action(object):
     id_pattern = re_compile(r'^[\w\-.]+$')
 
     def __init__(self, expression, breakpoint = None, aid = None):
+        """Create a new action, with an expression.
+
+        The action ID can be auto-generated"""
         if(aid == None):
             while(str(Action.next_aid) in Action.used_aid):
                 Action.next_aid += 1
@@ -2372,12 +2375,14 @@ class Action(object):
         Action.used_aid.append(aid)
 
     def __repr__(self):
+        """Return a one-line representation of this Action"""
         t = Template('Action $a, bid $b -> $exp')
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
         return t.substitute(a = repr(self.id), b = repr(bpoint),
                             exp = repr(trunc(self.expression)))
 
     def __str__(self):
+        """Return a representation of this Action"""
         t = Template('  Action id: $a\n  Breakpoint id: $b\n' +
                      '  Expression: $exp')
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
@@ -2385,6 +2390,7 @@ class Action(object):
                             exp = repr(trunc(self.expression)))
 
     def add_breakpoint(self, breakpoint):
+        """Set the breakpoint of this Action"""
         self.breakpoint = breakpoint
 
     @staticmethod
@@ -2404,7 +2410,9 @@ class Breakpoint(object):
     next_bid = 0
 
     def __init__(self, pfilter, bid = None, enabled = False, console = None):
+        """Create a new breakpoint.
 
+        The breakpoint ID can be auto-generated"""
         #set a breakpoint id automatically if none is given
         if(bid is None):
             while(str(Breakpoint.next_bid) in Breakpoint.used_bid):
@@ -2434,22 +2442,32 @@ class Breakpoint(object):
 
     @staticmethod
     def is_invalid_id(bid):
+        """Return True if the given id is a valid one"""
         return Breakpoint.id_pattern.match(bid) is None and \
                bid not in Breakpoint.used_bid
 
     def enable(self):
+        """Enable this breakpoint"""
         self.enabled = True
 
     def disable(self):
+        """Disable this breakpoint"""
         self.enabled = False
 
     def is_enabled(self):
+        """Return True if this breakpoint is enabled"""
         return self.enabled
 
     def is_disabled(self):
+        """Return True if this breakpoint is disabled"""
         return not self.enabled
 
     def would_trigger(self, packet):
+        """Return 1 if this breakpoint would trigger and run at least one action
+
+        Return 0 if it would trigger without running any action (manual editing)
+
+        Return -1 else"""
         if(not self.enabled):
             return -1
         if(not PacketFilter.match(packet, self.packet_filter)):
@@ -2489,9 +2507,11 @@ class Breakpoint(object):
         return 2
 
     def set_console(self, console):
+        """Set the console instance of this breakpoint"""
         self._console = console
 
     def add_action(self, a):
+        """Add a new action to this breakpoint"""
         self.actions.append(a)
 
     def __repr__(self):
@@ -2732,6 +2752,7 @@ class NFQueue(Thread):
         return self._stopped.wait()
         #
     def close(self):
+        """Close this instance of nfqueue'"""
         try:
             self._nfq_handle.unbind(socket.AF_INET)
         except Exception as e:
@@ -2741,6 +2762,7 @@ class NFQueue(Thread):
         self._nfq_handle.close()
 
     def open(self):
+        """Open a new netfilter queue"""
         self._nfq_handle = nfqueue.queue()
 
         self._nfq_handle.open()
@@ -3045,7 +3067,7 @@ class Console(InteractiveConsole):
                     signal.signal(signal.SIGINT, handler_sigint)
                     while not self._stopping.isSet():
                         #some other thread requests interactive mode
-                        #(happens when breakpoint without action)
+                        #(happens when breakpoint without action triggered)
                         if(not self.in_view_mode):
                             raise KeyboardInterrupt
                         time.sleep(0.1)
@@ -3185,6 +3207,14 @@ class Console(InteractiveConsole):
 
     def runsource(self, source, filename='<input>', symbol='single',
                   use_parent = True):
+        """Override InteractiveInterpreter.runsource
+
+        Reset variables packet and pkt, so they point to the last
+        packet received
+
+        Use either the parent function (use_parent = True), or the statement
+        exec. In this case, OverflowError, SyntaxError and ValueError
+        won't be catched and displayed automatically"""
         pkt = None
         if(len(self.nfqueue.packets) > 0):
             pkt = self.nfqueue.packets[-1]
