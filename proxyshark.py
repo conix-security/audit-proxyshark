@@ -3566,7 +3566,7 @@ class Console(InteractiveConsole):
         """
         def set_verbosity(value):
             global settings
-            accepted_val = [str(x) for x in range(0,3)]
+            accepted_val = [str(x) for x in range(0,4)]
 
             if(not value in accepted_val):
                 t =  Template('Accepted value are: $v')
