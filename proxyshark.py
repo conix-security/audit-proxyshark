@@ -354,6 +354,11 @@ def resolv(hostname):
     """Resolve a given hostname."""
     hostname = str(hostname)
     if r(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').match(hostname):
+        try:
+            socket.inet_aton(hostname)
+        except socket.error:
+            raise ValueError('invalid IP address: %s' %hostname)
+
         return [hostname]
     try:
         logging_info("querying name %s..." % trunc_repr(hostname))
