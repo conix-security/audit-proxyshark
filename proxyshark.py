@@ -1877,8 +1877,31 @@ class DissectedPacketSubList(DissectedPacketList):
     packet list is that '__getitem__()' returns the item values and not the
     entire packets."""
     # Public methods ##########################################################
+    def __getitem__(self, key):
+        """Evaluates 'self[key]'. The key can be only a field name. Otherwise,
+        the default method is used."""
+        # ensure that we have a string
+        if isinstance(key, basestring):
+            # ensure that we have a field name (without space)
+            key = key.strip()
+            if ' ' in key:
+                raise KeyError("key %s must be a valid field name"
+                               % trunc_repr(key))
+            packet_filter = key
+            # evaluate the key for each packet (as a packet filter)
+            result = {}
+            for packet in self.__iter__():
+                results = packet.evaluate(packet_filter)
+                # make sure that we have a list as result, for consistency
+                if not isinstance(results, list):
+                    results = [results]
+                result[packet.identifier] = results
+            # return the list of results
+            return result
+        # otherwise, use the default method
+        else:
+            return super(DissectedPacketSubList, self).__getitem__(key)
 
-        #
 
 class Dissector(object):
     """A packet dissector based on tshark."""
