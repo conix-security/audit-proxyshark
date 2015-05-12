@@ -1109,8 +1109,11 @@ class DissectionException(Exception):
     #
 
 class FieldValue(dict):
-    pass
+    """A class used to store the information relative to a given protocol
+    or protocol field"""
     def __hash__(self):
+        """Define a hash function. This was required by some methods such as
+        SelectedList.uniq"""
         return hash(frozenset(self.items()))
 
 class DissectedPacket(object):
@@ -1825,6 +1828,9 @@ class DissectedPacketList(list):
                                     if x.verdict == nfqueue.NF_DROP])
 
     def where(self, packet_filter):
+        """Return a DissectedPacketList containing all the elements matching
+         packet_filter"""
+
         # evaluate the filter for each packet of the current list
         result = DissectedPacketList()
         for packet in self.__iter__():
@@ -1839,7 +1845,9 @@ class DissectedPacketList(list):
         return result
 
     def select(self, packet_filter):
+        """Returns a list of FieldValues/strings matching the given filter
 
+        Example: list.select('http.user_agent')"""
         class SelectedList(list):
             """This class defines the return type of the select method
 
@@ -1861,6 +1869,7 @@ class DissectedPacketList(list):
         return result
 
     def length(self):
+        """Return the length of this DissectedPacketList"""
         return len(self)
 
 class DissectedPacketSubList(DissectedPacketList):
