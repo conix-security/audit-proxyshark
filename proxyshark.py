@@ -3037,11 +3037,13 @@ class Console(InteractiveConsole):
         self.runsource('import socket')
 
         #make a few methods available in the console as functions
+        self.functions = ['pause', 'cont', 'continue', 'accept', 'drop', 'uniq']
         self.locals['pause'] = self._cmd_pause
         self.locals['cont'] = self._cmd_cont
         self.locals['continue'] = self._cmd_cont
         self.locals['accept'] = self._cmd_accept
         self.locals['drop'] = self._cmd_drop
+        self.locals['uniq'] = self._uniq
 
         #instance references
         self.locals['q'] = None
@@ -3121,6 +3123,11 @@ class Console(InteractiveConsole):
             results = ['%s' % key for key
                        in self.commands.keys()
                        if key.startswith(text)]
+
+            #append the functions accessible by the user
+            results +=  [x+'(' for x in self.functions
+                         if x.startswith(text)]
+
             if result_index < len(results):
                 return results[result_index]
             else:
@@ -4215,6 +4222,13 @@ class Console(InteractiveConsole):
     def _cmd_bpkt(self, slice = ''):
         """bpkt: a reference to the last packet that triggered a breakpoint"""
         self.runsource(self.current_line, filename = '<console>')
+
+    def _uniq(self, packet_filter):
+        """Shortcut for queue.select(filter).uniq()
+
+        This method will be reachable through the function uniq() from
+        the interactive shell."""
+        return self.nfqueue.packets.select(packet_filter).uniq()
 
 ###############################################################################
 # Main entry point
