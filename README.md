@@ -150,17 +150,22 @@ Default is no script.
 
 Run *proxyshark* in interactive mode:
 
-
-    python proxyshark.py --verbose
+```bash
+python proxyshark.py --verbose
+```
 
 Capture SIP traffic in web-driven mode with local web proxy running on port 8888
 (view mode):
 
-    python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven :::8888 --run
+```bash
+python proxyshark.py -v --capture-filter 'port 5060' --packet-filter 'sip' --web-driven :::8888 --run
+```
 
 Replace all HTTP responses by HTTP 500 errors (view mode):
 
-    python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'any' --action 'bpkt["http.response.code"]=500 ; bpkt.accept()'
+```bash
+python proxyshark.py -v -c 'port 80' -p 'http.response.code' -r --breakpoint 'any' --action 'bpkt["http.response.code"]=500 ; bpkt.accept()'
+```
 
 <a name="console"></a>
 ##Interactive console
@@ -301,7 +306,9 @@ IpAddress
 
 Capture *Google Docs* traffic:
 
-    host docs.google.com and tcp port 80 or 443
+```python
+host docs.google.com and tcp port 80 or 443
+```
 
     [DEBUG] name 'docs.google.com' resolved:
     [DEBUG] - 173.194.40.134
@@ -349,7 +356,9 @@ Capture *Google Docs* traffic:
 Capture all DNS traffic, and SIP requests from 10.0.0.0/8 to 1.2.3.4 or 2.3.4.5
 on network device eth1:
 
-    dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)
+```python
+dev eth1 and (udp port 53 or dst port 5060 and src net 10.0.0.0/8 and dst host 1.2.3.4 or 2.3.4.5)
+```
 
     [DEBUG] iptables -t filter -A proxyshark5605 -j NFQUEUE --queue-num 1234
     [DEBUG] iptables -t filter -A proxyshark5297 -d 2.3.4.5 -j proxyshark5605
@@ -406,16 +415,22 @@ Where operators are:
 
 Select ICMP packets with TTL lower than 32:
 
-    icmp and ip.ttl < 32
+```python
+icmp and ip.ttl < 32
+```
 
 Select packets bigger than 1KiB containing raw string '&lt;/html&gt;\r\n':
 
-    len(raw) > 1024 and raw*=<html>\r\n'
+```python
+len(raw) > 1024 and raw*=<html>\r\n'
+```
 
 Select HTTP requests with URI starting with /index.php?page= and User-Agent
 shorter than 10 characters:
 
-    http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
+```python
+http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
+```
 
 <a name="setfield"></a>
 ####set field filter &lt;field-filter&gt;
@@ -434,12 +449,16 @@ at the beginning or at the end of the filter.
 
 Forward only the fields from the SIP layer:
 
-    sip.*
+```python
+ip.*
+```
 
 Forward IP and TCP protocols (not the fields), and all the fields from the
 HTTP layer:
 
-    ip$|tcp$|http.*
+```python
+ip$|tcp$|http.*
+```
 
 <a name="breakpoint"></a>
 ####b|breakpoint [add|del] [&lt;breakpoint-id&gt;] [&lt;packet-filter&gt;]
@@ -469,16 +488,21 @@ name it automatically.
 
 Display the packet filter of ID some_id:
 
-    >>> breakpoint some_id
+```python
+>>> breakpoint some_id
+```
 
 Add a new breakpoint without specifying an ID:
 
-    >>> breakpoint add "icmp and ip.src == 8.8.8.9"
+```python
+>>> breakpoint add "icmp and ip.src == 8.8.8.9"
+```
 
 Delete the breakpoint of id bp_icmp:
 
-    >>> breakpoint del bp_icmp
-
+```python
+>>> breakpoint del bp_icmp
+```
 
 ####en|enable &lt;breakpoint-id&gt;
 
@@ -528,24 +552,31 @@ can be bound to a single breakpoint.
 
 Create an action without binding it to a breakpoint:
 
-    >>> action add a1 "some expression"
+```python
+>>> action add a1 "some expression"
+```
+
 
 Create an action composed of several expressions, and name it automatically:
 
-    >>> action add to default "bpkt['icmp.type'] = 8" "bpkt.accept()"
+```python
+>>> action add to default "bpkt['icmp.type'] = 8" "bpkt.accept()"
+```
 
 Create an action and bind it to the breakpoint 'default'
 
-    >>> action add a2 to default "print 'triggered!'"
+```python
+>>> action add a2 to default "print 'triggered!'"
+```
 
 Bind, then unbind an action:
 
-    >>> action bind a1 default
-    >>> action unbind a1
+```python
+>>> action bind a1 default
+>>> action unbind a1
+```
 
-
-####r|run [&lt;capture-filter&gt;] [&lt;packet-filter&gt;]
-[&lt;field-filter&gt;]
+####r|run [&lt;capture-filter&gt;] [&lt;packet-filter&gt;] [&lt;field-filter&gt;]
 
 Run a new capture (drop previously captured packets).
 
@@ -573,7 +604,9 @@ Return a reference to the captured packets list
 ######Examples
 Get HTTP packets from 1.2.3.4:
 
-    >>> packets = queue['ip.src=1.2.3.4 and http']
+```python
+>>> packets = queue['ip.src=1.2.3.4 and http']
+```
 
 ####p|packet
 
@@ -614,13 +647,17 @@ Note that the verdict drop will be set on all removed pending packets.
 
 After a break on an HTTP packet, change the User-Agent and accept the packet:
 
-    >>> bpacket['http.user_agent'] = 'User-Agent: My Custom User-Agent\r\n'
-    >>> bpacket.accept()
+```python
+>>> bpacket['http.user_agent'] = 'User-Agent: My Custom User-Agent\r\n'
+>>> bpacket.accept()
+```
 
 Or drop the current packet and replay it with another server as destination:
 
-    >>> bpacket['http.host'] = 'Host: 2.3.4.5\r\n'
-    >>> bpacket.accept()
+```python
+>>> bpacket['http.host'] = 'Host: 2.3.4.5\r\n'
+>>> bpacket.accept()
+```
 
 ####flush
 
@@ -657,9 +694,11 @@ or call *str* on it.
 
 ######Examples
 
-    >>> bpkt
-    >>> print repr(bpkt)
-    >>> print bpkt
+```python
+>>> bpkt
+>>> print repr(bpkt)
+>>> print bpkt
+```
 
 ####Changing a field value
 
@@ -668,8 +707,10 @@ packet[&lt;field&gt;] = &lt;new value&gt;
 
 ######Examples
 
-    >>> bpkt['dns.qry.name'] = '\x06google\x03com\x00'
-    >>> queue[0]['data.data'] = 'New ICMP payload'
+```python
+>>> bpkt['dns.qry.name'] = '\x06google\x03com\x00'
+>>> queue[0]['data.data'] = 'New ICMP payload'
+```
 
 ####Setting a verdict
 
@@ -682,11 +723,15 @@ A verdict can be set on a packet using the following methods:
 
 Drop the first packet of the queue:
 
-    >>> queue[0].drop()
+```python
+>>> queue[0].drop()
+```
 
 Accept the last captured packet:
 
-    >>> pkt.drop()
+```python
+>>> pkt.drop()
+```
 
 ####Replaying a packet
 
@@ -714,8 +759,10 @@ will not be reflected.
 
 ######Examples
 
-    >>> bpkt.replay(layer=3, repeat=10, inter = .1)
-    >>> bpkt.replay(4)
+```python
+>>> bpkt.replay(layer=3, repeat=10, inter = .1)
+>>> bpkt.replay(4)
+```
 
 ##Using a list of packets
 
@@ -754,7 +801,9 @@ and the method remove(self, packet_filter).
 
 ######Examples
 
-    >>> queue.remove('dns.qry.name == "google.nz"')
+```python
+>>> queue.remove('dns.qry.name == "google.nz"')
+```
 
 ####Getting the length of the list
 
@@ -770,7 +819,9 @@ DissectedPacketList containing all the DissectedPackets that matched.
 
 Retrieve all the ICMP packets
 
-    >>> icmp_pkts = queue.where('icmp')
+```python
+>>> icmp_pkts = queue.where('icmp')
+```
 
 ####Selecting fields and values
 
@@ -784,16 +835,23 @@ This method returns a list object that provides
 
 Get the type of each captured ICMP packets:
 
-    >>> queue.select('icmp.type[show]')
-    [['8'], ['0'], ['8'], ['0'], ['8'], ['0']]
+```python
+>>> queue.select('icmp.type[show]')
+[['8'], ['0'], ['8'], ['0'], ['8'], ['0']]
+```
+
 
 Get each destination IP address (in hexa representation):
 
-    >>> queue.select('ip.dst[value]')
+```python
+>>> queue.select('ip.dst[value]')
+```
 
 Retrieve all DNS query names (returns a SelectList object):
 
-    >>> queue.select('dns.qry.name')
+```python
+>>> queue.select('dns.qry.name')
+```
 
 <a name="filter_select"></a>
 ####Retrieving uniq fields/values
@@ -804,7 +862,9 @@ You can call the method uniq(self) on the object returned after a selection.
 
 Retrieve all unique types of ICMP packets encountered:
 
-    >>> queue.select('icmp.type[show]').uniq()
+```python
+>>> queue.select('icmp.type[show]').uniq()
+```
 
 ####[UPCOMING] filtering methods
 
