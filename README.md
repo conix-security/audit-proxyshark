@@ -47,12 +47,12 @@ To use *proxyshark*, simply run the Python script *proxyshark*.py.
 
 The following arguments are available (all optional):
 
-###-h | --help
+####-h | --help
 
 Print a short help describing the available
 command-line arguments.
 
-###-v | --verbose
+####-v | --verbose
 
 Can be specified several times to increase the
 [verbosity level](#setverbosity).
@@ -60,19 +60,19 @@ Can be specified several times to increase the
 Default is on (level 1) in view mode and off (level 0)
 in interactive mode.
 
-###-e | --ethernet
+####-e | --ethernet
 
 Turn on [Ethernet mode](#setethernet).
 
 Default is off.
 
-###-q | --queue-num &lt;queue-num&gt;
+####-q | --queue-num &lt;queue-num&gt;
 
 Set the netfilter [queue number](#setqueuenum) to use.
 
 Default is 1234.
 
-###-t | --tshark-dir &lt;tshark-dir&gt;
+####-t | --tshark-dir &lt;tshark-dir&gt;
 
 Set the location of the [tshark](#settshark) binary to use for packet
 dissection.
@@ -82,7 +82,7 @@ current architecture (i686, x86_64,
 etc).
 
 <a name="webarg"></a>
-###-w | --web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]
+####-w | --web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]
 :[&lt;proxy-port&gt;]
 
 Turn on [web-driven mode](#setweb).
@@ -97,19 +97,19 @@ Default is off. If enabled, default parameters are:
 Note that all of them are optional and that ::: is
 allowed.
 
-###-c | --capture-filter &lt;capture-filter&gt;
+####-c | --capture-filter &lt;capture-filter&gt;
 
 Set the [capture filter](#setcapture).
 
 Default is no filter (or any, or ip).
 
-###-p | --packet-filter &lt;packet-filter&gt;
+####-p | --packet-filter &lt;packet-filter&gt;
 
 Set the [packet filter](#setpacket).
 
 Default is no filter (or any, or ip).
 
-###-f | --field-filter &lt;field-filter&gt;
+####-f | --field-filter &lt;field-filter&gt;
 
 Set the [field filter](#setfield) (only available in web-driven
 mode).
@@ -117,28 +117,28 @@ mode).
 Default is no filter (or .*).
 
 <a name="runarg"></a>
-###-r | --run
+####-r | --run
 
 Automatically run capture at start, then switch to view
 mode.
 
 Default is off.
 
-###-b | --breakpoint &lt;packet-filter&gt;
+####-b | --breakpoint &lt;packet-filter&gt;
 
 Define a default [breakpoint](#breakpoint) based on the given packet
 filter.
 
 Default is no breakpoint.
 
-###-a | --action &lt;expression&gt;
+####-a | --action &lt;expression&gt;
 
 An [action](#action) to run when the default breakpoint is reached.
 
 Default is no action.
 
 <a name="script"></a>
-###[&lt;filename&gt;]
+####[&lt;filename&gt;]
 
 An optional script to run at start (in scripting mode)
 
@@ -146,9 +146,10 @@ An optional script to run at start (in scripting mode)
 
 Default is no script.
 
-####Examples
+######Examples
 
 Run *proxyshark* in interactive mode:
+
 
     python proxyshark.py --verbose
 
@@ -166,12 +167,12 @@ Replace all HTTP responses by HTTP 500 errors (view mode):
 
 Several commands are available:
 
-###h|help [command]
+####h|help [command]
 
 Print a short help describing the available commands.
 
 <a name="info"></a>
-###i|info [parameter]
+####i|info [parameter]
 
 Print information about the current program state:
 
@@ -205,7 +206,7 @@ Available parameters are:
 * cache
 
 <a name="setverbosity"></a>
-###set verbosity 0|1|2|3
+####set verbosity 0|1|2|3
 
 Set the verbosity level to one of the following values:
 
@@ -215,7 +216,7 @@ Set the verbosity level to one of the following values:
 * 3 for more debug
 
 <a name="setethernet"></a>
-###set ethernet off|on|0|1
+####set ethernet off|on|0|1
 
 Enable or disable Ethernet mode.
 
@@ -224,7 +225,7 @@ packets. Otherwise, packets will start at layer 3 (IP). Enabling this mode is
 required only if you plan to replay packets at layer 2.
 
 <a name="setqueuenum"></a>
-###set queue-num &lt;queue-num&gt;
+####set queue-num &lt;queue-num&gt;
 
 Set the netfilter queue to use.
 
@@ -233,14 +234,14 @@ The queue number is a 16 bit unsigned integer, which means it can take any value
 between 0 and 65535.
 
 <a name="settshark"></a>
-###set tshark-dir &lt;tshark-dir&gt;
+####set tshark-dir &lt;tshark-dir&gt;
 
 Set the location of the tshark binary to use for packet dissection.
 
 If not found, tshark is taken from $PATH.
 
 <a name="setweb"></a>
-###set web-driven off|on|0|1
+####set web-driven off|on|0|1
 
 Enable or disable web-driven mode.
 
@@ -250,11 +251,11 @@ each time a packet is captured so that we can use a tool such as Burp Suite Pro
 to handle it.
 
 
-###set web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]
+####set web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]
 
 This is a shortcut to enable web-driven mode and set bind IPs / ports.
 
-###set bind ip &lt;bind-ip&gt; | set bind port &lt;bind-port&gt; |
+####set bind ip &lt;bind-ip&gt; | set bind port &lt;bind-port&gt; |
 set proxy ip &lt;proxy-ip&gt; | set proxy port &lt;proxy-port&gt;
 
 Set parameters of the web-driven mode. The available parameters are:
@@ -265,7 +266,7 @@ Set parameters of the web-driven mode. The available parameters are:
 * &lt;proxy-port&gt;: port of the web proxy to use
 
 <a name="setcapture"></a>
-###set capture filter &lt;capture-filter&gt;
+####set capture filter &lt;capture-filter&gt;
 
 Set the current capture filter.
 
@@ -296,7 +297,7 @@ IpAddress
 * With:
 * IpAddress =&gt; [nums]{1,3} . [nums]{1,3} . [nums]{1,3} . [nums]{1,3}
 
-####Examples
+######Examples
 
 Capture *Google Docs* traffic:
 
@@ -365,7 +366,7 @@ on network device eth1:
     [DEBUG] iptables -t filter -I FORWARD 1 -j proxyshark9821
 
 <a name="setpacket"></a>
-###set packet filter &lt;packet-filter&gt;
+####set packet filter &lt;packet-filter&gt;
 
 Set the current packet filter.
 
@@ -401,7 +402,7 @@ Where operators are:
 * Greater than or equal: &gt;=
 * Greater than: &gt;
 
-####Examples
+######Examples
 
 Select ICMP packets with TTL lower than 32:
 
@@ -417,7 +418,7 @@ shorter than 10 characters:
     http.request.method=GET and http.request.uri^=/index.php?page= and len(http.user_agent) < 10
 
 <a name="setfield"></a>
-###set field filter &lt;field-filter&gt;
+####set field filter &lt;field-filter&gt;
 
 Set the current field filter.
 
@@ -429,7 +430,7 @@ will be editable/repeatable through the GUI).
 Note that if no ^ or $ characters are found, they will be automatically added
 at the beginning or at the end of the filter.
 
-####Examples
+######Examples
 
 Forward only the fields from the SIP layer:
 
@@ -441,7 +442,7 @@ HTTP layer:
     ip$|tcp$|http.*
 
 <a name="breakpoint"></a>
-###b|breakpoint [add|del] [&lt;breakpoint-id&gt;] [&lt;packet-filter&gt;]
+####b|breakpoint [add|del] [&lt;breakpoint-id&gt;] [&lt;packet-filter&gt;]
 
 Breakpoints are triggered when a given [packet filter](#setpacket) matches an
 incoming packet. You can define an (or several) [action](#action) to alter the
@@ -464,7 +465,7 @@ new breakpoint based on the given identifier and filter.
 name it automatically.
 * If the keyword del and a breakpoint id are given, delete the breakpoint.
 
-####Examples
+######Examples
 
 Display the packet filter of ID some_id:
 
@@ -479,16 +480,16 @@ Delete the breakpoint of id bp_icmp:
     >>> breakpoint del bp_icmp
 
 
-###en|enable &lt;breakpoint-id&gt;
+####en|enable &lt;breakpoint-id&gt;
 
 Enable an existing breakpoint.
 
-###dis|disable &lt;breakpoint-id&gt;
+####dis|disable &lt;breakpoint-id&gt;
 
 Disable an existing breakpoint.
 
 <a name="action"></a>
-###a|action [add|del|bind|unbind] [&lt;action-id&gt;] [to]
+####a|action [add|del|bind|unbind] [&lt;action-id&gt;] [to]
 [&lt;breakpoint-id&gt;] [&lt;expressions&gt; ...]
 
 Actions are Python expressions to be run when a breakpoint is triggered.
@@ -523,7 +524,7 @@ create a new action without binding it to any breakpoint
 An action can only be bound to one breakpoint at a time, but several actions
 can be bound to a single breakpoint.
 
-####Examples:
+######Examples:
 
 Create an action without binding it to a breakpoint:
 
@@ -543,7 +544,7 @@ Bind, then unbind an action:
     >>> action unbind a1
 
 
-###r|run [&lt;capture-filter&gt;] [&lt;packet-filter&gt;]
+####r|run [&lt;capture-filter&gt;] [&lt;packet-filter&gt;]
 [&lt;field-filter&gt;]
 
 Run a new capture (drop previously captured packets).
@@ -553,55 +554,55 @@ Filters can be provided to override current [settings](#setcapture).
 You can also run a capture at start with the [--run](#runarg) command-line
 argument.
 
-###p|pause
+####p|pause
 
 Pause the current capture.
 
-###c|continue
+####c|continue
 
 Continue the current capture.
 
-###s|stop
+####s|stop
 
 Stop the current capture, without removing previously captured packets
 
-###q|queue
+####q|queue
 
 Return a reference to the captured packets list
 
-####Examples
+######Examples
 Get HTTP packets from 1.2.3.4:
 
     >>> packets = queue['ip.src=1.2.3.4 and http']
 
-###p|packet
+####p|packet
 
 A special variable containing the last packet (equivalent to queue[-1]).
 
-###bpkt
+####bpkt
 
 A special variable pointing to the last packet that triggered a breakpoint. It
 can be used to manipulate a packet when a breakpoint is triggered, in
 interactive mode or inside an action
 
-###pe|pending
+####pe|pending
 
 Display all the packets that have currently no verdict set. This command also
 sets the special variable "_"
 
 <a name="cmd_accept"></a>
-###acc|accept [&lt;packet filter&gt;]|[all]
+####acc|accept [&lt;packet filter&gt;]|[all]
 
 Set the verdict 'accept' to all the packets matching the given packet filter.
 The keyword 'all' is accepted. If no packet filter is passed, accept all pending packets.
 
 <a name="cmd_drop"></a>
-###dr|drop [&lt;packet filter&gt;]|[all]
+####dr|drop [&lt;packet filter&gt;]|[all]
 
 Set the verdict 'drop' to all the packets matching the given packet filter.
 The keyword 'all' is accepted. If no packet filter is passed, drop all pending packets.
 
-###rm|remove [&lt;packet filter&gt;]|[all]
+####rm|remove [&lt;packet filter&gt;]|[all]
 
 Remove from the queue all the packets matching the given filter. The keyword
 'all' is accepted. If no packet filter is passed, remove all packets.
@@ -609,7 +610,7 @@ Remove from the queue all the packets matching the given filter. The keyword
 Note that the verdict drop will be set on all removed pending packets.
 
 
-####Examples
+######Examples
 
 After a break on an HTTP packet, change the User-Agent and accept the packet:
 
@@ -621,11 +622,11 @@ Or drop the current packet and replay it with another server as destination:
     >>> bpacket['http.host'] = 'Host: 2.3.4.5\r\n'
     >>> bpacket.accept()
 
-###flush
+####flush
 
 Flush internal cache to free memory (captured packets are not removed).
 
-###x|exit
+####x|exit
 
 Stop the current capture and quit *proxyshark*.
 
@@ -644,7 +645,7 @@ this format's attributes:
 * show
 * ...
 
-###Displaying a packet
+####Displaying a packet
 
 There are several ways to display a packet and its content.
 
@@ -654,30 +655,30 @@ the variable, to get a one-line representation of the packet
 If you want a more detailed description, simply print the packet
 or call *str* on it.
 
-####Examples
+######Examples
 
     >>> bpkt
     >>> print repr(bpkt)
     >>> print bpkt
 
-###Changing a field value
+####Changing a field value
 
 The following syntax allows you to change the value of a given field:
 packet[&lt;field&gt;] = &lt;new value&gt;
 
-####Examples
+######Examples
 
     >>> bpkt['dns.qry.name'] = '\x06google\x03com\x00'
     >>> queue[0]['data.data'] = 'New ICMP payload'
 
-###Setting a verdict
+####Setting a verdict
 
 A verdict can be set on a packet using the following methods:
 
 * DissectedPacket.accept(self)
 * DissectedPacket.drop(self)
 
-####Examples:
+######Examples:
 
 Drop the first packet of the queue:
 
@@ -687,7 +688,7 @@ Accept the last captured packet:
 
     >>> pkt.drop()
 
-###Replaying a packet
+####Replaying a packet
 
 You can replay a single packet several times using DissectedPacket's method
 replay. You can provide it with several arguments:
@@ -711,7 +712,7 @@ TCP connection if TCP is used **[UPCOMING]**. This allows you to replay
 payload will start at layer 5, i.e any change in layers 3 and 4
 will not be reflected.
 
-####Examples
+######Examples
 
     >>> bpkt.replay(layer=3, repeat=10, inter = .1)
     >>> bpkt.replay(4)
@@ -722,56 +723,56 @@ The class DissectedPacketList is used to store all the captured packets.
 It provides several useful methods:
 
 
-###Displaying the list
+####Displaying the list
 
 In interactive mode, call *repr* on the list to get the one-line representations
 of each packets it contains. Call *str* on it to get the full content.
 
-###Accepting packets
+####Accepting packets
 
 You can accept packets using the method accept(self, packet_filter). This is
 actually the same as using the command [accept](#cmd_accept)
 from interactive mode.
 
-###Retrieving the accepted packets
+####Retrieving the accepted packets
 
 Use DissectedPacketList's method accepted(self).
 
-###Dropping packets
+####Dropping packets
 
 You can drop packets using the method drop(self, packet_filter). This is
 actually the same as using the command [drop](#cmd_drop) from interactive mode.
 
-###Retrieving the dropped packets
+####Retrieving the dropped packets
 
 Use DissectedPacketList's method dropped(self).
 
-###Removing packets
+####Removing packets
 
 You can remove packets from a list using a packet filter (or the keyword all),
 and the method remove(self, packet_filter).
 
-####Examples
+######Examples
 
     >>> queue.remove('dns.qry.name == "google.nz"')
 
-###Getting the length of the list
+####Getting the length of the list
 
 You can either use the method length(self), or call len(list).
 
-###Filtering the list
+####Filtering the list
 
 You can get a sublist of a given DissectedPacketList by calling the method
 where(self, packet_filter). This methods takes a packet filter and returns a
 DissectedPacketList containing all the DissectedPackets that matched.
 
-####Examples
+######Examples
 
 Retrieve all the ICMP packets
 
     >>> icmp_pkts = queue.where('icmp')
 
-###Selecting fields and values
+####Selecting fields and values
 
 Using the method DissectedPacketList.select(self, packet_filter), you can
 select several fields / values, depending on the packet filter you used.
@@ -779,7 +780,7 @@ select several fields / values, depending on the packet filter you used.
 This method returns a list object that provides
 [filtering methods](#filter_select)
 
-####Examples
+######Examples
 
 Get the type of each captured ICMP packets:
 
@@ -795,17 +796,17 @@ Retrieve all DNS query names (returns a SelectList object):
     >>> queue.select('dns.qry.name')
 
 <a name="filter_select"></a>
-###Retrieving uniq fields/values
+####Retrieving uniq fields/values
 
 You can call the method uniq(self) on the object returned after a selection.
 
-####Examples
+######Examples
 
 Retrieve all unique types of ICMP packets encountered:
 
     >>> queue.select('icmp.type[show]').uniq()
 
-###[UPCOMING] filtering methods
+####[UPCOMING] filtering methods
 
 Other methods will be added when future version of *Proxyshark* are released:
 
