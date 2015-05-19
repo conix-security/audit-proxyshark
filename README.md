@@ -82,8 +82,7 @@ current architecture (i686, x86_64,
 etc).
 
 <a name="webarg"></a>
-####-w | --web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]
-:[&lt;proxy-port&gt;]
+####-w | --web-driven [&lt;bind-ip&gt;]:[&lt;bind-port&gt;]:[&lt;proxy-ip&gt;]:[&lt;proxy-port&gt;]
 
 Turn on [web-driven mode](#setweb).
 
@@ -422,7 +421,7 @@ icmp and ip.ttl < 32
 Select packets bigger than 1KiB containing raw string '&lt;/html&gt;\r\n':
 
 ```python
-len(raw) > 1024 and raw*=<html>\r\n'
+len(raw) > 1024 and raw*='<html>\r\n'
 ```
 
 Select HTTP requests with URI starting with /index.php?page= and User-Agent
@@ -513,8 +512,7 @@ Enable an existing breakpoint.
 Disable an existing breakpoint.
 
 <a name="action"></a>
-####a|action [add|del|bind|unbind] [&lt;action-id&gt;] [to]
-[&lt;breakpoint-id&gt;] [&lt;expressions&gt; ...]
+####a|action [add|del|bind|unbind] [&lt;action-id&gt;] [to] [&lt;breakpoint-id&gt;] [&lt;expressions&gt; ...]
 
 Actions are Python expressions to be run when a breakpoint is triggered.
 Commands and [functions](#functions) available in interactive mode are also
