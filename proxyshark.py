@@ -2248,6 +2248,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         # call the appropriate handler
         if self.path.startswith('/edit-packet/'):
             self.edit_packet()
+        elif self.path.startswith('/drop-packet'):
+            self.drop_packet()
         else:
             self.send_not_found()
         #
@@ -2328,6 +2330,29 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
         #
+
+    def drop_packet(self):
+        findings = r(r'([0-9]+)$').findall(self.path)
+        if not findings:
+            self.send_not_found()
+            return
+        identifier = int(findings[0])
+        logging_info("local server received packet #%s" % identifier)
+        if identifier >= len(self._nfqueue.packets):
+            logging_error("packet #%s does not exist" % identifier)
+            self.send_not_found()
+            return
+        # retrieve the packet from cache
+        packet = self._nfqueue.packets[identifier]
+
+
+        # drop the packet
+        packet.drop()
+        self.send_response(200, 'OK')
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+
+
     def send_not_found(self):
         """Respond with a 404 NOT FOUND error."""
         self.send_response(404, 'NOT FOUND')
