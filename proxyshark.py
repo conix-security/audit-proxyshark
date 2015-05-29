@@ -1325,6 +1325,9 @@ class DissectedPacket(object):
         if not modified:
             KeyError("field %s was not found" % trunc_repr(field_name))
         #
+    def __del__(self):
+        self.drop()
+
     def read_items(self):
         """Return a list of dictionaries representing all the protocols and
         fields. Items are taken either from the XML tree or from the last
