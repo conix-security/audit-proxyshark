@@ -4236,15 +4236,15 @@ class Console(InteractiveConsole):
             logging_print(output)
             logging_state_restore()
 
-    def _cmd_queue(self, slice = ''):
+    def _cmd_queue(self, *args):
         """q|queue|nfqueue: a reference to the captured packet list"""
         self.runsource(self.current_line, filename = '<console>')
 
-    def _cmd_pkt(self, slice = ''):
+    def _cmd_pkt(self, *args):
         """pkt|packet: a reference to the last captured packet"""
         self.runsource(self.current_line, filename = '<console>')
 
-    def _cmd_bpkt(self, slice = ''):
+    def _cmd_bpkt(self, *args):
         """bpkt: a reference to the last packet that triggered a breakpoint"""
         self.runsource(self.current_line, filename = '<console>')
 
