@@ -1872,6 +1872,15 @@ class DissectedPacketList(list):
         """Return the length of this DissectedPacketList"""
         return len(self)
 
+    def get_by_id(self, id):
+        """Retrieve a packet using its identifier"""
+        if(isinstance(id, int) and id >= 0):
+            for p in self:
+                if(p.identifier == id):
+                    return p
+        return None
+
+
 class DissectedPacketSubList(DissectedPacketList):
     """A sublist of dissected packets. The only difference with the above
     packet list is that '__getitem__()' returns the item values and not the
@@ -2305,12 +2314,14 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
         identifier = int(findings[0])
         logging_info("local server received packet #%s" % identifier)
-        if identifier >= len(self._nfqueue.packets):
+
+        # retrieve the packet from cache
+        packet = self._nfqueue.packets.get_by_id(identifier)
+        if packet is None:
             logging_error("packet #%s does not exist" % identifier)
             self.send_not_found()
             return
-        # retrieve the packet from cache
-        packet = self._nfqueue.packets[identifier]
+
         # provide the packet with the new items
         try:
             modified = packet.commit(eval(self.params.keys()[0]))
@@ -2338,13 +2349,13 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
         identifier = int(findings[0])
         logging_info("local server received packet #%s" % identifier)
-        if identifier >= len(self._nfqueue.packets):
+
+        # retrieve the packet from cache
+        packet = self._nfqueue.packets.get_by_id(identifier)
+        if packet is None:
             logging_error("packet #%s does not exist" % identifier)
             self.send_not_found()
             return
-        # retrieve the packet from cache
-        packet = self._nfqueue.packets[identifier]
-
 
         # drop the packet
         packet.drop()
