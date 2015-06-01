@@ -1791,6 +1791,8 @@ class DissectedPacketList(list):
         """remove all packets that matche the given packet filter"""
 
         if(isinstance(arg, DissectedPacket)):
+            if(arg.verdict is None):
+                arg.drop()
             super(DissectedPacketList, self).remove(arg)
 
         #arg is a packet filter
