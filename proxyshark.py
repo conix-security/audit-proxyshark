@@ -2264,7 +2264,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.edit_packet()
         elif self.path.startswith('/drop-packet'):
             self.drop_packet()
-        elif self.path.startswith('/remove/packet'):
+        elif self.path.startswith('/remove-packet'):
             self.remove_packet()
         else:
             self.send_not_found()
