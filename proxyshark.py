@@ -59,6 +59,9 @@ import traceback
 import urllib
 from string import Template
 
+#safer (and limited) version of eval
+from ast import literal_eval
+
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from code import InteractiveConsole
 try:
@@ -2222,6 +2225,11 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         """Create a new HTTP request handler."""
         self._nfqueue = nfqueue # must be in first position because the
                                 # original __init__() function never returns
+
+        #used to specify what item was not found
+        #(e.g requests regarding packets)
+        self._not_found = []
+
         BaseHTTPRequestHandler.__init__(self, request, client_address, server)
         #
     def address_string(self):
@@ -2230,6 +2238,9 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         #
     def handler_request(self):
         """Handle the current HTTP request."""
+        self._not_found = []
+        self.params = {}
+
         # set the name of the current thread
         currentThread().name = 'WebRequestHandlerThread'
         # get path and parameters
@@ -2255,10 +2266,10 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             return
         length = int(self.headers['Content-Length'])
         params = self.rfile.read(length)
-        self.params = {}
         for param in params.split('&'):
             name, _, value = param.partition('=')
-            self.params[name] = value
+            if(name != ''):
+                self.params[name] = value
         # call the appropriate handler
         if self.path.startswith('/edit-packet/'):
             self.edit_packet()
@@ -2326,6 +2337,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         packet = self._nfqueue.packets.get_by_id(identifier)
         if packet is None:
             logging_error("packet #%s does not exist" % identifier)
+            self._not_found.append(identifier)
             self.send_not_found()
             return
 
@@ -2348,7 +2360,6 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
         #
-
     def drop_packet(self):
         findings = r(r'([0-9]+)$').findall(self.path)
         if not findings:
@@ -2361,6 +2372,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         packet = self._nfqueue.packets.get_by_id(identifier)
         if packet is None:
             logging_error("packet #%s does not exist" % identifier)
+            self._not_found.append(identifier)
             self.send_not_found()
             return
 
@@ -2371,32 +2383,55 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def remove_packet(self):
-        findings = r(r'([0-9]+)$').findall(self.path)
-        if not findings:
+        if(len(self.params) == 0):
+            findings = r(r'([0-9]+)$').findall(self.path)
+            if not findings:
+                self.send_not_found()
+                return
+            identifier = int(findings[0])
+            logging_info("local server received packet #%s" % identifier)
+
+            # retrieve the packet from cache
+            packet = self._nfqueue.packets.get_by_id(identifier)
+            if packet is None:
+                logging_error("packet #%s does not exist" % identifier)
+                self._not_found.append(identifier)
+
+            # remove the packet
+            self._nfqueue.packets.remove(packet)
+        else:
+            indices_str = self.params['identifiers']
+            try:
+
+                indices = literal_eval(indices_str)
+            except:
+                #add something
+                return
+
+            for i in indices:
+                packet = self._nfqueue.packets.get_by_id(i)
+                if(packet is None):
+                    logging_error("packet #%s does not exist" % i)
+                    self._not_found.append(i)
+                else:
+                    self._nfqueue.packets.remove(packet)
+
+
+        if(len(self._not_found) == 0):
+            self.send_response(200, 'OK')
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+        else:
             self.send_not_found()
-            return
-        identifier = int(findings[0])
-        logging_info("local server received packet #%s" % identifier)
-
-        # retrieve the packet from cache
-        packet = self._nfqueue.packets.get_by_id(identifier)
-        if packet is None:
-            logging_error("packet #%s does not exist" % identifier)
-            self.send_not_found()
-            return
-
-        # remove the packet
-        self._nfqueue.packets.remove(packet)
-
-        self.send_response(200, 'OK')
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
 
     def send_not_found(self):
         """Respond with a 404 NOT FOUND error."""
         self.send_response(404, 'NOT FOUND')
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
+        self.wfile.write('packet(s) not found: ' +
+                         ', '.join([str(x) for x in self._not_found]))
+
         #
     # Private methods #########################################################
     #
