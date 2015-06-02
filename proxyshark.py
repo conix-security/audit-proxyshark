@@ -1676,16 +1676,17 @@ class DissectedPacket(object):
         #
     def _set_verdict(self, verdict, modified = False):
         """Set the verdict (NF_ACCEPT or NF_DROP)."""
-        if self.verdict:
+        if self.verdict is not None:
             raise IOError("verdict already set for packet #%s"
                           % self.identifier)
-        if(modified):
-            self.nfq_data.set_verdict_modified(verdict, self.data,
-                                               len(self.data))
         else:
-            self.nfq_data.set_verdict(verdict)
+            if(modified):
+                self.nfq_data.set_verdict_modified(verdict, self.data,
+                                                   len(self.data))
+            else:
+                self.nfq_data.set_verdict(verdict)
 
-        self.verdict = verdict
+            self.verdict = verdict
         #
     def _get_verdict_str(self):
         ret = ''
@@ -2361,39 +2362,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         #
     def drop_packet(self):
-        if(len(self.params) == 0):
-            findings = r(r'([0-9]+)$').findall(self.path)
-            if not findings:
-                self.send_not_found()
-                return
-            identifier = int(findings[0])
-            logging_info("local server received packet #%s" % identifier)
-
-            # retrieve the packet from cache
-            packet = self._nfqueue.packets.get_by_id(identifier)
-            if packet is None:
-                logging_error("packet #%s does not exist" % identifier)
-                self._not_found.append(identifier)
-
-            # drop the packet
-            packet.drop()
-
-        else:
-            indices_str = self.params['identifiers']
-            try:
-                indices = literal_eval(indices_str)
-            except:
-                #add something
-                return
-
-            for i in indices:
+        identifiers = self._retrieve_identifiers()
+        if(identifiers is not None):
+            for i in identifiers:
                 packet = self._nfqueue.packets.get_by_id(i)
                 if(packet is None):
                     logging_error("packet #%s does not exist" % i)
                     self._not_found.append(i)
                 else:
                     packet.drop()
-
 
         if(len(self._not_found) == 0):
             self.send_response(200, 'OK')
@@ -2403,39 +2380,15 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.send_not_found()
 
     def remove_packet(self):
-        if(len(self.params) == 0):
-            findings = r(r'([0-9]+)$').findall(self.path)
-            if not findings:
-                self.send_not_found()
-                return
-            identifier = int(findings[0])
-            logging_info("local server received packet #%s" % identifier)
-
-            # retrieve the packet from cache
-            packet = self._nfqueue.packets.get_by_id(identifier)
-            if packet is None:
-                logging_error("packet #%s does not exist" % identifier)
-                self._not_found.append(identifier)
-
-            # remove the packet
-            self._nfqueue.packets.remove(packet)
-        else:
-            indices_str = self.params['identifiers']
-            try:
-
-                indices = literal_eval(indices_str)
-            except:
-                #add something
-                return
-
-            for i in indices:
+        identifiers = self._retrieve_identifiers()
+        if(identifiers is not None):
+            for i in identifiers:
                 packet = self._nfqueue.packets.get_by_id(i)
                 if(packet is None):
                     logging_error("packet #%s does not exist" % i)
                     self._not_found.append(i)
                 else:
                     self._nfqueue.packets.remove(packet)
-
 
         if(len(self._not_found) == 0):
             self.send_response(200, 'OK')
@@ -2451,10 +2404,31 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('packet(s) not found: ' +
                          ', '.join([str(x) for x in self._not_found]))
-
         #
     # Private methods #########################################################
     #
+    def _retrieve_identifiers(self):
+        ids = []
+        if(len(self.params) == 0):
+            findings = r(r'([0-9]+)$').findall(self.path)
+            if not findings:
+                self.send_not_found()
+                return None
+
+            ids.append(int(findings[0]))
+            logging_info("local server received packet #%s" % identifier)
+
+        else:
+            indices_str = self.params['identifiers']
+            try:
+                ids = literal_eval(indices_str)
+                if(not isinstance(ids, list)):
+                    raise TypeError("Incorrect identifiers list")
+            except:
+                #add something
+                return
+
+        return ids
 
 ###############################################################################
 # Breakpoints - Actions
