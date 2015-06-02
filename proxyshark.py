@@ -2361,26 +2361,46 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         #
     def drop_packet(self):
-        findings = r(r'([0-9]+)$').findall(self.path)
-        if not findings:
-            self.send_not_found()
-            return
-        identifier = int(findings[0])
-        logging_info("local server received packet #%s" % identifier)
+        if(len(self.params) == 0):
+            findings = r(r'([0-9]+)$').findall(self.path)
+            if not findings:
+                self.send_not_found()
+                return
+            identifier = int(findings[0])
+            logging_info("local server received packet #%s" % identifier)
 
-        # retrieve the packet from cache
-        packet = self._nfqueue.packets.get_by_id(identifier)
-        if packet is None:
-            logging_error("packet #%s does not exist" % identifier)
-            self._not_found.append(identifier)
-            self.send_not_found()
-            return
+            # retrieve the packet from cache
+            packet = self._nfqueue.packets.get_by_id(identifier)
+            if packet is None:
+                logging_error("packet #%s does not exist" % identifier)
+                self._not_found.append(identifier)
 
-        # drop the packet
-        packet.drop()
-        self.send_response(200, 'OK')
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
+            # drop the packet
+            packet.drop()
+
+        else:
+            indices_str = self.params['identifiers']
+            try:
+                indices = literal_eval(indices_str)
+            except:
+                #add something
+                return
+
+            for i in indices:
+                packet = self._nfqueue.packets.get_by_id(i)
+                if(packet is None):
+                    logging_error("packet #%s does not exist" % i)
+                    self._not_found.append(i)
+                else:
+                    packet.drop()
+
+
+        if(len(self._not_found) == 0):
+            self.send_response(200, 'OK')
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+        else:
+            self.send_not_found()
 
     def remove_packet(self):
         if(len(self.params) == 0):
