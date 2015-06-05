@@ -2278,6 +2278,8 @@ class WebRequestHandler(BaseHTTPRequestHandler):
             self.drop_packet()
         elif self.path.startswith('/remove-packet'):
             self.remove_packet()
+        elif self.path.startswith('/evaluate-filter'):
+            self.evaluate_filter()
         else:
             self.send_not_found()
         #
@@ -2397,13 +2399,22 @@ class WebRequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_not_found()
 
+    def evaluate_filter(self):
+        pfilter = self.params['filter']
+        result = repr([x.identifier for x in self._nfqueue.packets[pfilter]])
+
+        self.send_response(200, 'OK')
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(result)
+
     def send_not_found(self):
         """Respond with a 404 NOT FOUND error."""
         self.send_response(404, 'NOT FOUND')
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write('packet(s) not found: ' +
-                         ', '.join([str(x) for x in self._not_found]))
+        self.wfile.write(repr(self._not_found))
+
         #
     # Private methods #########################################################
     #
