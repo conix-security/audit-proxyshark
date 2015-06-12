@@ -3136,9 +3136,11 @@ class Console(InteractiveConsole):
 
         InteractiveConsole.__init__(self)
 
-        #automatically import the socket module, which the user might need
-        #quite frequently (inet_aton, inet_nota, ...)
-        self.runsource('import socket')
+        #automatically import some helper functions
+        self.runsource('from binascii import unhexlify')
+        self.runsource('from binascii import hexlify')
+        self.runsource('from socket import inet_aton')
+        self.runsource('from socket import inet_ntoa')
 
         #make a few methods available in the console as functions
         self.functions = ['pause', 'cont', 'continue', 'accept', 'drop', 'uniq']
