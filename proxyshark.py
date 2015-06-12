@@ -1800,7 +1800,7 @@ class DissectedPacketList(list):
             super(DissectedPacketList, self).remove(arg)
 
         #arg is a packet filter
-        elif(isinstance(arg, basestring)):
+        elif(isinstance(arg, basestring) or arg is None):
             rc = True
             l = None
 
