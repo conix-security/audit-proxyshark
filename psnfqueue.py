@@ -13,20 +13,20 @@ if version_info >= (2,6,0):
         import imp
         fp = None
         try:
-            fp, pathname, description = imp.find_module('_nfqueue', [dirname(__file__)])
+            fp, pathname, description = imp.find_module('_psnfqueue', [dirname(__file__)])
         except ImportError:
-            import _nfqueue
-            return _nfqueue
+            import _psnfqueue
+            return _psnfqueue
         if fp is not None:
             try:
-                _mod = imp.load_module('_nfqueue', fp, pathname, description)
+                _mod = imp.load_module('_psnfqueue', fp, pathname, description)
             finally:
                 fp.close()
             return _mod
-    _nfqueue = swig_import_helper()
+    _psnfqueue = swig_import_helper()
     del swig_import_helper
 else:
-    import _nfqueue
+    import _psnfqueue
 del version_info
 try:
     _swig_property = property
@@ -73,40 +73,40 @@ class queue(_object):
     __swig_getmethods__ = {}
     __getattr__ = lambda self, name: _swig_getattr(self, queue, name)
     __repr__ = _swig_repr
-    __swig_setmethods__["dummy"] = _nfqueue.queue_dummy_set
-    __swig_getmethods__["dummy"] = _nfqueue.queue_dummy_get
-    if _newclass:dummy = _swig_property(_nfqueue.queue_dummy_get, _nfqueue.queue_dummy_set)
-    __swig_setmethods__["_h"] = _nfqueue.queue__h_set
-    __swig_getmethods__["_h"] = _nfqueue.queue__h_get
-    if _newclass:_h = _swig_property(_nfqueue.queue__h_get, _nfqueue.queue__h_set)
-    __swig_setmethods__["_qh"] = _nfqueue.queue__qh_set
-    __swig_getmethods__["_qh"] = _nfqueue.queue__qh_get
-    if _newclass:_qh = _swig_property(_nfqueue.queue__qh_get, _nfqueue.queue__qh_set)
-    __swig_setmethods__["_cb"] = _nfqueue.queue__cb_set
-    __swig_getmethods__["_cb"] = _nfqueue.queue__cb_get
-    if _newclass:_cb = _swig_property(_nfqueue.queue__cb_get, _nfqueue.queue__cb_set)
-    __swig_setmethods__["_mode_set"] = _nfqueue.queue__mode_set_set
-    __swig_getmethods__["_mode_set"] = _nfqueue.queue__mode_set_get
-    if _newclass:_mode_set = _swig_property(_nfqueue.queue__mode_set_get, _nfqueue.queue__mode_set_set)
-    def set_callback(self, *args): return _nfqueue.queue_set_callback(self, *args)
-    def open(self): return _nfqueue.queue_open(self)
-    def close(self): return _nfqueue.queue_close(self)
-    def bind(self, *args): return _nfqueue.queue_bind(self, *args)
-    def unbind(self, *args): return _nfqueue.queue_unbind(self, *args)
-    def create_queue(self, *args): return _nfqueue.queue_create_queue(self, *args)
-    def fast_open(self, *args): return _nfqueue.queue_fast_open(self, *args)
-    def set_queue_maxlen(self, *args): return _nfqueue.queue_set_queue_maxlen(self, *args)
-    def try_run(self): return _nfqueue.queue_try_run(self)
-    def get_fd(self): return _nfqueue.queue_get_fd(self)
-    def set_mode(self, *args): return _nfqueue.queue_set_mode(self, *args)
-    def process_pending(self, arg2=0): return _nfqueue.queue_process_pending(self, arg2)
+    __swig_setmethods__["dummy"] = _psnfqueue.queue_dummy_set
+    __swig_getmethods__["dummy"] = _psnfqueue.queue_dummy_get
+    if _newclass:dummy = _swig_property(_psnfqueue.queue_dummy_get, _psnfqueue.queue_dummy_set)
+    __swig_setmethods__["_h"] = _psnfqueue.queue__h_set
+    __swig_getmethods__["_h"] = _psnfqueue.queue__h_get
+    if _newclass:_h = _swig_property(_psnfqueue.queue__h_get, _psnfqueue.queue__h_set)
+    __swig_setmethods__["_qh"] = _psnfqueue.queue__qh_set
+    __swig_getmethods__["_qh"] = _psnfqueue.queue__qh_get
+    if _newclass:_qh = _swig_property(_psnfqueue.queue__qh_get, _psnfqueue.queue__qh_set)
+    __swig_setmethods__["_cb"] = _psnfqueue.queue__cb_set
+    __swig_getmethods__["_cb"] = _psnfqueue.queue__cb_get
+    if _newclass:_cb = _swig_property(_psnfqueue.queue__cb_get, _psnfqueue.queue__cb_set)
+    __swig_setmethods__["_mode_set"] = _psnfqueue.queue__mode_set_set
+    __swig_getmethods__["_mode_set"] = _psnfqueue.queue__mode_set_get
+    if _newclass:_mode_set = _swig_property(_psnfqueue.queue__mode_set_get, _psnfqueue.queue__mode_set_set)
+    def set_callback(self, *args): return _psnfqueue.queue_set_callback(self, *args)
+    def open(self): return _psnfqueue.queue_open(self)
+    def close(self): return _psnfqueue.queue_close(self)
+    def bind(self, *args): return _psnfqueue.queue_bind(self, *args)
+    def unbind(self, *args): return _psnfqueue.queue_unbind(self, *args)
+    def create_queue(self, *args): return _psnfqueue.queue_create_queue(self, *args)
+    def fast_open(self, *args): return _psnfqueue.queue_fast_open(self, *args)
+    def set_queue_maxlen(self, *args): return _psnfqueue.queue_set_queue_maxlen(self, *args)
+    def try_run(self): return _psnfqueue.queue_try_run(self)
+    def get_fd(self): return _psnfqueue.queue_get_fd(self)
+    def set_mode(self, *args): return _psnfqueue.queue_set_mode(self, *args)
+    def process_pending(self, arg2=0): return _psnfqueue.queue_process_pending(self, arg2)
     def __init__(self): 
-        this = _nfqueue.new_queue()
+        this = _psnfqueue.new_queue()
         try: self.this.append(this)
         except: self.this = this
-    __swig_destroy__ = _nfqueue.delete_queue
+    __swig_destroy__ = _psnfqueue.delete_queue
     __del__ = lambda self : None;
-queue_swigregister = _nfqueue.queue_swigregister
+queue_swigregister = _psnfqueue.queue_swigregister
 queue_swigregister(queue)
 
 class payload(_object):
@@ -115,48 +115,48 @@ class payload(_object):
     __swig_getmethods__ = {}
     __getattr__ = lambda self, name: _swig_getattr(self, payload, name)
     __repr__ = _swig_repr
-    __swig_setmethods__["data"] = _nfqueue.payload_data_set
-    __swig_getmethods__["data"] = _nfqueue.payload_data_get
-    if _newclass:data = _swig_property(_nfqueue.payload_data_get, _nfqueue.payload_data_set)
-    __swig_setmethods__["len"] = _nfqueue.payload_len_set
-    __swig_getmethods__["len"] = _nfqueue.payload_len_get
-    if _newclass:len = _swig_property(_nfqueue.payload_len_get, _nfqueue.payload_len_set)
-    __swig_setmethods__["id"] = _nfqueue.payload_id_set
-    __swig_getmethods__["id"] = _nfqueue.payload_id_get
-    if _newclass:id = _swig_property(_nfqueue.payload_id_get, _nfqueue.payload_id_set)
-    __swig_setmethods__["qh"] = _nfqueue.payload_qh_set
-    __swig_getmethods__["qh"] = _nfqueue.payload_qh_get
-    if _newclass:qh = _swig_property(_nfqueue.payload_qh_get, _nfqueue.payload_qh_set)
-    __swig_setmethods__["nfad"] = _nfqueue.payload_nfad_set
-    __swig_getmethods__["nfad"] = _nfqueue.payload_nfad_get
-    if _newclass:nfad = _swig_property(_nfqueue.payload_nfad_get, _nfqueue.payload_nfad_set)
-    def get_data(self, *args): return _nfqueue.payload_get_data(self, *args)
-    def get_nfmark(self): return _nfqueue.payload_get_nfmark(self)
-    def get_indev(self): return _nfqueue.payload_get_indev(self)
-    def get_outdev(self): return _nfqueue.payload_get_outdev(self)
-    def get_physindev(self): return _nfqueue.payload_get_physindev(self)
-    def get_physoutdev(self): return _nfqueue.payload_get_physoutdev(self)
-    def get_length(self, *args): return _nfqueue.payload_get_length(self, *args)
-    def set_verdict(self, *args): return _nfqueue.payload_set_verdict(self, *args)
-    def set_verdict_mark(self, *args): return _nfqueue.payload_set_verdict_mark(self, *args)
-    def set_verdict_modified(self, *args): return _nfqueue.payload_set_verdict_modified(self, *args)
-    def set_verdict_mark_modified(self, *args): return _nfqueue.payload_set_verdict_mark_modified(self, *args)
+    __swig_setmethods__["data"] = _psnfqueue.payload_data_set
+    __swig_getmethods__["data"] = _psnfqueue.payload_data_get
+    if _newclass:data = _swig_property(_psnfqueue.payload_data_get, _psnfqueue.payload_data_set)
+    __swig_setmethods__["len"] = _psnfqueue.payload_len_set
+    __swig_getmethods__["len"] = _psnfqueue.payload_len_get
+    if _newclass:len = _swig_property(_psnfqueue.payload_len_get, _psnfqueue.payload_len_set)
+    __swig_setmethods__["id"] = _psnfqueue.payload_id_set
+    __swig_getmethods__["id"] = _psnfqueue.payload_id_get
+    if _newclass:id = _swig_property(_psnfqueue.payload_id_get, _psnfqueue.payload_id_set)
+    __swig_setmethods__["qh"] = _psnfqueue.payload_qh_set
+    __swig_getmethods__["qh"] = _psnfqueue.payload_qh_get
+    if _newclass:qh = _swig_property(_psnfqueue.payload_qh_get, _psnfqueue.payload_qh_set)
+    __swig_setmethods__["nfad"] = _psnfqueue.payload_nfad_set
+    __swig_getmethods__["nfad"] = _psnfqueue.payload_nfad_get
+    if _newclass:nfad = _swig_property(_psnfqueue.payload_nfad_get, _psnfqueue.payload_nfad_set)
+    def get_data(self, *args): return _psnfqueue.payload_get_data(self, *args)
+    def get_nfmark(self): return _psnfqueue.payload_get_nfmark(self)
+    def get_indev(self): return _psnfqueue.payload_get_indev(self)
+    def get_outdev(self): return _psnfqueue.payload_get_outdev(self)
+    def get_physindev(self): return _psnfqueue.payload_get_physindev(self)
+    def get_physoutdev(self): return _psnfqueue.payload_get_physoutdev(self)
+    def get_length(self, *args): return _psnfqueue.payload_get_length(self, *args)
+    def set_verdict(self, *args): return _psnfqueue.payload_set_verdict(self, *args)
+    def set_verdict_mark(self, *args): return _psnfqueue.payload_set_verdict_mark(self, *args)
+    def set_verdict_modified(self, *args): return _psnfqueue.payload_set_verdict_modified(self, *args)
+    def set_verdict_mark_modified(self, *args): return _psnfqueue.payload_set_verdict_mark_modified(self, *args)
     def __init__(self): 
-        this = _nfqueue.new_payload()
+        this = _psnfqueue.new_payload()
         try: self.this.append(this)
         except: self.this = this
-    __swig_destroy__ = _nfqueue.delete_payload
+    __swig_destroy__ = _psnfqueue.delete_payload
     __del__ = lambda self : None;
-payload_swigregister = _nfqueue.payload_swigregister
+payload_swigregister = _psnfqueue.payload_swigregister
 payload_swigregister(payload)
 
 
 def nfq_bindings_version():
-  return _nfqueue.nfq_bindings_version()
-nfq_bindings_version = _nfqueue.nfq_bindings_version
+  return _psnfqueue.nfq_bindings_version()
+nfq_bindings_version = _psnfqueue.nfq_bindings_version
 # This file is compatible with both classic and new-style classes.
 
-cvar = _nfqueue.cvar
+cvar = _psnfqueue.cvar
 NF_DROP = cvar.NF_DROP
 NF_ACCEPT = cvar.NF_ACCEPT
 NF_STOLEN = cvar.NF_STOLEN
