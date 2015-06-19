@@ -1,0 +1,11 @@
+python2.7
+libnetfilter-queue1
+libnfnetlink0
+libpython2.7
+python-pyparsing
+python-dnspython
+scapy
+libwireshark5
+libwiretap4
+libwsutil4
+libpcap0.8
