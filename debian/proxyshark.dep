@@ -9,3 +9,5 @@ libwireshark5
 libwiretap4
 libwsutil4
 libpcap0.8
+libglib2.0
+zlib1g
