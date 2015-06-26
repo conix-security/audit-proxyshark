@@ -2441,6 +2441,7 @@ class WebRequestHandler(BaseHTTPRequestHandler):
 
         return ids
 
+
 ###############################################################################
 # Breakpoints - Actions
 ###############################################################################
@@ -2501,7 +2502,6 @@ class Action(object):
     def is_invalid_id(aid):
         return Action.id_pattern.match(aid) is None and \
                aid not in Action.used_aid
-
 
 class Breakpoint(object):
     """A breakpoint triggered when a packet matches a given filter
@@ -3307,7 +3307,7 @@ class Console(InteractiveConsole):
 
         return
 
-    def runsource(self, source, filename='<input>', symbol='single',
+    def runsource(self, source, filename='<input>', symbol='exec',
                   use_parent = True):
         """Override InteractiveInterpreter.runsource
 
@@ -3330,6 +3330,7 @@ class Console(InteractiveConsole):
             #displayed on screen automatically
             #-> Display them only when in view mode
             code = self.compile(source, filename, symbol)
+
             exec code in self.locals
         else:
             InteractiveConsole.runsource(self, source, filename, symbol)
@@ -4214,7 +4215,7 @@ class Console(InteractiveConsole):
                     #unescape the expressions
                     expr = [x.decode('string_escape') for x in expr]
 
-                    a = Action(' ; '.join(expr), b, aid)
+                    a = Action('\n'.join(expr), b, aid)
                     self.nfqueue.actions[a.id] = a
                 except ValueError as v:
                     logging_print(v.message)
