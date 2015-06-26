@@ -2603,8 +2603,8 @@ class Breakpoint(object):
         if(exec_action):
             self._console.locals['bpkt'] = packet
             for a in self.actions:
-                for line in a.expression.split(';'):
-                    self._console.try_exec(line, is_action = True)
+                self._console.runsource(a.expression, '<console>',
+                                        use_parent = False)
 
             return 1
 
@@ -3247,9 +3247,9 @@ class Console(InteractiveConsole):
         slice = '[' + Word(slice_ctnt) + ']' | '[' + \
                                                quotedString(slice_ctnt) + ']'
 
-        argument  = quotedString(printable + ' ') | Word(printable)
+        argument  = quotedString(printable ) | Word(printable)
         parser    = Optional(command + Optional(slice) + \
-                    Optional( White() + OneOrMore(argument)))
+                    Optional(OneOrMore(argument)))
         return StringStart() + parser + StringEnd()
         #
     def try_exec(self, line, is_action = False):
@@ -3292,18 +3292,6 @@ class Console(InteractiveConsole):
             in_slice = False
             slice_ctnt = ''
             for token in tokens[1:]:
-                #handle slice
-                if(token == '['):
-                    in_slice = True
-                elif(token == ']'):
-                    in_slice = False
-                    slice_ctnt = slice_ctnt.replace("'", '').replace('"','')
-                    arguments.append(repr(slice_ctnt+']'))
-                    continue
-                if(in_slice):
-                    slice_ctnt += token
-                    continue
-
                 if token.startswith('"') and token.endswith('"'):
                     arguments.append(repr(token[1:-1]))
                 elif token.startswith('\'') and token.endswith('\''):
@@ -4223,6 +4211,9 @@ class Console(InteractiveConsole):
             #create a new action
             if(expr is not None):
                 try:
+                    #unescape the expressions
+                    expr = [x.decode('string_escape') for x in expr]
+
                     a = Action(' ; '.join(expr), b, aid)
                     self.nfqueue.actions[a.id] = a
                 except ValueError as v:
@@ -4246,8 +4237,6 @@ class Console(InteractiveConsole):
                 except:
                     #the association has already been removed
                     pass
-
-
 
                 Action.used_aid.remove(aid)
 
@@ -4283,6 +4272,8 @@ class Console(InteractiveConsole):
                 except:
                     #the association has already been removed
                     pass
+        else:
+            logging_print('Unknown command')
 
         logging_state_restore()
 
