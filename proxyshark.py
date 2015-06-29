@@ -1540,7 +1540,7 @@ class DissectedPacket(object):
         """Drop the packet."""
         self._set_verdict(nfqueue.NF_DROP)
         #
-    def replay(self, layer = 3, repeat = 1, inter = 0):
+    def replay(self, layer = 3):
         """Replay this packet.
 
         Accepted layers are: 2, 3 4:
@@ -1549,22 +1549,11 @@ class DissectedPacket(object):
         caring about any connection state.
         - layer 4 will make sure to enable a connection (if TCP is used)) before
         replaying the packet, starting from layer 4. replaying TCP at layer 4
-        is currently broken.
-
-        The packet will be replayed 'repeat' times.
-
-        'inter' specifies the time interval to wait between two packets"""
-
-        if (not isinstance(repeat, int)):
-            try:
-                repeat = int(repeat)
-            except Exception as e:
-                return False
+        is currently broken."""
 
         scapy_packet = IP(self.data)
         if(layer == 2 or layer == 3):
-            for i in xrange(repeat):
-                send(scapy_packet, verbose = False, inter = inter)
+            send(scapy_packet, verbose = False)
 
         if(layer == 4):
             srcport = random.randint(1024, 0xFFFF)
@@ -1576,8 +1565,7 @@ class DissectedPacket(object):
                 udp = UDP(dport = scapy_packet[UDP].dport, sport = srcport)
 
                 scapy_packet = ip / udp / payload
-                for i in xrange(repeat):
-                    send(scapy_packet, verbose = False, inter = inter)
+                send(scapy_packet, verbose = False)
 
             elif(TCP in scapy_packet):
                 return False
@@ -3293,7 +3281,6 @@ class Console(InteractiveConsole):
                 continue
 
             arguments = []
-            in_slice = False
             for token in tokens[1:]:
                 if token.startswith('"') and token.endswith('"'):
                     arguments.append(repr(token[1:-1]))
