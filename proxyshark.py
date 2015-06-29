@@ -2460,6 +2460,8 @@ class Action(object):
         """Create a new action, with an expression.
 
         The action ID can be auto-generated"""
+        self.code = compile(expression, '<action>', 'exec')
+
         if(aid == None):
             while(str(Action.next_aid) in Action.used_aid):
                 Action.next_aid += 1
@@ -2605,7 +2607,10 @@ class Breakpoint(object):
         if(exec_action):
             self._console.locals['bpkt'] = packet
             for a in self.actions:
-                self._console.runsource(a.expression)
+                try:
+                    exec a.code in self._console.locals
+                except:
+                    logging_exception()
 
             return 1
 
@@ -3302,7 +3307,7 @@ class Console(InteractiveConsole):
                 self.current_line = line
                 exec '%s(%s)' % (command, ', '.join(arguments))
             except:
-                if(not is_action or self.in_view_mode):
+                if(self.in_view_mode):
                     logging_exception()
 
         return
@@ -4201,11 +4206,10 @@ class Console(InteractiveConsole):
                 try:
                     #unescape the expressions
                     expr = [x.decode('string_escape') for x in expr]
-
                     a = Action('\n'.join(expr), b, aid)
                     self.nfqueue.actions[a.id] = a
-                except ValueError as v:
-                    logging_print(v.message)
+                except:
+                    logging_exception()
 
         elif(operation == 'del'):
             try:
@@ -4459,11 +4463,19 @@ def process_arguments():
             settings['run_at_start'] = True
         # -b | --default-breakpoint <packet-filter>
         elif opt in ['-b', '--default-breakpoint']:
-            settings['default_breakpoint'] = Breakpoint(arg, 'default', True)
+            try:
+                settings['default_breakpoint'] = Breakpoint(arg,
+                                                            'default',
+                                                            True)
+            except:
+                logging_exception()
         # -a | --default-action <expression>
         elif opt in ['-a', '--default-action']:
             #add a new action, without any breakpoint
-            settings['default_action'] = Action(arg, None, 'default')
+            try:
+                settings['default_action'] = Action(arg, None, 'default')
+            except:
+                logging_exception()
     # ensure that we have a tshark directory
     if not settings['tshark_directory']:
         raise ValueError("tshark was not found")
