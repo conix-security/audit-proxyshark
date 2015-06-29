@@ -59,8 +59,6 @@ import traceback
 import urllib
 from string import Template
 
-from types import CodeType
-
 #safer (and limited) version of eval
 from ast import literal_eval
 
