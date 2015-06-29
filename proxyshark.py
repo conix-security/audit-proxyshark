@@ -59,6 +59,8 @@ import traceback
 import urllib
 from string import Template
 
+from types import CodeType
+
 #safer (and limited) version of eval
 from ast import literal_eval
 
@@ -2603,8 +2605,7 @@ class Breakpoint(object):
         if(exec_action):
             self._console.locals['bpkt'] = packet
             for a in self.actions:
-                self._console.runsource(a.expression, '<console>',
-                                        use_parent = False)
+                self._console.runsource(a.expression)
 
             return 1
 
@@ -3137,10 +3138,10 @@ class Console(InteractiveConsole):
         InteractiveConsole.__init__(self)
 
         #automatically import some helper functions
-        self.runsource('from binascii import unhexlify')
-        self.runsource('from binascii import hexlify')
-        self.runsource('from socket import inet_aton')
-        self.runsource('from socket import inet_ntoa')
+        self.runsource('from binascii import unhexlify', filename = '<console>')
+        self.runsource('from binascii import hexlify', filename = '<console>')
+        self.runsource('from socket import inet_aton', filename = '<console>')
+        self.runsource('from socket import inet_ntoa', filename = '<console>')
 
         #make a few methods available in the console as functions
         self.functions = ['pause', 'cont', 'continue', 'accept', 'drop', 'uniq']
@@ -3252,12 +3253,12 @@ class Console(InteractiveConsole):
                     Optional(OneOrMore(argument)))
         return StringStart() + parser + StringEnd()
         #
-    def try_exec(self, line, is_action = False):
+    def try_exec(self, line):
         """Try to execute a line
 
         line may be composed of several expressions"""
         #will be passed to runsource
-        parent = not is_action
+
         for line in [x.strip() for x in line.split(';')]:
             # parse the line and run the appropriate command
             parser = self._command_parser()
@@ -3267,7 +3268,7 @@ class Console(InteractiveConsole):
                 #this line does not match the command's syntax,
                 #but it coult still be a valid python expression
                 try:
-                    self.runsource(line, '<console>', use_parent = parent)
+                    self.runsource(line, '<input>')
                 except:
                     if(self.in_view_mode):
                         logging_exception()
@@ -3281,7 +3282,7 @@ class Console(InteractiveConsole):
                 #line is not a command, so try to execute it
                 if(len(tokens) > 0):
                     try:
-                        self.runsource(line, '<console>', use_parent = parent)
+                        self.runsource(line, '<input>')
                     except:
                         if(self.in_view_mode):
                             logging_exception()
@@ -3290,7 +3291,6 @@ class Console(InteractiveConsole):
 
             arguments = []
             in_slice = False
-            slice_ctnt = ''
             for token in tokens[1:]:
                 if token.startswith('"') and token.endswith('"'):
                     arguments.append(repr(token[1:-1]))
@@ -3307,16 +3307,12 @@ class Console(InteractiveConsole):
 
         return
 
-    def runsource(self, source, filename='<input>', symbol='exec',
-                  use_parent = True):
+    def runsource(self, source, filename='<input>', symbol='single'):
         """Override InteractiveInterpreter.runsource
 
         Reset variables packet and pkt, so they point to the last
         packet received
-
-        Use either the parent function (use_parent = True), or the statement
-        exec. In this case, OverflowError, SyntaxError and ValueError
-        won't be catched and displayed automatically"""
+        """
         pkt = None
         if(len(self.nfqueue.packets) > 0):
             pkt = self.nfqueue.packets[-1]
@@ -3324,16 +3320,7 @@ class Console(InteractiveConsole):
         self.locals['packet'] = pkt
         self.locals['pkt'] = pkt
 
-        if(not use_parent):
-            #do not use InteractiveInterpreter.runsource in order to avoid
-            #having OverflowError, SyntaxError and ValueError
-            #displayed on screen automatically
-            #-> Display them only when in view mode
-            code = self.compile(source, filename, symbol)
-
-            exec code in self.locals
-        else:
-            InteractiveConsole.runsource(self, source, filename, symbol)
+        InteractiveConsole.runsource(self, source, filename, symbol)
 
     def _interact(self, banner=None):
         """Handle a session in interactive mode (until Ctrl-D is pressed)."""
