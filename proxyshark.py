@@ -1258,7 +1258,7 @@ class DissectedPacket(object):
         'PacketFilter.evaluate()'). This method is equivalent to
         '__getitem__()'."""
         return PacketFilter.evaluate(self, packet_filter)
-        #
+
     def match(self, packet_filter):
         """Return True if the current packet matches the given packet filter
         see ('PacketFilter.match()')."""
@@ -1290,6 +1290,7 @@ class DissectedPacket(object):
             result = [x.attrib.get(attr_name) for x in items]
         else:
             result = [FieldValue(x.attrib) for x in items]
+
         return result
         #
     def __iter__(self):
@@ -1551,24 +1552,38 @@ class DissectedPacket(object):
         replaying the packet, starting from layer 4. replaying TCP at layer 4
         is currently broken."""
 
-        scapy_packet = IP(self.data)
-        if(layer == 2 or layer == 3):
+        def recv_udp(s):
+            s.recvfrom(1500)
+
+
+        if(layer == '' or layer == 3):
+            scapy_packet = IP(self.data)
             send(scapy_packet, verbose = False)
 
         if(layer == 4):
             srcport = random.randint(1024, 0xFFFF)
-            dstport = scapy_packet.dport
+            dstport = int(self['udp.dstport[value]'][0], 16)
 
-            ip = IP(dst = scapy_packet[IP].dst)
-            if(UDP in scapy_packet):
-                payload = scapy_packet[UDP].getlayer(1)
-                udp = UDP(dport = scapy_packet[UDP].dport, sport = srcport)
+            if(self.match('udp')):
+                udp_pos = int(self['udp[pos]'][0])
+                udp_size = int(self['udp[size]'][0])
 
-                scapy_packet = ip / udp / payload
-                send(scapy_packet, verbose = False)
+                dstip = self['ip.dst[show]'][0]
+                dstport = int(self['udp.dstport[value]'][0], 16)
 
-            elif(TCP in scapy_packet):
-                return False
+                payload = self.data[udp_pos+udp_size:]
+                try:
+                    udp_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_DGRAM)
+
+                    udp_socket.sendto(payload, (dstip, dstport))
+
+                    #wait until a response is received, to avoid sending
+                    #an ICMP port unreachable when it finally comes
+                    Thread(target=recv_udp, args=(udp_socket,)).start()
+
+                except socket.error:
+                    return False
 
         return True
     # Private methods #########################################################
