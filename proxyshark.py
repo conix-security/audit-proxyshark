@@ -2486,7 +2486,7 @@ class Action(object):
         t = Template('Action $a, bid $b -> $exp')
         bpoint = self.breakpoint.id if self.breakpoint is not None else None
         return t.substitute(a = repr(self.id), b = repr(bpoint),
-                            exp = repr(trunc(self.expression)))
+                            exp = repr(self.expression))
 
     def __str__(self):
         """Return a representation of this Action"""
@@ -3481,7 +3481,7 @@ class Console(InteractiveConsole):
         def info_actions():
             actions = self.nfqueue.actions
             if(len(actions) > 0):
-                actions_repr = [repr(actions[k]) for k in actions]
+                actions_repr = [trunc(repr(actions[k])) for k in actions]
                 return 'Actions: \n*' + '\n*'.join(actions_repr)
             return ''
 
