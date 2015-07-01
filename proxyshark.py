@@ -1116,7 +1116,7 @@ class FieldValue(dict):
     or protocol field"""
     def __hash__(self):
         """Define a hash function. This was required by some methods such as
-        SelectedList.uniq"""
+        Selection.uniq"""
         return hash(frozenset(self.items()))
 
 class DissectedPacket(object):
@@ -1724,6 +1724,35 @@ class DissectedPacket(object):
         return ret
     #
 
+class Selection(list):
+        """This class defines the return type of the select method
+
+        It provides several filtering methods"""
+        def uniq(self):
+            luniq = lambda x: Selection(set(reduce(list.__add__, x)))
+            return luniq(self)
+
+        def sort(self):
+            super(Selection, self).sort(key=self._getkey)
+            return self
+
+        def length(self):
+            return len(self)
+
+        def _getkey(self, e):
+            if(isinstance(e, list)):
+
+                if(len(e) > 1):
+                    e.sort()
+
+                key = None
+                if 'show' in e[0]:
+                    key = 'show'
+                elif 'showname' in e[0]:
+                    key = 'showname'
+
+                return e[0][key] if key is not None else None
+
 class DissectedPacketList(list):
     """A list of dissected packet."""
     # Public methods ##########################################################
@@ -1881,19 +1910,8 @@ class DissectedPacketList(list):
         """Returns a list of FieldValues/strings matching the given filter
 
         Example: list.select('http.user_agent')"""
-        class SelectedList(list):
-            """This class defines the return type of the select method
 
-            It (will) provides several methods itself, such as uniq"""
-            def uniq(self):
-
-                luniq = lambda x: SelectedList(set(reduce(list.__add__, x)))
-                return luniq(self)
-
-            def length(self):
-                return len(self)
-
-        result = SelectedList()
+        result = Selection()
         item = []
         for packet in self.__iter__():
             item = packet.lookup(packet_filter)
