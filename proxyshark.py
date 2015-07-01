@@ -1555,16 +1555,17 @@ class DissectedPacket(object):
         def recv_udp(s):
             s.recvfrom(1500)
 
+        def recv_tcp(s):
+            s.recv(8192)
+
 
         if(layer == '' or layer == 3):
             scapy_packet = IP(self.data)
             send(scapy_packet, verbose = False)
 
         if(layer == 4):
-            srcport = random.randint(1024, 0xFFFF)
-            dstport = int(self['udp.dstport[value]'][0], 16)
-
             if(self.match('udp')):
+                dstport = int(self['udp.dstport[value]'][0], 16)
                 udp_pos = int(self['udp[pos]'][0])
                 udp_size = int(self['udp[size]'][0])
 
@@ -1581,7 +1582,27 @@ class DissectedPacket(object):
                     #wait until a response is received, to avoid sending
                     #an ICMP port unreachable when it finally comes
                     Thread(target=recv_udp, args=(udp_socket,)).start()
+                except socket.error:
+                    return False
 
+            elif(self.match('tcp')):
+                dstport = int(self['tcp.dstport[value]'][0], 16)
+                tcp_pos = int(self['tcp[pos]'][0])
+                tcp_size = int(self['tcp[size]'][0])
+
+                dstip = self['ip.dst[show]'][0]
+                dstport = int(self['tcp.dstport[value]'][0], 16)
+
+                payload = self.data[tcp_pos+tcp_size:]
+                try:
+                    tcp_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_STREAM)
+
+                    tcp_socket.connect((dstip, dstport))
+
+                    tcp_socket.send(payload)
+
+                    Thread(target=recv_tcp, args=(tcp_socket,)).start()
                 except socket.error:
                     return False
 
