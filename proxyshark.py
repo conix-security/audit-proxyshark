@@ -1725,7 +1725,7 @@ class DissectedPacket(object):
     #
 
 class Selection(list):
-        """This class defines the return type of the select method
+        """This class defines the return type of DissectedPacketList.select
 
         It provides several filtering methods"""
         def uniq(self):
