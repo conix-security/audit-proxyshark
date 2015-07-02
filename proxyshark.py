@@ -1772,6 +1772,28 @@ class Selection(list):
             return min(self, key=_min_getkey)
 
 
+        def sum(self, base = 16):
+            """Compute the sum of a Selection.
+
+            Sum is available only if this selection actually contains
+            digit strings. (either directly, or within the value attribute)
+
+                ['abc', 'def']
+                [{..., value:'abc'}, {...}]
+
+            """
+            def _sum_getkey(e):
+                if(isinstance(e, list)):
+                    if(isinstance(e[0], dict) and 'value' in e[0]):
+                        return  sum([int(x['value'], base) for x in e])
+                    else:
+                        return sum([int(x, base) for x in e])
+            pre_sum = []
+            for e in self:
+                pre_sum.append(_sum_getkey(e))
+
+            return sum(pre_sum)
+
         def length(self):
             return len(self)
 
