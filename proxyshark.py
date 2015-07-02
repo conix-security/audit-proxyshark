@@ -1733,25 +1733,26 @@ class Selection(list):
             return luniq(self)
 
         def sort(self):
-            super(Selection, self).sort(key=self._getkey)
+            def _sort_getkey(e):
+                if(isinstance(e, list)):
+                    if(len(e) > 1):
+                        e.sort()
+
+                    key = None
+                    if 'value' in e[0]:
+                        key = 'value'
+                    elif 'showname' in e[0]:
+                        key = 'showname'
+
+                    return e[0][key] if key is not None else None
+
+            super(Selection, self).sort(key=_sort_getkey)
+
             return self
 
         def length(self):
             return len(self)
 
-        def _getkey(self, e):
-            if(isinstance(e, list)):
-
-                if(len(e) > 1):
-                    e.sort()
-
-                key = None
-                if 'show' in e[0]:
-                    key = 'show'
-                elif 'showname' in e[0]:
-                    key = 'showname'
-
-                return e[0][key] if key is not None else None
 
 class DissectedPacketList(list):
     """A list of dissected packet."""
