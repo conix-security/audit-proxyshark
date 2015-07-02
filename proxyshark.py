@@ -1750,6 +1750,26 @@ class Selection(list):
 
             return self
 
+        def max(self):
+            def _max_getkey(e):
+                if(isinstance(e, list)):
+                    if('value' in e[0]):
+                        return  max([int(x['value'], 16) for x in e])
+                    else:
+                        return max(e)
+
+            return max(self, key=_max_getkey)
+
+        def min(self):
+            def _min_getkey(e):
+                if(isinstance(e, list)):
+                    if('value' in e[0]):
+                        return  min([int(x['value'], 16) for x in e])
+                    else:
+                        return min(e)
+
+            return min(self, key=_min_getkey)
+
         def length(self):
             return len(self)
 
