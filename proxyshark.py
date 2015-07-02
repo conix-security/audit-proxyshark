@@ -1739,10 +1739,11 @@ class Selection(list):
                         e.sort()
 
                     key = None
-                    if 'value' in e[0]:
-                        key = 'value'
-                    elif 'showname' in e[0]:
-                        key = 'showname'
+                    if(isinstance(e[0], dict)):
+                        if 'value' in e[0]:
+                            key = 'value'
+                        elif 'showname' in e[0]:
+                            key = 'showname'
 
                     return e[0][key] if key is not None else None
 
@@ -1753,7 +1754,7 @@ class Selection(list):
         def max(self):
             def _max_getkey(e):
                 if(isinstance(e, list)):
-                    if('value' in e[0]):
+                    if(isinstance(e[0], dict) and 'value' in e[0]):
                         return  max([int(x['value'], 16) for x in e])
                     else:
                         return max(e)
@@ -1763,12 +1764,13 @@ class Selection(list):
         def min(self):
             def _min_getkey(e):
                 if(isinstance(e, list)):
-                    if('value' in e[0]):
+                    if(isinstance(e[0], dict) and 'value' in e[0]):
                         return  min([int(x['value'], 16) for x in e])
                     else:
                         return min(e)
 
             return min(self, key=_min_getkey)
+
 
         def length(self):
             return len(self)
