@@ -1605,6 +1605,7 @@ class DissectedPacket(object):
         return True
 
     def get_payload(self, proto):
+        """Return the payload contained in a specified protocol"""
         ret = None
         pos = 0
         size = 0
@@ -1986,6 +1987,48 @@ class DissectedPacketList(list):
                 if(p.identifier == id):
                     return p
         return None
+
+    def replay(self, layer = 3):
+        """Replay a packet list
+
+        If layer 2 or 3 is requested, simply replay each packet one at a time.
+
+        If layer is 4, reassemble all the tcp payload into a single tcp packet,
+        and send it. UDP packets are replayed as is."""
+        def recv_tcp(s):
+            s.recv(8192)
+
+        if(layer == 2 or layer == 3):
+            for p in self:
+                p.replay(layer)
+
+        elif(layer == 4):
+            payload = ''
+            tcp = False
+            for p in self:
+                if p.match('udp'):
+                    p.replay(layer)
+                elif p.match('tcp'):
+                    tcp = True
+                    payload += p.get_payload('tcp')
+
+
+            if(tcp):
+                dstport = int(self[0]['tcp.dstport[value]'][0], 16)
+                dstip = self[0]['ip.dst[show]'][0]
+
+                try:
+                    tcp_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_STREAM)
+
+                    tcp_socket.connect((dstip, dstport))
+
+                    tcp_socket.send(payload)
+
+                    Thread(target=recv_tcp, args=(tcp_socket,)).start()
+                except socket.error:
+                    return False
+
 
 
 class DissectedPacketSubList(DissectedPacketList):
