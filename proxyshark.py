@@ -1771,7 +1771,6 @@ class Selection(list):
 
             return min(self, key=_min_getkey)
 
-
         def sum(self, base = 16):
             """Compute the sum of a Selection.
 
@@ -1780,6 +1779,9 @@ class Selection(list):
 
                 ['abc', 'def']
                 [{..., value:'abc'}, {...}]
+
+            By default, the "value" key will be used to compute the sum if
+            this selection contains a list of fields
 
             """
             def _sum_getkey(e):
