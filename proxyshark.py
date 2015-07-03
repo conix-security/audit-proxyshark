@@ -1586,14 +1586,10 @@ class DissectedPacket(object):
                     return False
 
             elif(self.match('tcp')):
-                dstport = int(self['tcp.dstport[value]'][0], 16)
-                tcp_pos = int(self['tcp[pos]'][0])
-                tcp_size = int(self['tcp[size]'][0])
-
                 dstip = self['ip.dst[show]'][0]
                 dstport = int(self['tcp.dstport[value]'][0], 16)
 
-                payload = self.data[tcp_pos+tcp_size:]
+                payload = self.get_payload('tcp')
                 try:
                     tcp_socket = socket.socket(socket.AF_INET,
                                                socket.SOCK_STREAM)
@@ -1607,6 +1603,18 @@ class DissectedPacket(object):
                     return False
 
         return True
+
+    def get_payload(self, proto):
+        ret = None
+        pos = 0
+        size = 0
+        if(self.match(proto)):
+            pos = int(self['{}[pos]'.format(proto)][0])
+            size = int(self['{}[size]'.format(proto)][0])
+            ret = self.data[pos+size:]
+
+        return ret
+
     # Private methods #########################################################
     @cached # these items won't be updated, even if the packet is modified
     def _read_items(self):
@@ -1723,6 +1731,7 @@ class DissectedPacket(object):
 
         return ret
     #
+
 
 class Selection(list):
         """This class defines the return type of DissectedPacketList.select
