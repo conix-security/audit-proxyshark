@@ -1239,7 +1239,7 @@ class DissectedPacket(object):
                            % ("\033[1;33m" if 'modified' in item else '',
                               max_length['name'],
                               max_length['show']))
-                           % ('[%s:%s]' % (pos, pos+size),
+                           % ('[%s:%s]' % (pos, str(int(pos)+int(size))),
                               name,
                               show,
                               value))
