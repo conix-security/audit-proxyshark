@@ -1,4 +1,4 @@
-#Proxyshark
+#Proxyshark (powered by [CONIX Cybersecurity](http://www.conix.fr))
 
 *This document is based on the current development version of proxyshark and
 should be considered as a technical specification document. As a consequence,
